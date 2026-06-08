@@ -1,10 +1,14 @@
 import type { Config } from "../../core/config.js";
 import type { Listing } from "../../core/types.js";
 import { fetchJson, fetchWithTimeout } from "../../lib/http.js";
+import { LogEvents } from "../../lib/log-events.js";
+import { createLogger } from "../../lib/logging.js";
 import { scrapeQueries } from "../scrape-utils.js";
 import type { PlatformScraper, ScrapeOutcome } from "../types.js";
 import type { SearchRequest } from "../../config/searches.js";
 import { normalizeEbay } from "./normalize.js";
+
+const log = createLogger("platform.ebay");
 
 interface EbaySearchResponse {
   itemSummaries?: Record<string, unknown>[];
@@ -44,6 +48,7 @@ export class EbayScraper implements PlatformScraper {
     });
 
     if (!response.ok) {
+      log.warn(LogEvents.PlatformEbayOAuthFailed, { status: response.status });
       throw new Error(`eBay OAuth failed: ${response.status}`);
     }
 

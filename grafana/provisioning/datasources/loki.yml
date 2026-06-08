@@ -1,0 +1,10 @@
+apiVersion: 1
+
+datasources:
+  - name: Fashion Monitor Loki
+    uid: fashion-loki
+    type: loki
+    access: proxy
+    isDefault: false
+    editable: false
+    url: http://loki:3100

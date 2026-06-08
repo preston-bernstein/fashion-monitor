@@ -1,5 +1,6 @@
 import eslint from "@eslint/js";
 import tseslint from "typescript-eslint";
+import { logEventIdRules } from "../../eslint/log-event-ids.js";
 
 export default tseslint.config(
   eslint.configs.recommended,
@@ -12,6 +13,7 @@ export default tseslint.config(
         "error",
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
+      ...logEventIdRules,
     },
   },
 );

@@ -43,7 +43,7 @@ Each line is one JSON object written to stdout:
 | `ctx` | Non-correlation context (counts, errors, paths, etc.) |
 | Correlation (top-level when present) | `profileId`, `runId`, `requestId`, `userId`, `integration`, `platform`, `queryId` |
 
-Event id constants live in `packages/core/src/lib/log-events.ts` to prevent string drift.
+Event id constants live in `packages/core/src/lib/log-events.ts` to prevent string drift. Backend packages (`core`, `api`, `cli`) lint against raw string event ids in `log.*` calls — use `LogEvents.*`.
 
 ### Configuration
 
@@ -107,9 +107,42 @@ Keep these in `integration_events`, `runs`, or structured logs only:
 
 ## Log aggregation (optional)
 
-Today logs go to **stdout** only. In Docker, capture container stdout. For centralized search, optional FOSS paths:
+Today logs go to **stdout** only. In Docker, capture container stdout. For centralized search, the repo ships an optional **Loki + Promtail** stack (FOSS) alongside Grafana 11.x.
 
-1. **Vector** or **Fluent Bit** ship container logs to …
-2. **Loki** (+ Grafana) for query/storage
+### Running with Loki
 
-No Loki/Prometheus stack is bundled in this repo.
+Start Grafana (SQLite metrics) plus Loki log shipping:
+
+```bash
+docker compose up -d grafana dashboard proxy feedback-bot
+docker compose --profile loki up -d loki promtail
+```
+
+Promtail uses Docker service discovery and scrapes JSON stdout from compose services labeled `fm.logging=true` (`scraper`, `poshmark`, `feedback-bot`, `dashboard`). Loki is **not** published to the host — only Grafana and Promtail talk to it on the compose network.
+
+**Security:** Loki runs with `auth_enabled: false`. Do not expose port 3100 publicly without a reverse proxy and authentication. Grafana on `:3000` should stay on a trusted network; change `GRAFANA_ADMIN_PASSWORD`.
+
+Grafana provisions:
+
+- **Fashion Monitor SQLite** — run/score metrics (default)
+- **Fashion Monitor Loki** — structured stdout logs
+- **Fashion Monitor Logs** dashboard — starter LogQL panels
+
+### Example LogQL queries
+
+Open **Explore → Loki** or the **Fashion Monitor Logs** dashboard.
+
+| Query | Use |
+| --- | --- |
+| `{event="pipeline.run.failed"}` | Failed pipeline runs |
+| `{scope=~"platform.*"} \|= "error"` | Platform-layer errors |
+| `{runId="42"}` | Correlate one pipeline run |
+| `{requestId="550e8400-e29b-41d4-a716-446655440000"}` | One API request |
+| `{service="dashboard"} \| json \| event="web.request.complete"` | Dashboard HTTP traffic |
+| `{event="platform.query.failed"} \| json \| platform="ebay"` | eBay query failures |
+
+Structured fields (`event`, `scope`, `runId`, `requestId`, etc.) are parsed from Pino JSON lines when possible; filter by label or use `| json` in LogQL for fields inside the log line.
+
+### Error fields in logs
+
+When code passes an `Error` (or string `error`) in log context, the logger emits Pino-friendly `ctx.err: { type, message, stack? }`. Use `logError(logger, event, err, extra?)` for consistent error logs.

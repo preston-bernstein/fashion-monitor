@@ -15,9 +15,11 @@ export const LogEvents = {
   // Platforms
   PlatformScrapeSuccess: "platform.scrape.success",
   PlatformScrapeFailed: "platform.scrape.failed",
+  PlatformQuerySuccess: "platform.query.success",
   PlatformQueryFailed: "platform.query.failed",
   PlatformDepopRscSuccess: "platform.depop.rsc.success",
   PlatformDepopHttpFailed: "platform.depop.http.failed",
+  PlatformEbayOAuthFailed: "platform.ebay.oauth.failed",
   PlatformGrailedCredentialsValid: "platform.grailed.credentials.valid",
   PlatformVestiaireFetchBlocked: "platform.vestiaire.fetch.blocked",
 

@@ -84,6 +84,7 @@ Schedule via Synology Task Scheduler:
 | Feedback | `docker compose up -d feedback-bot` | always on |
 | Web app | `docker compose up -d dashboard proxy` | always on (HTTPS via proxy) |
 | Grafana | `docker compose up -d grafana` | always on (:3000) |
+| Loki logs | `docker compose --profile loki up -d loki promtail` | optional (with Grafana) |
 
 The web app has login + role-based access + DB-backed editable config. Set `ADMIN_EMAIL`/`ADMIN_PASSWORD` to bootstrap the first owner. Full guide: [docs/web-app.md](docs/web-app.md).
 
@@ -119,7 +120,11 @@ Four ways to inspect runs, alerts, scores, and feedback: [docs/analytics.md](doc
 pnpm run dev:report
 ADMIN_EMAIL=you@example.com ADMIN_PASSWORD=dev-pass pnpm run dev:dashboard
 docker compose up -d dashboard proxy grafana
+# optional centralized logs:
+docker compose --profile loki up -d loki promtail
 ```
+
+Structured logging and optional Loki: [docs/logging-and-audit.md](docs/logging-and-audit.md)
 
 ## Spec
 

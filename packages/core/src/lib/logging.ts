@@ -13,6 +13,12 @@ export interface Logger {
   child(bindings?: Record<string, unknown>): Logger;
 }
 
+export interface SerializedError {
+  type: string;
+  message: string;
+  stack?: string;
+}
+
 const CORRELATION_KEYS = new Set([
   "profileId",
   "runId",
@@ -27,6 +33,19 @@ const SECRET_KEY_PATTERN =
   /password|token|secret|cookie|csrf|hash|api_?key|authorization|encrypted|payload/i;
 
 const REDACTED = "[REDACTED]";
+
+/** Pino-friendly error object for ctx.err or nested Error values. */
+export function serializeError(err: unknown): SerializedError {
+  if (err instanceof Error) {
+    const serialized = pino.stdSerializers.err(err);
+    return {
+      type: serialized.type,
+      message: serialized.message,
+      ...(serialized.stack ? { stack: serialized.stack } : {}),
+    };
+  }
+  return { type: "Error", message: String(err) };
+}
 
 export function redactSecrets<T>(value: T): T {
   if (value === null || value === undefined) return value;
@@ -47,6 +66,29 @@ export function redactSecrets<T>(value: T): T {
   return out as T;
 }
 
+function normalizeErrorFields(value: unknown): unknown {
+  if (value instanceof Error) {
+    return serializeError(value);
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => normalizeErrorFields(item));
+  }
+  if (value !== null && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
+      if (val instanceof Error) {
+        out[key === "error" ? "err" : key] = serializeError(val);
+      } else if (key === "error" && typeof val === "string") {
+        out.err = { type: "Error", message: val };
+      } else {
+        out[key] = normalizeErrorFields(val);
+      }
+    }
+    return out;
+  }
+  return value;
+}
+
 export function resolveLogLevel(): string {
   if (process.env.LOG_LEVEL) return process.env.LOG_LEVEL;
   const env = process.env.NODE_ENV ?? "";
@@ -59,9 +101,10 @@ function splitContext(extra?: LogContext): {
   ctx?: Record<string, unknown>;
 } {
   if (!extra) return { correlation: {} };
+  const normalized = normalizeErrorFields(redactSecrets(extra)) as Record<string, unknown>;
   const correlation: Record<string, unknown> = {};
   const ctx: Record<string, unknown> = {};
-  for (const [key, val] of Object.entries(redactSecrets(extra))) {
+  for (const [key, val] of Object.entries(normalized)) {
     if (CORRELATION_KEYS.has(key)) correlation[key] = val;
     else ctx[key] = val;
   }
@@ -90,6 +133,16 @@ function wrapPino(pinoChild: PinoLogger, scope: string): Logger {
     child: (bindings) =>
       wrapPino(pinoChild.child(redactSecrets(bindings ?? {}) as Record<string, unknown>), scope),
   };
+}
+
+/** Consistent error log with serialized ctx.err. */
+export function logError(
+  logger: Logger,
+  event: string,
+  err: unknown,
+  extra?: LogContext,
+): void {
+  logger.error(event, { ...extra, err: serializeError(err) });
 }
 
 let rootPino: PinoLogger | undefined;

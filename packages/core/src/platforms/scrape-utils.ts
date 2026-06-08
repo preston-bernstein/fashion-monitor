@@ -1,7 +1,7 @@
 import type { Listing, Platform } from "../core/types.js";
 import { tagListings, type SearchRequest } from "../config/searches.js";
 import { LogEvents } from "../lib/log-events.js";
-import { createLogger } from "../lib/logging.js";
+import { createLogger, logError } from "../lib/logging.js";
 import type { QueryScrapeResult, ScrapeOutcome } from "./types.js";
 
 export async function scrapeQueries(
@@ -10,7 +10,7 @@ export async function scrapeQueries(
   searchOne: (text: string) => Promise<Listing[]>,
   options?: { betweenQueriesMs?: number },
 ): Promise<ScrapeOutcome> {
-  const log = createLogger(`platform.${platform}`);
+  const log = createLogger(`platform.${platform}`, { platform });
   const queryResults: QueryScrapeResult[] = [];
   const listings: Listing[] = [];
   const errors: string[] = [];
@@ -28,9 +28,10 @@ export async function scrapeQueries(
         listings: tagged,
       });
       listings.push(...tagged);
+      log.debug(LogEvents.PlatformQuerySuccess, { queryId: q.queryId, count: tagged.length });
     } catch (err) {
       const message = err instanceof Error ? err.message : "scrape failed";
-      log.warn(LogEvents.PlatformQueryFailed, { platform, queryId: q.queryId, error: message });
+      logError(log, LogEvents.PlatformQueryFailed, err, { queryId: q.queryId });
       queryResults.push({
         queryId: q.queryId,
         queryText: q.text,

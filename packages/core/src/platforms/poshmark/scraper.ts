@@ -2,11 +2,15 @@ import type { BrowserContext } from "playwright";
 import type { Config } from "../../core/config.js";
 import type { Listing } from "../../core/types.js";
 import type { SearchRequest } from "../../config/searches.js";
+import { LogEvents } from "../../lib/log-events.js";
+import { createLogger, logError } from "../../lib/logging.js";
 import { closeAllStealthBrowsers, launchStealthPersistentContext } from "../playwright/browser.js";
 import { scrapeQueries } from "../scrape-utils.js";
 import type { PlatformScraper, ScrapeOutcome } from "../types.js";
 import { poshmarkTileExtractScript } from "./extract.js";
 import { parsePoshmarkTiles } from "./normalize.js";
+
+const log = createLogger("platform.poshmark", { platform: "poshmark" });
 
 export async function getPoshmarkContext(profilePath: string): Promise<BrowserContext> {
   return launchStealthPersistentContext(profilePath);
@@ -51,6 +55,7 @@ export class PoshmarkScraper implements PlatformScraper {
     try {
       return await scrapeQueries("poshmark", queries, (text) => scrapePoshmarkQuery(context, text));
     } catch (err) {
+      logError(log, LogEvents.PlatformScrapeFailed, err);
       const message = err instanceof Error ? err.message : "Poshmark scrape failed";
       return { ok: false, error: message, queryResults: [] };
     }

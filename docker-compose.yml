@@ -1,7 +1,12 @@
+x-log-shipping-labels: &log-shipping-labels
+  fm.logging: "true"
+
 services:
   scraper:
     build: .
     command: ["node", "apps/cli/dist/run.js", "--config", "/data/config.yaml"]
+    labels:
+      <<: *log-shipping-labels
     volumes:
       - ./data:/data
     env_file:
@@ -11,6 +16,8 @@ services:
   poshmark:
     build: .
     command: ["node", "apps/cli/dist/run.js", "--config", "/data/config.yaml", "--platforms", "poshmark"]
+    labels:
+      <<: *log-shipping-labels
     volumes:
       - ./data:/data
     env_file:
@@ -20,6 +27,8 @@ services:
   feedback-bot:
     build: .
     command: ["node", "apps/cli/dist/feedback-bot.js", "--config", "/data/config.yaml"]
+    labels:
+      <<: *log-shipping-labels
     volumes:
       - ./data:/data
     env_file:
@@ -39,6 +48,8 @@ services:
         "--port",
         "3030",
       ]
+    labels:
+      <<: *log-shipping-labels
     environment:
       # Behind the Caddy reverse proxy, cookies are served over HTTPS.
       COOKIE_SECURE: "true"
@@ -95,7 +106,28 @@ services:
       - "3000:3000"
     restart: unless-stopped
 
+  loki:
+    image: grafana/loki:3.4.2
+    profiles: ["loki"]
+    command: ["-config.file=/etc/loki/config.yml"]
+    volumes:
+      - ./loki/loki-config.yml:/etc/loki/config.yml:ro
+      - loki-data:/loki
+    restart: unless-stopped
+
+  promtail:
+    image: grafana/promtail:3.4.2
+    profiles: ["loki"]
+    command: ["-config.file=/etc/promtail/config.yml"]
+    volumes:
+      - ./promtail/promtail-config.yml:/etc/promtail/config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - loki
+    restart: unless-stopped
+
 volumes:
   grafana-data:
+  loki-data:
   caddy-data:
   caddy-config:
