@@ -1,20 +1,49 @@
+# Dependencies
 node_modules/
+
+# Build outputs
 dist/
-data/
+*.tsbuildinfo
+
+# Turborepo
+.turbo/
+
+# Environment and local config (commit .env.example, config.example.yaml)
 .env
+.env.local
+.env.*.local
 config.yaml
-poshmark-profile/
+
+# Local data (SQLite, poshmark browser profile under data/poshmark-profile)
+data/
 *.db
 *.db-wal
 *.db-shm
-.DS_Store
+poshmark-profile/
+
+# Test, coverage, and mutation
 coverage/
 reports/
 .stryker-tmp/
+test-results/
+playwright-report/
+blob-report/
+.playwright/
+
+# Dead-code analysis (fallow)
 .fallow/
 
-.turbo/
-test-results/
+# Secrets and keys
 *.pem
 *credentials*
 .secrets/
+
+# pnpm
+pnpm-debug.log*
+pnpm-error.log*
+
+# OS
+.DS_Store
+
+# IDE
+.idea/
