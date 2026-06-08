@@ -11,6 +11,7 @@ import { minimalConfig, sampleListing } from "../helpers/fixtures.js";
 import { SeenListingsRepo } from "../../src/storage/repos/seen-listings.js";
 import { RunsRepo } from "../../src/storage/repos/runs.js";
 import { AlertLogRepo } from "../../src/storage/repos/alert-log.js";
+import { SearchGroupsRepo } from "../../src/storage/repos/search-groups.js";
 import { ScrapeQueriesRepo } from "../../src/storage/repos/scrape-queries.js";
 
 describe("analytics queries", () => {
@@ -83,7 +84,7 @@ describe("analytics queries", () => {
     expect(daily.length).toBeGreaterThan(0);
     expect(daily[0].total_alerts).toBe(1);
 
-    new ScrapeQueriesRepo(db, profileId).syncFromConfig(minimalConfig, startedIso);
+    new SearchGroupsRepo(db, profileId).syncFromConfig(minimalConfig, startedIso);
     const scorecard = new ScrapeQueriesRepo(db, profileId).fetchScorecard();
     expect(scorecard.length).toBeGreaterThan(0);
   });

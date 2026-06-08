@@ -2,6 +2,7 @@ import type { Listing, Platform, ScoreVerdict } from "../../core/types.js";
 import { deserializeListing, serializeListing } from "../listing-snapshot.js";
 import type { Db } from "../db.js";
 import { pruneOlderThan as pruneRowsOlderThan } from "../prune.js";
+import { ListingImagesRepo } from "./listing-images.js";
 
 export interface SeenListingRow {
   id: string;
@@ -15,10 +16,18 @@ export interface SeenListingRow {
 }
 
 export class SeenListingsRepo {
+  private readonly listingImages: ListingImagesRepo;
+
   constructor(
     private readonly db: Db,
     private readonly profileId: string,
-  ) {}
+  ) {
+    this.listingImages = new ListingImagesRepo(db, profileId);
+  }
+
+  private persistListingImages(listing: Listing, now: string): void {
+    this.listingImages.upsertFromListing(listing, now);
+  }
 
   findExisting(platform: Platform, id: string): SeenListingRow | undefined {
     return this.db
@@ -39,6 +48,7 @@ export class SeenListingsRepo {
     const existing = this.findExisting(listing.platform, listing.id);
     if (existing) {
       this.updateLastPrice(listing);
+      this.persistListingImages(listing, now);
 
       if (!existing.score || existing.score === "PENDING") {
         if (score && score !== "PENDING") {
@@ -71,6 +81,7 @@ export class SeenListingsRepo {
           listing.id,
           this.profileId,
         );
+      this.persistListingImages(listing, now);
       return;
     }
 
@@ -92,6 +103,7 @@ export class SeenListingsRepo {
     if (existing) {
       this.setScore(listing.platform, listing.id, score);
       this.updateLastPrice(listing);
+      this.persistListingImages(listing, now);
       return;
     }
 
@@ -157,6 +169,7 @@ export class SeenListingsRepo {
         snapshot,
         listing.sourceQueryId ?? null,
       );
+    this.persistListingImages(listing, now);
   }
 
   private updateLastPrice(listing: Listing): void {

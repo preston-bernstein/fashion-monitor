@@ -16,7 +16,7 @@ export function QueryPerformancePage() {
     <RequireCapability capability="analytics:read">
       <PageHeader
         title="Query performance"
-        description="Per-search yield, quality signals, and recent run history across platforms."
+        description="Per search-group yield with per-platform drill-down."
       />
       <QueryPerformanceContent />
     </RequireCapability>
@@ -35,8 +35,11 @@ function QueryPerformanceContent() {
     if (!data || !focusQueryId) return data;
     return {
       ...data,
-      queryScorecard: data.queryScorecard.filter((q) => q.query_id === focusQueryId),
-      queryRunHistory: data.queryRunHistory.filter((r) => r.query_id === focusQueryId),
+      groupScorecard: data.groupScorecard.filter((g) => g.group_id === focusQueryId),
+      queryScorecard: data.queryScorecard.filter((q) => q.group_id === focusQueryId),
+      queryRunHistory: data.queryRunHistory.filter(
+        (r) => r.query_id === focusQueryId || r.query_id.startsWith(`${focusQueryId}@`),
+      ),
     };
   }, [data, focusQueryId]);
 

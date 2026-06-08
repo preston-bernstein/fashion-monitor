@@ -3,6 +3,7 @@ import type { SearchRequest } from "../config/searches.js";
 
 export interface QueryScrapeResult {
   queryId: string;
+  groupId: string;
   queryText: string;
   platform: Platform;
   ok: boolean;

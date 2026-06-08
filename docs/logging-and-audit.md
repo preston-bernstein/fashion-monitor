@@ -75,7 +75,7 @@ Append-only human/security actions queryable via `GET /api/audit` (`system:read`
 | `auth.forbidden` | Mutating request blocked by capability (POST/PUT/PATCH/DELETE only) |
 | `auth.csrf.failed` | CSRF validation failure on mutating request |
 | `system.bootstrap.admin` | First admin created from `ADMIN_EMAIL` / `ADMIN_PASSWORD` |
-| `monitor.create` / `monitor.update` / `monitor.delete` | Monitor CRUD |
+| `search_group.create` / `search_group.update` / `search_group.delete` | Search group CRUD |
 | `taste.update` | Taste profile save |
 | `system.update` | System settings save |
 | `secret.upsert` | Secret value stored (key only in `target`, never the value) |

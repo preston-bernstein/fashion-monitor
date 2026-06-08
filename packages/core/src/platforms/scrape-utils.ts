@@ -19,9 +19,10 @@ export async function scrapeQueries(
     const q = queries[i];
     try {
       const found = await searchOne(q.text);
-      const tagged = tagListings(found, q.queryId);
+      const tagged = tagListings(found, q.sourceQueryId);
       queryResults.push({
         queryId: q.queryId,
+        groupId: q.sourceQueryId,
         queryText: q.text,
         platform,
         ok: true,
@@ -34,6 +35,7 @@ export async function scrapeQueries(
       logError(log, LogEvents.PlatformQueryFailed, err, { queryId: q.queryId });
       queryResults.push({
         queryId: q.queryId,
+        groupId: q.sourceQueryId,
         queryText: q.text,
         platform,
         ok: false,

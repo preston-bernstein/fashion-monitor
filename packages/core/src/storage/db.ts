@@ -33,6 +33,16 @@ const COLUMN_PATCHES: Array<{ table: string; column: string; ddl: string }> = [
     column: "changed_by_user_id",
     ddl: "ALTER TABLE config_revisions ADD COLUMN changed_by_user_id INTEGER",
   },
+  {
+    table: "scrape_queries",
+    column: "group_id",
+    ddl: "ALTER TABLE scrape_queries ADD COLUMN group_id TEXT",
+  },
+  {
+    table: "scrape_query_runs",
+    column: "group_id",
+    ddl: "ALTER TABLE scrape_query_runs ADD COLUMN group_id TEXT",
+  },
 ];
 
 function applyColumnPatches(db: Db): void {
@@ -40,6 +50,15 @@ function applyColumnPatches(db: Db): void {
     if (!columnExists(db, patch.table, patch.column)) {
       db.exec(patch.ddl);
     }
+  }
+}
+
+function ensureSearchGroupColumns(db: Db): void {
+  if (!columnExists(db, "scrape_queries", "group_id")) {
+    db.exec("ALTER TABLE scrape_queries ADD COLUMN group_id TEXT");
+  }
+  if (!columnExists(db, "scrape_query_runs", "group_id")) {
+    db.exec("ALTER TABLE scrape_query_runs ADD COLUMN group_id TEXT");
   }
 }
 
@@ -55,6 +74,9 @@ export function migrate(db: Db): void {
       columnExists(db, "seen_listings", "listing_snapshot")
     ) {
       continue;
+    }
+    if (file === "012_search_groups.sql") {
+      ensureSearchGroupColumns(db);
     }
     const sql = readFileSync(join(migrationsDir, file), "utf8");
     try {

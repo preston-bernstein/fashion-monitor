@@ -37,6 +37,7 @@ function groupMonitors(rows: ScrapeQueryRow[]): Partial<Record<Platform, SearchQ
     (out[platform] ??= []).push({
       id: row.id,
       q: row.query_text,
+      groupId: row.group_id,
       enabled: row.enabled !== 0,
       status: (row.status as SearchQueryDef["status"]) ?? "active",
       note: row.note ?? undefined,

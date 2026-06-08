@@ -13,6 +13,7 @@ const PlatformSchema = z.enum(PLATFORMS);
 export const SearchQuerySchema = z.object({
   id: z.string().min(1),
   q: z.string().min(1),
+  groupId: z.string().optional(),
   enabled: z.boolean().default(true),
   status: z.enum(MONITOR_STATUSES).default("active"),
   note: z.string().optional(),

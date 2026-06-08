@@ -38,7 +38,7 @@ export interface AuditFilterParams {
 
 const CATEGORY_SQL: Record<AuditCategory, string> = {
   auth: `(action LIKE 'login.%' OR action LIKE 'auth.%' OR action = 'logout')`,
-  monitors: `action LIKE 'monitor.%'`,
+  monitors: `action LIKE 'search_group.%'`,
   settings: `(action LIKE 'taste.%' OR action = 'system.update')`,
   secrets: `(action LIKE 'secret.%' OR action LIKE 'pipeline.%')`,
   users: `action LIKE 'user.%'`,

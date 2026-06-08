@@ -1,6 +1,7 @@
 import type { Db } from "../storage/db.js";
 import type { Config } from "../core/config.js";
 import { ScrapeQueriesRepo } from "../storage/repos/scrape-queries.js";
+import { SearchGroupsRepo } from "../storage/repos/search-groups.js";
 import { ConfigRevisionsRepo, buildConfigSnapshot } from "../storage/repos/config-revisions.js";
 import { FeedbackRepo } from "../storage/repos/feedback.js";
 import { IntegrationHealthRepo } from "../storage/repos/integration-health.js";
@@ -52,6 +53,7 @@ export interface AlertRow {
   llm_reason: string | null;
   alerted_at: string;
   url: string | null;
+  image_url: string | null;
   source_query_id: string | null;
 }
 
@@ -152,11 +154,19 @@ export function fetchScoreByPlatform(db: Db, profileId: string): ScoreByPlatform
 export function fetchRecentAlerts(db: Db, profileId: string, limit = 20): AlertRow[] {
   return db
     .prepare(
-      `SELECT id, platform, listing_id, title, brand, price, score, llm_reason, alerted_at, url,
-              source_query_id
-       FROM alert_log
-       WHERE profile_id = ?
-       ORDER BY alerted_at DESC
+      `SELECT al.id, al.platform, al.listing_id, al.title, al.brand, al.price, al.score,
+              al.llm_reason, al.alerted_at, al.url, al.source_query_id,
+              (
+                SELECT li.url FROM listing_images li
+                WHERE li.profile_id = al.profile_id
+                  AND li.platform = al.platform
+                  AND li.listing_id = al.listing_id
+                ORDER BY li.position
+                LIMIT 1
+              ) AS image_url
+       FROM alert_log al
+       WHERE al.profile_id = ?
+       ORDER BY al.alerted_at DESC
        LIMIT ?`,
     )
     .all(profileId, limit) as AlertRow[];
@@ -187,6 +197,7 @@ export function fetchPlatformAlerts(db: Db, profileId: string): PlatformAlertRow
 
 export function fetchDashboardPayload(db: Db, profileId: string, config: Config) {
   const scrapeQueriesRepo = new ScrapeQueriesRepo(db, profileId);
+  const searchGroupsRepo = new SearchGroupsRepo(db, profileId);
   const configRevisionsRepo = new ConfigRevisionsRepo(db, profileId);
   const integrationHealthRepo = new IntegrationHealthRepo(db, profileId);
   const feedbackRepo = new FeedbackRepo(db, profileId);
@@ -198,6 +209,7 @@ export function fetchDashboardPayload(db: Db, profileId: string, config: Config)
     scoresByPlatform: fetchScoreByPlatform(db, profileId),
     dailyRuns: fetchDailyRuns(db, 14),
     platformAlerts: fetchPlatformAlerts(db, profileId),
+    groupScorecard: searchGroupsRepo.fetchGroupScorecard(),
     queryScorecard: scrapeQueriesRepo.fetchScorecard(),
     queryRunHistory: scrapeQueriesRepo.fetchRunHistory(20),
     integrationUptime: integrationHealthRepo.fetchUptime7d(),

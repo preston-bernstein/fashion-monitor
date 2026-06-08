@@ -2,7 +2,7 @@ import type { Config } from "../core/config.js";
 import type { Db } from "./db.js";
 import { ProfilesRepo } from "./repos/users.js";
 import { ProfileSettingsRepo } from "./repos/profile-settings.js";
-import { ScrapeQueriesRepo } from "./repos/scrape-queries.js";
+import { SearchGroupsRepo } from "./repos/search-groups.js";
 
 /**
  * First-boot migration safety: seed DB-backed config from the existing
@@ -13,9 +13,9 @@ export function seedProfileFromConfig(db: Db, config: Config, now: string): void
   const profileId = config.profile_id;
   new ProfilesRepo(db).ensure(profileId, profileId, now);
 
-  const monitors = new ScrapeQueriesRepo(db, profileId);
-  if (monitors.listMonitors().length === 0) {
-    monitors.syncFromConfig(config, now);
+  const groups = new SearchGroupsRepo(db, profileId);
+  if (groups.listGroups().length === 0) {
+    groups.syncFromConfig(config, now);
   }
 
   const settings = new ProfileSettingsRepo(db, profileId);

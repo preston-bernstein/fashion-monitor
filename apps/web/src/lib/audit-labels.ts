@@ -12,9 +12,9 @@ const ACTION_LABELS: Record<string, string> = {
   "pipeline.trigger": "Pipeline run requested",
   "taste.update": "Taste settings updated",
   "system.update": "System settings updated",
-  "monitor.create": "Monitor created",
-  "monitor.update": "Monitor updated",
-  "monitor.delete": "Monitor deleted",
+  "search_group.create": "Search group created",
+  "search_group.update": "Search group updated",
+  "search_group.delete": "Search group deleted",
 };
 
 const SEVERITY_ACTIONS = new Set(["login.failed", "auth.forbidden", "auth.csrf.failed"]);
@@ -28,7 +28,9 @@ export function auditActionSeverity(action: string): "danger" | "default" {
 }
 
 export function isMonitorTarget(action: string, target: string | null): boolean {
-  return Boolean(target && action.startsWith("monitor."));
+  return Boolean(
+    target && action.startsWith("search_group."),
+  );
 }
 
 export function isUserTarget(action: string, target: string | null): boolean {

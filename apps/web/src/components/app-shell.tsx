@@ -4,6 +4,7 @@ import { LogOut, ShirtIcon } from "lucide-react";
 import { toast } from "sonner";
 import { apiPost, ApiError } from "@/lib/api";
 import { useCan, useMe, ME_QUERY_KEY } from "@/hooks/use-auth";
+import { prefetchMonitors } from "@/lib/monitors-query";
 import { NAV_SECTIONS } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -94,6 +95,11 @@ export function AppShell() {
                           : item.to === "/system"
                             ? { tab: undefined }
                             : undefined
+                      }
+                      onMouseEnter={
+                        item.to === "/monitors" && can(item.cap)
+                          ? () => prefetchMonitors(queryClient)
+                          : undefined
                       }
                       className={cn(
                         "whitespace-nowrap rounded-md px-2.5 py-1.5 transition-colors hover:bg-accent lg:px-3",

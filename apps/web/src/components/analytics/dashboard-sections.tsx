@@ -1,10 +1,13 @@
-import type { DashboardPayload, QueryScorecardRow } from "@fm/shared/dto.js";
+import { useState } from "react";
+import type { DashboardPayload, QueryScorecardRow, SearchGroupScorecardRow } from "@fm/shared/dto.js";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { fmtDateTime, fmtPrice } from "@/lib/format";
 import {
   overallQueryQuality,
   QUALITY_TOOLTIP,
 } from "@/lib/query-quality";
+import { LazyImage } from "@/components/common/lazy-image";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { SimpleTable } from "@/components/analytics/chart-primitives";
@@ -113,20 +116,104 @@ export function QueryRunHistorySection({ data }: { data: DashboardPayload }) {
   );
 }
 
+function GroupQualityCell({ row }: { row: SearchGroupScorecardRow }) {
+  const level = overallQueryQuality(row);
+  return (
+    <span className={cn("font-medium", qualityClass(level))} title={QUALITY_TOOLTIP}>
+      {level === "unknown" ? "—" : level}
+    </span>
+  );
+}
+
 export function QueryScorecardSection({ data }: { data: DashboardPayload }) {
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+  const executionsByGroup = new Map<string, QueryScorecardRow[]>();
+  for (const row of data.queryScorecard) {
+    const list = executionsByGroup.get(row.group_id) ?? [];
+    list.push(row);
+    executionsByGroup.set(row.group_id, list);
+  }
+
+  const toggle = (id: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const groupRows = data.groupScorecard.flatMap((g) => {
+    const main = [
+      [
+        <button
+          key="exp"
+          type="button"
+          className="inline-flex items-center text-muted-foreground"
+          onClick={() => toggle(g.group_id)}
+        >
+          {expanded.has(g.group_id) ? (
+            <ChevronDown className="size-4" />
+          ) : (
+            <ChevronRight className="size-4" />
+          )}
+        </button>,
+        <div key="q">
+          <Link
+            to="/query-performance"
+            search={{ query: g.group_id }}
+            className="font-mono text-xs underline underline-offset-2"
+          >
+            {g.group_id}
+          </Link>
+          <div className="text-xs text-muted-foreground">{g.query_text}</div>
+        </div>,
+        g.platforms,
+        g.status,
+        g.total_runs,
+        g.listings_new,
+        g.scored_yes,
+        g.alerts_sent,
+        formatRate(g.alert_rate),
+        `${g.feedback_positive}/${g.feedback_negative}${g.feedback_ratio != null ? ` (${formatRate(g.feedback_ratio)})` : ""}`,
+        g.last_good_signal_at ? fmtDateTime(g.last_good_signal_at) : "—",
+        <GroupQualityCell key="quality" row={g} />,
+      ],
+    ];
+    if (!expanded.has(g.group_id)) return main;
+    const children = (executionsByGroup.get(g.group_id) ?? []).map((q) => [
+      "",
+      <code key="id" className="font-mono text-xs text-muted-foreground">
+        {q.query_id}
+      </code>,
+      q.platform,
+      q.status,
+      q.total_runs,
+      q.listings_new,
+      q.scored_yes,
+      q.alerts_sent,
+      formatRate(q.alert_rate),
+      "—",
+      "—",
+      <QueryQualityCell key="quality" row={q} />,
+    ]);
+    return [...main, ...children];
+  });
+
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-base">Search scorecard</CardTitle>
         <CardDescription title={QUALITY_TOOLTIP}>
-          Per-query yield and curator quality signals across all runs
+          Per search-group rollup with expandable per-platform execution rows
         </CardDescription>
       </CardHeader>
       <CardContent>
         <SimpleTable
           head={[
-            "Platform",
-            "Query",
+            "",
+            "Group / query",
+            "Platforms",
             "Status",
             "Runs",
             "New",
@@ -137,28 +224,7 @@ export function QueryScorecardSection({ data }: { data: DashboardPayload }) {
             "Last signal",
             "Quality",
           ]}
-          rows={data.queryScorecard.map((q) => [
-            q.platform,
-            <div key="q">
-              <Link
-                to="/query-performance"
-                search={{ query: q.query_id }}
-                className="font-mono text-xs underline underline-offset-2"
-              >
-                {q.query_id}
-              </Link>
-              <div className="text-xs text-muted-foreground">{q.query_text}</div>
-            </div>,
-            q.status,
-            q.total_runs,
-            q.listings_new,
-            q.scored_yes,
-            q.alerts_sent,
-            formatRate(q.alert_rate),
-            `${q.feedback_positive}/${q.feedback_negative}${q.feedback_ratio != null ? ` (${formatRate(q.feedback_ratio)})` : ""}`,
-            q.last_good_signal_at ? fmtDateTime(q.last_good_signal_at) : "—",
-            <QueryQualityCell key="quality" row={q} />,
-          ])}
+          rows={groupRows}
           empty="No query runs yet."
         />
       </CardContent>
@@ -175,8 +241,18 @@ export function AlertsAndRevisionsSection({ data }: { data: DashboardPayload }) 
         </CardHeader>
         <CardContent>
           <SimpleTable
-            head={["When", "Platform", "Query", "Price", "Title", "Score"]}
+            head={["", "When", "Platform", "Query", "Price", "Title", "Score"]}
             rows={data.alerts.map((a) => [
+              a.image_url ? (
+                <LazyImage
+                  key="img"
+                  src={a.image_url}
+                  alt={a.title ?? a.listing_id}
+                  className="size-10"
+                />
+              ) : (
+                <span key="img" className="inline-block size-10 rounded-md bg-muted" />
+              ),
               fmtDateTime(a.alerted_at),
               a.platform,
               a.source_query_id ? (

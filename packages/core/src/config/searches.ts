@@ -3,8 +3,11 @@ import type { Platform } from "../core/types.js";
 import { PLATFORMS } from "../core/types.js";
 
 export interface SearchRequest {
+  /** Execution row id (`{groupId}@{platform}`). */
   queryId: string;
   text: string;
+  /** Logical monitor id for listing/alert/feedback lineage (search group id). */
+  sourceQueryId: string;
 }
 
 export const DEFAULT_SEARCHES: Record<Platform, SearchQueryDef[]> = {
@@ -60,7 +63,15 @@ export function resolvePlatformSearches(config: Config, platform: Platform): Sea
   const configured = config.searches?.[platform] ?? DEFAULT_SEARCHES[platform];
   return configured
     .filter((entry) => entry.enabled !== false && entry.status !== "paused")
-    .map((entry) => ({ queryId: entry.id, text: entry.q }));
+    .map((entry) => {
+      const groupId = entry.groupId ?? entry.id;
+      const queryId = entry.id.includes("@") ? entry.id : `${groupId}@${platform}`;
+      return {
+        queryId,
+        text: entry.q,
+        sourceQueryId: groupId,
+      };
+    });
 }
 
 export function allPlatformSearches(config: Config): Map<Platform, SearchRequest[]> {

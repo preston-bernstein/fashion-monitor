@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getRouteApi, useNavigate } from "@tanstack/react-router";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
-import { apiDelete, apiGet, apiPatch, ApiError } from "@/lib/api";
+import { apiDelete, apiPatch, ApiError } from "@/lib/api";
 import { toastApiError } from "@/lib/mutation-toast";
-import type { Monitor, MonitorsResponse } from "@fm/shared/dto.js";
+import type { SearchGroup } from "@fm/shared/dto.js";
+import { fetchMonitors, MONITORS_QUERY_KEY } from "@/lib/monitors-query";
 import { PageHeader, RequireCapability, LoadingPage } from "@/components/common";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,114 +32,126 @@ export function MonitorsPage() {
 
 function MonitorsContent() {
   const { edit: editId } = monitorsRouteApi.useSearch();
-  const navigate = useNavigate({ from: "/monitors" });
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { data, isLoading } = useQuery({
-    queryKey: ["monitors"],
-    queryFn: () => apiGet<MonitorsResponse>("/api/monitors"),
+  const { data, isLoading, isError, error } = useQuery({
+    queryKey: MONITORS_QUERY_KEY,
+    queryFn: fetchMonitors,
+    staleTime: 30_000,
   });
 
-  const [editing, setEditing] = useState<Monitor | null>(null);
+  const [editingGroup, setEditingGroup] = useState<SearchGroup | null>(null);
   const [creating, setCreating] = useState(false);
-  const [deleting, setDeleting] = useState<Monitor | null>(null);
+  const [deletingGroup, setDeletingGroup] = useState<SearchGroup | null>(null);
 
-  const deepLinkTarget =
-    editId && data ? data.monitors.find((m) => m.id === editId) : undefined;
-  const activeEdit = editing ?? deepLinkTarget ?? null;
-  const highlightId = editId ?? activeEdit?.id;
+  const deepLinkGroup =
+    editId && data ? data.groups.find((g) => g.id === editId) : undefined;
+  const activeEditGroup = editingGroup ?? deepLinkGroup ?? null;
+  const highlightId = editId ?? activeEditGroup?.id;
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["monitors"] });
+  const defaultPlatforms = useMemo(() => {
+    if (!data) return undefined;
+    return data.platforms.filter((p) => p !== "vinted");
+  }, [data]);
 
-  const toggle = useMutation({
-    mutationFn: (m: Monitor) =>
-      apiPatch(`/api/monitors/${encodeURIComponent(m.id)}`, {
-        enabled: !m.enabled,
-        status: !m.enabled ? "active" : "paused",
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: MONITORS_QUERY_KEY });
+
+  const toggleGroup = useMutation({
+    mutationFn: (g: SearchGroup) =>
+      apiPatch(`/api/monitors/${encodeURIComponent(g.id)}`, {
+        enabled: !g.enabled,
+        status: !g.enabled ? "active" : "paused",
       }),
     onSuccess: () => {
-      toast.success("Monitor updated");
+      toast.success("Search group updated");
       invalidate();
     },
     onError: (e: ApiError) => toastApiError(e),
   });
 
-  const remove = useMutation({
+  const removeGroup = useMutation({
     mutationFn: (id: string) => apiDelete(`/api/monitors/${encodeURIComponent(id)}`),
     onSuccess: () => {
-      toast.success("Monitor deleted");
-      setDeleting(null);
+      toast.success("Search group deleted");
+      setDeletingGroup(null);
       invalidate();
     },
     onError: (e: ApiError) => toastApiError(e),
   });
 
-  if (isLoading || !data) return <LoadingPage />;
-  const canWrite = data.canWrite;
+  const canWrite = data?.canWrite ?? false;
 
   return (
     <>
       <PageHeader
         title="Monitors"
-        description="Search queries the pipeline scrapes. Edits take effect on the next scheduled run."
+        description="Search groups fan out to multiple platforms. Edits take effect on the next scheduled run."
         actions={
           canWrite ? (
-            <Button onClick={() => setCreating(true)}>
-              <Plus className="size-4" /> Add monitor
+            <Button onClick={() => setCreating(true)} disabled={isLoading}>
+              <Plus className="size-4" /> Add search group
             </Button>
           ) : undefined
         }
       />
 
-      <MonitorTable
-        monitors={data.monitors}
-        canWrite={canWrite}
-        highlightId={highlightId}
-        onEdit={setEditing}
-        onToggle={(m) => toggle.mutate(m)}
-        onDelete={setDeleting}
-      />
+      {isLoading ? (
+        <LoadingPage />
+      ) : isError || !data ? (
+        <p className="text-sm text-destructive">Failed to load monitors: {String(error)}</p>
+      ) : (
+        <MonitorTable
+          groups={data.groups}
+          canWrite={canWrite}
+          highlightId={highlightId}
+          onEditGroup={setEditingGroup}
+          onToggleGroup={(g) => toggleGroup.mutate(g)}
+          onDeleteGroup={setDeletingGroup}
+        />
+      )}
 
-      {canWrite ? (
+      {canWrite && data ? (
         <>
           <MonitorDialog
             open={creating}
             mode="create"
+            defaultPlatforms={defaultPlatforms}
             onOpenChange={setCreating}
             onSaved={invalidate}
           />
           <MonitorDialog
-            open={activeEdit !== null}
+            open={activeEditGroup !== null}
             mode="edit"
-            monitor={activeEdit ?? undefined}
+            group={activeEditGroup ?? undefined}
             onOpenChange={(o) => {
               if (!o) {
-                setEditing(null);
-                if (editId) void navigate({ search: { edit: undefined }, replace: true });
+                setEditingGroup(null);
+                if (editId) void navigate({ to: "/monitors", search: { edit: undefined }, replace: true });
               }
             }}
             onSaved={() => {
-              setEditing(null);
-              if (editId) void navigate({ search: { edit: undefined }, replace: true });
+              setEditingGroup(null);
+              if (editId) void navigate({ to: "/monitors", search: { edit: undefined }, replace: true });
               invalidate();
             }}
           />
-          <Dialog open={deleting !== null} onOpenChange={(o) => !o && setDeleting(null)}>
+          <Dialog open={deletingGroup !== null} onOpenChange={(o) => !o && setDeletingGroup(null)}>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Delete monitor</DialogTitle>
+                <DialogTitle>Delete search group</DialogTitle>
                 <DialogDescription>
-                  Permanently remove <code className="font-mono">{deleting?.id}</code>? The pipeline
-                  will stop scraping this query.
+                  Permanently remove <code className="font-mono">{deletingGroup?.id}</code> and all
+                  platform executions?
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setDeleting(null)}>
+                <Button variant="outline" onClick={() => setDeletingGroup(null)}>
                   Cancel
                 </Button>
                 <Button
                   variant="destructive"
-                  disabled={remove.isPending}
-                  onClick={() => deleting && remove.mutate(deleting.id)}
+                  disabled={removeGroup.isPending}
+                  onClick={() => deletingGroup && removeGroup.mutate(deletingGroup.id)}
                 >
                   Delete
                 </Button>

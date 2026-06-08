@@ -16,7 +16,7 @@ describe("audit list filters", () => {
     const ts = "2026-01-01T12:00:00.000Z";
     audit.recordFromRequest(
       { userId: 1, actorEmail: "admin@example.com" },
-      "monitor.create",
+      "search_group.create",
       ts,
       { target: "ebay-jacket", detail: { requestId: "r1" } },
     );
@@ -72,7 +72,7 @@ describe("audit list filters", () => {
     expect(monitors.statusCode).toBe(200);
     const monitorBody = monitors.json() as { entries: { action: string }[]; total: number };
     expect(monitorBody.total).toBe(1);
-    expect(monitorBody.entries[0]?.action).toBe("monitor.create");
+    expect(monitorBody.entries[0]?.action).toBe("search_group.create");
 
     const actor = await client.get("/api/audit?actor=curator@example.com");
     const actorBody = actor.json() as { entries: { actor_email: string }[]; total: number };
@@ -94,13 +94,13 @@ describe("audit repo filters", () => {
     const audit = new AuditLogRepo(db, "default");
     audit.recordFromRequest(
       { userId: 1, actorEmail: "a@x.com" },
-      "monitor.update",
+      "search_group.update",
       "2026-02-01T00:00:00.000Z",
       {},
     );
     audit.recordFromRequest(
       { userId: 1, actorEmail: "a@x.com" },
-      "monitor.delete",
+      "search_group.delete",
       "2026-03-01T00:00:00.000Z",
       {},
     );
@@ -112,11 +112,11 @@ describe("audit repo filters", () => {
     );
 
     const filtered = audit.fetchFiltered({
-      actionPrefix: "monitor.",
+      actionPrefix: "search_group.",
       since: "2026-02-15T00:00:00.000Z",
     });
     expect(filtered.total).toBe(1);
-    expect(filtered.entries[0]?.action).toBe("monitor.delete");
+    expect(filtered.entries[0]?.action).toBe("search_group.delete");
     db.close();
   });
 });

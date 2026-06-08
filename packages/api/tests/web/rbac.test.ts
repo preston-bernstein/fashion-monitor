@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { openDatabase, type Db } from "@fm/core/storage/db.js";
-import { ScrapeQueriesRepo } from "@fm/core/storage/repos/scrape-queries.js";
+import { SearchGroupsRepo } from "@fm/core/storage/repos/search-groups.js";
 import { ProfileSettingsRepo } from "@fm/core/storage/repos/profile-settings.js";
 import { buildTestApp, createUser, TestClient } from "../helpers/web.js";
 import { capabilitiesForRole } from "../../src/web/rbac.js";
@@ -78,13 +78,13 @@ describe("rbac capability enforcement (JSON API)", () => {
 
     const create = await curator.post("/api/monitors", {
       id: "ebay-test",
-      platform: "ebay",
+      platforms: ["ebay"],
       query_text: "corduroy jacket xxl",
       status: "active",
       enabled: true,
     });
     expect(create.statusCode).toBe(201);
-    expect(new ScrapeQueriesRepo(db, "default").getMonitor("ebay-test")).toBeDefined();
+    expect(new SearchGroupsRepo(db, "default").getGroup("ebay-test")).toBeDefined();
 
     const secretAttempt = await curator.put("/api/secrets", {
       key: "telegram_bot_token",

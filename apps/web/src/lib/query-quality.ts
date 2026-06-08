@@ -1,4 +1,9 @@
-import type { QueryScorecardRow } from "@fm/shared/dto.js";
+import type { QueryScorecardRow, SearchGroupScorecardRow } from "@fm/shared/dto.js";
+
+type ScorecardLike = Pick<
+  QueryScorecardRow,
+  "alert_rate" | "feedback_ratio" | "feedback_positive" | "feedback_negative" | "yes_rate"
+>;
 
 export type QualityLevel = "good" | "borderline" | "poor" | "unknown";
 
@@ -25,7 +30,7 @@ export function yesRateLevel(rate: number | null): QualityLevel {
   return "poor";
 }
 
-export function overallQueryQuality(row: QueryScorecardRow): QualityLevel {
+export function overallQueryQuality(row: ScorecardLike | SearchGroupScorecardRow): QualityLevel {
   const levels = [
     alertRateLevel(row.alert_rate),
     feedbackRatioLevel(

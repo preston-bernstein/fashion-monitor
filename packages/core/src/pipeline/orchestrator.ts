@@ -27,6 +27,7 @@ import { FeedbackRepo } from "../storage/repos/feedback.js";
 import { RunsRepo } from "../storage/repos/runs.js";
 import { IntegrationHealthRepo } from "../storage/repos/integration-health.js";
 import { ScrapeQueriesRepo } from "../storage/repos/scrape-queries.js";
+import { SearchGroupsRepo } from "../storage/repos/search-groups.js";
 import { SeenListingsRepo } from "../storage/repos/seen-listings.js";
 
 const log = createLogger("pipeline.orchestrator");
@@ -88,6 +89,7 @@ export async function runPipeline(ctx: RunContext): Promise<RunStats> {
   const alertLogRepo = new AlertLogRepo(ctx.db, profileId);
   const runsRepo = new RunsRepo(ctx.db);
   const scrapeQueriesRepo = new ScrapeQueriesRepo(ctx.db, profileId);
+  const searchGroupsRepo = new SearchGroupsRepo(ctx.db, profileId);
   const configRevisionsRepo = new ConfigRevisionsRepo(ctx.db, profileId);
   const integrationHealthRepo = new IntegrationHealthRepo(ctx.db, profileId);
 
@@ -95,7 +97,7 @@ export async function runPipeline(ctx: RunContext): Promise<RunStats> {
   runsRepo.pruneOlderThan(30, now);
   integrationHealthRepo.pruneOlderThan(30, now);
 
-  scrapeQueriesRepo.syncFromConfig(config, nowIso);
+  searchGroupsRepo.syncFromConfig(config, nowIso);
   const runId = runsRepo.start(nowIso);
   configRevisionsRepo.maybeSnapshot(config, runId, nowIso);
 

@@ -24,6 +24,7 @@ import { authenticate, type AuthenticatedUser } from "./auth.js";
 import { capabilitiesForRole } from "./rbac.js";
 import { auditFromRequest, capabilityList, requireCapability, type WebContext } from "./context.js";
 import { registerMonitorRoutes } from "./routes/monitors.js";
+import { registerImageRoutes } from "./routes/images.js";
 import { registerSettingsRoutes } from "./routes/settings.js";
 import { registerSecretsRoutes } from "./routes/secrets.js";
 import { registerUserRoutes } from "./routes/users.js";
@@ -303,6 +304,7 @@ export async function buildApp(options: WebAppOptions): Promise<FastifyInstance>
   );
 
   await registerMonitorRoutes(app, ctx);
+  await registerImageRoutes(app, ctx);
   await registerSettingsRoutes(app, ctx);
   await registerSecretsRoutes(app, ctx);
   await registerUserRoutes(app, ctx);

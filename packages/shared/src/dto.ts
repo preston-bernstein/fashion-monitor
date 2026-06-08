@@ -1,11 +1,24 @@
 import type { Capability, Role } from "./rbac.js";
 import type { LlmConfig, Measurements } from "./schemas/config.js";
 import type { MonitorStatus, Platform } from "./platforms.js";
-import type { MonitorDto } from "./schemas/monitors.js";
+import type { SearchGroupDto } from "./schemas/search-groups.js";
+import type {
+  ListingImageDto,
+  ListingImagesResponse,
+  SearchGroupImageDto,
+  SearchGroupImagesResponse,
+} from "./schemas/images.js";
 
-export type { Capability, Role, Platform, MonitorStatus, MonitorDto, LlmConfig, Measurements };
+export type { Capability, Role, Platform, MonitorStatus, LlmConfig, Measurements };
+export type { SearchGroupDto, ExecutionDto } from "./schemas/search-groups.js";
+export type {
+  ListingImageDto,
+  ListingImagesResponse,
+  SearchGroupImageDto,
+  SearchGroupImagesResponse,
+};
 
-export type Monitor = MonitorDto;
+export type SearchGroup = SearchGroupDto;
 
 export interface Me {
   user: { id: number; email: string; role: Role };
@@ -13,7 +26,7 @@ export interface Me {
 }
 
 export interface MonitorsResponse {
-  monitors: MonitorDto[];
+  groups: SearchGroupDto[];
   platforms: Platform[];
   statuses: MonitorStatus[];
   canWrite: boolean;
@@ -121,8 +134,29 @@ export interface AuditResponse {
   has_more: boolean;
 }
 
+export interface SearchGroupScorecardRow {
+  group_id: string;
+  query_text: string;
+  platforms: string;
+  status: string;
+  note: string | null;
+  total_runs: number;
+  listings_found: number;
+  listings_new: number;
+  scored_yes: number;
+  alerts_sent: number;
+  alert_rate: number | null;
+  yes_rate: number | null;
+  feedback_positive: number;
+  feedback_negative: number;
+  feedback_ratio: number | null;
+  last_alert_at: string | null;
+  last_good_signal_at: string | null;
+}
+
 export interface QueryScorecardRow {
   query_id: string;
+  group_id: string;
   platform: string;
   query_text: string;
   status: string;
@@ -184,6 +218,7 @@ export interface DashboardPayload {
     score: string | null;
     alerted_at: string;
     url: string | null;
+    image_url: string | null;
     source_query_id: string | null;
   }[];
   scoresByPlatform: { platform: string; score: string; listing_count: number }[];
@@ -196,6 +231,7 @@ export interface DashboardPayload {
     total_alerts: number;
   }[];
   platformAlerts: { platform: string; alerts_sent: number; avg_alert_price: number | null }[];
+  groupScorecard: SearchGroupScorecardRow[];
   queryScorecard: QueryScorecardRow[];
   queryRunHistory: QueryRunHistoryRow[];
   integrationUptime: IntegrationUptime[];

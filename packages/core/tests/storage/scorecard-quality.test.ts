@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { openDatabase } from "../../src/storage/db.js";
 import { ScrapeQueriesRepo } from "../../src/storage/repos/scrape-queries.js";
+import { SearchGroupsRepo, executionId } from "../../src/storage/repos/search-groups.js";
 import { RunsRepo } from "../../src/storage/repos/runs.js";
 import { AlertLogRepo } from "../../src/storage/repos/alert-log.js";
 import { FeedbackRepo } from "../../src/storage/repos/feedback.js";
@@ -11,8 +12,8 @@ describe("query scorecard quality fields", () => {
     const db = openDatabase(":memory:");
     const profileId = "default";
     const ts = "2026-06-01T12:00:00.000Z";
-    const queries = new ScrapeQueriesRepo(db, profileId);
-    queries.syncFromConfig(
+    const groups = new SearchGroupsRepo(db, profileId);
+    groups.syncFromConfig(
       {
         ...minimalConfig,
         searches: {
@@ -21,11 +22,14 @@ describe("query scorecard quality fields", () => {
       },
       ts,
     );
+    const queries = new ScrapeQueriesRepo(db, profileId);
+    const execId = executionId("ebay-quality", "ebay");
 
     const runId = new RunsRepo(db).start(ts);
     queries.recordQueryRuns(runId, [
       {
-        queryId: "ebay-quality",
+        queryId: execId,
+        groupId: "ebay-quality",
         platform: "ebay",
         queryText: "test query",
         listingsFound: 10,
@@ -72,7 +76,7 @@ describe("query scorecard quality fields", () => {
       "2026-06-01T15:00:00.000Z",
     );
 
-    const row = queries.fetchScorecard().find((r) => r.query_id === "ebay-quality");
+    const row = queries.fetchScorecard().find((r) => r.query_id === execId);
     expect(row).toBeDefined();
     expect(row!.scored_yes).toBe(2);
     expect(row!.yes_rate).toBe(0.5);

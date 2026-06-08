@@ -100,13 +100,25 @@ Defined in `@fm/shared/rbac.ts`; enforced in `@fm/api` via `requireCapability`. 
 
 `docker-compose.yml` runs `node apps/cli/dist/dashboard.js` inside the image built via `turbo prune` + pnpm. Caddy (`proxy` service) terminates TLS; **Caddyfile unchanged**.
 
+## Search groups vs pipeline aggregation
+
+Curators manage **search groups** on the Monitors page (`GET/POST/PATCH/DELETE /api/monitors`). Each group is one logical monitor with a shared `query_text`, selected `platforms[]`, and optional per-platform `query_overrides`.
+
+On create/update the API syncs **execution rows** in `scrape_queries` with ids `{groupId}@{platform}` (e.g. `corduroy-jacket@depop`). The pipeline still reads `scrape_queries` and runs `scrapeAll` unchanged.
+
+**Lineage:** listings, alerts, and feedback use `source_query_id` = **group id** so quality metrics roll up at the group level. Per-platform scrape stats remain in `scrape_query_runs` keyed by execution id (and `group_id`).
+
+**API shape:** `GET /api/monitors` returns `{ groups, platforms, statuses, canWrite }`. POST/PATCH/DELETE operate on search groups only.
+
+**Analytics:** `GET /api/dashboard` includes `groupScorecard` (rollup) plus `queryScorecard` (per-execution drill-down). Query performance links use the group id.
+
 ## Shared types in the SPA
 
 Import DTOs and form schemas from `@fm/shared`:
 
 ```typescript
-import type { DashboardPayload, Monitor } from "@fm/shared/dto.js";
-import { MonitorCreateInputSchema } from "@fm/shared/schemas/monitors.js";
+import type { DashboardPayload, SearchGroup } from "@fm/shared/dto.js";
+import { SearchGroupCreateInputSchema } from "@fm/shared/schemas/search-groups.js";
 ```
 
 `vinted` remains in the canonical `PLATFORMS` list but has no scraper implementation yet (registry returns a stub) — one source of truth prevents UI/backend drift.
