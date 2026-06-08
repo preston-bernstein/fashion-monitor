@@ -1,0 +1,15 @@
+{
+  "hits": [
+    {
+      "id": 98765,
+      "title": "Engineered Garments Corduroy Jacket",
+      "description": "Dark brown wide wale corduroy, relaxed fit.",
+      "price_i": 120,
+      "size": "XL",
+      "condition": "is_gently_used",
+      "created_at": 1717200000,
+      "designer": { "name": "Engineered Garments" },
+      "cover_photo": { "url": "https://media-assets.grailed.com/sample.jpg" }
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+{
+  "name": "@fm/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./*": "./dist/*"
+  },
+  "scripts": {
+    "build": "tsc && node scripts/copy-migrations.mjs",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src tests",
+    "format:check": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\"",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:live": "VITEST_LIVE=1 vitest run tests/platforms/live-smoke.test.ts -t @live",
+    "postinstall": "playwright install chromium || true"
+  },
+  "dependencies": {
+    "@fm/shared": "workspace:*",
+    "@anthropic-ai/sdk": "^0.102.0",
+    "@noble/ciphers": "^2.2.0",
+    "@noble/hashes": "^2.2.0",
+    "better-sqlite3": "^12.10.0",
+    "cheerio": "^1.0.0",
+    "impit": "^0.5.0",
+    "ollama": "^0.6.3",
+    "pino": "^10.3.1",
+    "playwright": "^1.52.0",
+    "playwright-extra": "^4.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "scrapfly-sdk": "^0.10.6",
+    "yaml": "^2.7.0",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@eslint/js": "catalog:",
+    "@stryker-mutator/core": "^9.6.1",
+    "@stryker-mutator/vitest-runner": "^9.6.1",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "eslint": "catalog:",
+    "prettier": "^3.4.2",
+    "tsx": "^4.19.2",
+    "typescript": "catalog:",
+    "typescript-eslint": "catalog:",
+    "vitest": "catalog:"
+  }
+}

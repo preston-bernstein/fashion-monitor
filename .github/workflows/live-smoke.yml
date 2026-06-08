@@ -1,0 +1,28 @@
+name: Live smoke
+
+on:
+  workflow_dispatch:
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Live platform smoke
+        env:
+          EBAY_CLIENT_ID: ${{ secrets.EBAY_CLIENT_ID }}
+          EBAY_CLIENT_SECRET: ${{ secrets.EBAY_CLIENT_SECRET }}
+          GRAILED_APP_ID: ${{ secrets.GRAILED_APP_ID }}
+          GRAILED_API_KEY: ${{ secrets.GRAILED_API_KEY }}
+          SCRAPFLY_API_KEY: ${{ secrets.SCRAPFLY_API_KEY }}
+        run: |
+          npx playwright install chromium --with-deps
+          npm run verify:scrapers

@@ -1,0 +1,13 @@
+node_modules
+dist
+web/node_modules
+web/dist
+data
+coverage
+reports
+.stryker-tmp
+.git
+*.db
+*.db-wal
+*.db-shm
+.env

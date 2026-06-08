@@ -1,0 +1,101 @@
+services:
+  scraper:
+    build: .
+    command: ["node", "apps/cli/dist/run.js", "--config", "/data/config.yaml"]
+    volumes:
+      - ./data:/data
+    env_file:
+      - .env
+    restart: "no"
+
+  poshmark:
+    build: .
+    command: ["node", "apps/cli/dist/run.js", "--config", "/data/config.yaml", "--platforms", "poshmark"]
+    volumes:
+      - ./data:/data
+    env_file:
+      - .env
+    restart: "no"
+
+  feedback-bot:
+    build: .
+    command: ["node", "apps/cli/dist/feedback-bot.js", "--config", "/data/config.yaml"]
+    volumes:
+      - ./data:/data
+    env_file:
+      - .env
+    restart: unless-stopped
+
+  dashboard:
+    build: .
+    command:
+      [
+        "node",
+        "apps/cli/dist/dashboard.js",
+        "--config",
+        "/data/config.yaml",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "3030",
+      ]
+    environment:
+      # Behind the Caddy reverse proxy, cookies are served over HTTPS.
+      COOKIE_SECURE: "true"
+    volumes:
+      - ./data:/data
+    env_file:
+      - .env
+    # No host port: the proxy terminates TLS and forwards to this service.
+    # For local dev without a proxy, uncomment to expose directly:
+    # ports:
+    #   - "3030:3030"
+    expose:
+      - "3030"
+    restart: unless-stopped
+
+  # TLS-terminating reverse proxy. Caddy auto-provisions HTTPS certs via
+  # Let's Encrypt when WEB_DOMAIN is a public DNS name; otherwise it serves a
+  # local self-signed cert. Set WEB_DOMAIN in .env (e.g. monitor.example.com).
+  proxy:
+    image: caddy:2
+    depends_on:
+      - dashboard
+    environment:
+      WEB_DOMAIN: ${WEB_DOMAIN:-localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    ports:
+      - "80:80"
+      - "443:443"
+    restart: unless-stopped
+
+  dashboard-report:
+    build: .
+    profiles: ["tools"]
+    command: ["node", "apps/cli/dist/report.js", "--config", "/data/config.yaml"]
+    volumes:
+      - ./data:/data
+
+  grafana:
+    image: grafana/grafana:11.5.2
+    environment:
+      GF_INSTALL_PLUGINS: frser-sqlite-datasource
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-fashion}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ./data:/data:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+volumes:
+  grafana-data:
+  caddy-data:
+  caddy-config:

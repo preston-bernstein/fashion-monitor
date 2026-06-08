@@ -1,0 +1,83 @@
+# Copy to config.yaml and customize. Secrets via .env (${VAR} substitution).
+
+profile_id: "default"
+
+measurements:
+  height: "YOUR_HEIGHT"
+  weight_lbs: 0
+  chest_in: "YOUR_CHEST"
+  waist_in: 0
+  pants_size: "YOUR_PANTS_SIZE"
+  dress_shirt_neck: 0
+  dress_shirt_sleeve: "YOUR_SLEEVE"
+  typical_size: "XXL"
+
+aesthetic_prompt: |
+  Dark academic / textured naturalist. Natural textures, quality fabric, intentional
+  not costume-y. Tweed, twill, corduroy, slub cotton, dark linen, Italian fabrics.
+  Dark palette. No graphics, slim fit, or tropical prints.
+
+hard_no:
+  - graphic tees or graphic prints
+  - embroidery as decoration
+  - tropical, floral, or vacation prints
+  - athletic or sportswear styling
+  - loud or oversized logos
+  - light colors (white, cream, pastels, light grey)
+  - slim fit or tailored slim
+
+positive_signals:
+  strong:
+    - corduroy
+    - tweed
+    - twill
+    - slub cotton
+    - linen
+  weak:
+    - deadstock or NOS
+
+price_ceiling:
+  tops: 300
+  pants: 250
+  outerwear: 500
+  default: 300
+
+platforms:
+  ebay: true
+  grailed: true
+  vestiaire: true
+  vinted: false
+  depop: true
+  poshmark: true
+
+llm:
+  provider: ollama # ollama | claude | hybrid | mock
+  batch_size: 15
+  ollama_host: "http://YOUR_OLLAMA_HOST_IP:11434"
+  ollama_text_model: "qwen2.5:7b"
+  ollama_vision_model: "llama3.2-vision:11b"
+  claude_model: "claude-haiku-4-5"
+  vision_backend: ollama # ollama | claude — used when provider is hybrid
+
+alert:
+  telegram_bot_token: "${TELEGRAM_BOT_TOKEN}"
+  telegram_chat_id: "${TELEGRAM_CHAT_ID}"
+  mode: immediate # immediate | digest
+  notify_empty: false
+
+database:
+  path: data/fashion_monitor.db
+
+scraper:
+  poshmark_profile_path: data/poshmark-profile
+
+# Optional — omit to use built-in defaults per platform.
+# searches:
+#   depop:
+#     - id: depop-corduroy
+#       q: "corduroy jacket shirt dark"
+#       status: active
+#       note: "rewrite if too noisy"
+#   ebay:
+#     - id: ebay-corduroy-jacket
+#       q: "men jacket corduroy charcoal black XXL"

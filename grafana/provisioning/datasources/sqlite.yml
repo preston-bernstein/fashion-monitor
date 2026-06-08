@@ -1,0 +1,11 @@
+apiVersion: 1
+
+datasources:
+  - name: Fashion Monitor SQLite
+    uid: fashion-sqlite
+    type: frser-sqlite-datasource
+    access: proxy
+    isDefault: true
+    editable: false
+    jsonData:
+      path: /data/fashion_monitor.db

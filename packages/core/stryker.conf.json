@@ -1,0 +1,19 @@
+{
+  "$schema": "../../node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "packageManager": "pnpm",
+  "testRunner": "vitest",
+  "plugins": ["@stryker-mutator/vitest-runner"],
+  "reporters": ["clear-text", "progress"],
+  "mutate": [
+    "src/pipeline/dedupe.ts",
+    "src/pipeline/prefilter.ts",
+    "src/pipeline/category.ts",
+    "src/pipeline/scorer.ts",
+    "src/storage/listing-snapshot.ts"
+  ],
+  "coverageAnalysis": "perTest",
+  "timeoutMS": 120000,
+  "vitest": {
+    "configFile": "vitest.config.ts"
+  }
+}

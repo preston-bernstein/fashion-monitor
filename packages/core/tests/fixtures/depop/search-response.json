@@ -1,0 +1,16 @@
+{
+  "products": [
+    {
+      "id": 555,
+      "slug": "dark-corduroy-shirt",
+      "description": "Vintage dark corduroy overshirt",
+      "brandName": "Universal Works",
+      "sizes": ["XL"],
+      "price": { "amountUsd": "45.00" },
+      "preview": [{ "url": "https://media.depop.com/sample.jpg" }],
+      "lastUpdated": "2025-06-01T10:00:00.000Z",
+      "condition": "used"
+    }
+  ],
+  "meta": { "end": true }
+}

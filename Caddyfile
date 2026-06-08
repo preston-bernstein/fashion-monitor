@@ -1,0 +1,9 @@
+# Caddy reverse proxy for the fashion-monitor web app.
+# Caddy terminates TLS (auto-HTTPS via Let's Encrypt for a public domain, or a
+# local self-signed cert for `localhost`) and forwards to the dashboard service.
+#
+# Set WEB_DOMAIN in .env. For a public host this triggers automatic HTTPS.
+{$WEB_DOMAIN} {
+	encode gzip
+	reverse_proxy dashboard:3030
+}
