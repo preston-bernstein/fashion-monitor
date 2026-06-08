@@ -42,6 +42,9 @@ blob-report/
 pnpm-debug.log*
 pnpm-error.log*
 
+# npm lockfiles (pnpm is the package manager; use root pnpm-lock.yaml)
+**/package-lock.json
+
 # OS
 .DS_Store
 
