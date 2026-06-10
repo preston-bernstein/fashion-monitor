@@ -1,6 +1,6 @@
 NAS_HOST ?= YOUR_NAS_IP
 NAS_USER ?= YOUR_NAS_USER
-NAS_PATH ?= /volume1/fashion-monitor
+NAS_PATH ?= /volume1/docker/fashion-monitor
 DOCKER   ?= /usr/local/bin/docker
 PLATFORM  = linux/amd64
 

@@ -166,7 +166,7 @@ Synology NAS (always-on, x86_64 required — verify with: uname -m)
 │   │    python3 + build-essential + libsqlite3-dev in Dockerfile)
 │   ├── Scheduled via Synology Task Scheduler (built-in) or container cron
 │   └── Reads/writes SQLite on NAS local volume mount
-└── /volume1/fashion-monitor/
+└── /volume1/docker/fashion-monitor/
     ├── data/fashion_monitor.db (SQLite, NAS local disk — NEVER over NFS)
     ├── config.yaml
     └── .env
