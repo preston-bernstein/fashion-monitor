@@ -83,6 +83,23 @@ services:
       - "443:443"
     restart: unless-stopped
 
+  mcp-server:
+    image: fashion-monitor/mcp-server
+    build:
+      context: .
+      dockerfile: services/mcp-server/Dockerfile
+    environment:
+      MCP_PORT: ${MCP_PORT:-3102}
+      MCP_CONFIG_PATH: /data/config.yaml
+      DB_PATH: /data/fashion_monitor.db
+    ports:
+      - "${MCP_PORT:-3102}:${MCP_PORT:-3102}"
+    volumes:
+      - ./data:/data
+    env_file:
+      - .env
+    restart: unless-stopped
+
   dashboard-report:
     build: .
     profiles: ["tools"]

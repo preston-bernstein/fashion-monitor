@@ -71,8 +71,12 @@ const hits: unknown[] = data.hits ?? [];
 ## Multiple Queries
 
 Run 2 queries:
-- General texture/aesthetic: `"corduroy waffle knit wool dark textured"`
+- General texture/aesthetic tops: `"corduroy waffle knit wool dark textured overshirt"`
 - Known brand terms: `"john varvatos helmut lang engineered garments theory"`
+
+Pants-specific terms (separate query if budget allows):
+- `"relaxed trouser dark olive charcoal pleated"` — surfaces academic-cut trousers
+- Avoid "chino", "cargo", "workwear" — wrong aesthetic; use "trouser", "fatigue", "wide leg"
 
 ## Response Normalization
 

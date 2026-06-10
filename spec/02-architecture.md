@@ -34,22 +34,57 @@
                │ filtered new listings
                ▼
 ┌──────────────────────────────────────────────────────────┐
-│   LLM Scoring Layer                                      │
-│   batches of 15 (configurable), Promise.all() across     │
-│   YES / MAYBE / NO with reason                           │
-│   parse error → treat batch as MAYBE, retry next run     │
+│   LLM Scoring Layer — two-pass                           │
+│   Pass 1: text batch (Ollama), all new listings          │
+│     YES → alert │ NO → discard │ MAYBE → pass 2          │
+│   Pass 2: vision (configurable backend), MAYBE only      │
+│     image scoring resolves ambiguous items               │
+│     post-vision MAYBE still alerts (lower confidence)   │
 └──────────────┬───────────────────────────────────────────┘
                │ YES and MAYBE only
                ▼
 ┌──────────────────────────────────────────────────────────┐
 │   Alert Layer — Telegram                                 │
 │   one message per match, image + verdict + link          │
+│   scoring dimensions (aesthetic/quality/value) exposed   │
 └──────────────────────────────────────────────────────────┘
 
 ┌──────────────────────────────────────────────────────────┐
 │   Feedback Bot — always-on (separate Docker service)     │
 │   polls Telegram for ✅/❌ callbacks → feedback table    │
 └──────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────┐
+│   Web App + API (apps/web + apps/api)                    │
+│   configuration, analytics, Monitor/Taste management,    │
+│   multi-user management, audit log — secondary interface │
+└──────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────┐
+│   MCP Server (planned — spec/08-mcp-interactive.md)      │
+│   primary interface for conversational LLM clients       │
+│   on-demand search, Monitor management, Taste tuning     │
+└──────────────────────────────────────────────────────────┘
+```
+
+## Monorepo Structure
+
+```
+fashion-monitor/
+  apps/
+    cli/          -- pipeline runner, local debug commands
+    web/          -- React/Vite web app (secondary interface)
+    api/          -- Hono API server backing the web app
+  packages/
+    core/         -- pipeline engine, scrapers, LLM scoring, storage
+    shared/       -- RBAC, Zod schemas, shared types
+    platforms/    -- platform scraper implementations
+  spec/           -- this directory
+  docs/
+    adr/          -- architecture decision records
+  config.yaml     -- system-level config (LLM, platforms, scraper)
+  .env            -- encryption key only; credentials in profile_secrets
+  docker-compose.yml
 ```
 
 ## Tech Stack
@@ -58,17 +93,22 @@
 |-------|--------|--------|
 | Language | TypeScript (Node.js 20+) | Developer's primary language; type safety; Playwright is Node-first |
 | Build | `tsx` for dev, `tsc` for prod | Zero-config TS execution; compiled output for Docker |
+| Monorepo | pnpm workspaces + Turborepo | Shared packages, parallel builds |
 | Scheduling | Synology Task Scheduler or Docker cron | Always-on, no cloud needed |
-| Concurrency | `Promise.all()` | Parallel platform scraping; native to Node.js |
+| Concurrency | `Promise.all()` / `Promise.allSettled()` | Parallel platform scraping; native to Node.js |
 | HTTP | native `fetch` (Node 20+) + `impit` for Depop | Lightweight; impit for TLS fingerprint bypass |
 | HTML parsing | `cheerio` | jQuery-like API, familiar, well-maintained |
 | Browser | Playwright (Node-first, same as Python) | Poshmark + Depop Cloudflare fallback |
 | Storage | `better-sqlite3` on NAS local volume | Synchronous C bindings, fast, zero setup — never over NFS/SMB |
-| LLM | Provider abstraction — Ollama / Claude / Hybrid | Swap via config.yaml, no code change |
+| LLM | Provider abstraction — Ollama / Claude / Hybrid | Swap via config, no code change |
 | LLM text | Ollama `qwen2.5:7b` on multimedia machine (LAN) | Free, private, sufficient for text classification |
 | LLM vision | Ollama vision model OR Claude API for MAYBE items | Depends on GPU VRAM — see 04-llm-scoring.md |
 | Alerts | Telegram Bot API | Only external dependency — outbound only |
-| Config | .env + config.yaml on NAS volume | Secrets local, aesthetic prompt editable without code change |
+| Config | `config.yaml` (system) + `profile_settings` table (per-profile) | System config editable without code; profile Taste in DB |
+| Secrets | `profile_secrets` table, XChaCha20-Poly1305 encrypted | Per-profile isolation; only encryption key in `.env` |
+| Web framework | Hono (API) + React/Vite (web app) | Lightweight, TypeScript-native |
+| Auth | Server-side sessions (`sessions` table) + password hash | Simple, no OAuth dependency |
+| RBAC | 5 roles, 11 capabilities (`packages/shared/src/rbac.ts`) | Owner → Admin → Curator / Operator → Viewer |
 | Lint/format | ESLint + Prettier | Standard TS toolchain |
 | Type check | `tsc --noEmit` | Catches normalization bugs at compile time |
 | Tests | Vitest | Fast, native ESM support, good TS integration |
@@ -92,6 +132,7 @@ interface Listing {
   listedAt: Date | null;
   condition: string | null;
   raw: Record<string, unknown>;  // original API response for debugging
+  sourceQueryId?: string;        // which scrape_query produced this listing
 }
 ```
 
@@ -101,15 +142,16 @@ interface Listing {
 - New listings only pass through
 
 ### 3. Score Phase
-- Listings batched in groups of 15 (configurable via `llm.batch_size`) to reduce API calls
-- Each listing scored YES / MAYBE / NO with a one-line reason
-- MAYBE listings included in alerts but marked as such
-- NO listings discarded (but logged)
+- **Pass 1** (text, all new): Ollama batch scoring → YES / MAYBE / NO
+- **Pass 2** (vision, MAYBE only): configurable backend (Ollama vision or Claude) re-scores MAYBE items that have `image_url`
+- MAYBE without `image_url` stays MAYBE and alerts
+- Post-vision MAYBE still alerts (signals lower confidence, not disqualification)
+- PENDING is a pipeline-internal state for when the LLM is unreachable — never surfaced to users
 
 ### 4. Alert Phase
 - One Telegram message per YES/MAYBE listing
 - Digest mode optional: bundle all matches into one message per run
-- Alert includes: image, title, brand, price, platform, LLM reason, link
+- Alert includes: image, title, brand, price, platform, LLM reason, scoring dimensions (aesthetic/quality/value), link
 
 ## Execution Environment
 
@@ -117,7 +159,7 @@ interface Listing {
 
 ```
 Synology NAS (always-on, x86_64 required — verify with: uname -m)
-├── Docker: scraper (cron) + feedback-bot (always-on)
+├── Docker: pipeline (cron) + feedback-bot (always-on) + api + web
 │   ├── Node.js 20, TypeScript (compiled), Playwright/Chromium, impit, cheerio
 │   ├── better-sqlite3: needs build deps in Docker — use node:lts-bookworm base image
 │   │   (no prebuilt arm64 binaries — arm64 NAS will compile from source, needs
@@ -159,7 +201,7 @@ Ollama health check on each run start. If unreachable:
 - Skip LLM scoring and alerting for this run
 - On next run where Ollama is reachable: score all `PENDING` listings first
 
-Never auto-fallback to a paid API when Ollama is down. Claude/hybrid providers are opt-in via `config.yaml` only.
+Never auto-fallback to a paid API when Ollama is down. Claude/hybrid providers are opt-in via config only.
 
 ### GitHub Actions — CI only
 

@@ -136,6 +136,17 @@ Telegram allows 30 messages per second per bot. At personal use volume (≤10 al
 
 ---
 
+## Alert History — Web App
+
+The web app (`apps/web`) provides a browsable view of `alert_log`. Curators and above can:
+- Filter by Monitor, platform, score, and date range
+- See full scoring dimensions (aesthetic/quality/value) and LLM reason
+- Mark feedback directly from the web UI (alternative to Telegram ✅/❌ buttons)
+
+Telegram push remains the primary real-time delivery channel. The web app is for review and analytics, not first notification.
+
+---
+
 ## Future: Price Drop Alerts
 
 If a listing was previously seen but its price dropped significantly (>20%), re-alert even if already seen. Not in v1 — requires storing price history per listing.

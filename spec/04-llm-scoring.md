@@ -12,24 +12,28 @@ The scoring layer talks to a `LLMProvider` interface — not directly to Ollama 
 
 ```typescript
 interface LLMProvider {
-  scoreBatch(listings: PreparedListing[]): Promise<ScoringResult[]>;
-  scoreWithImage(listing: PreparedListing): Promise<ScoringResult>;
+  scoreBatch(listings: PreparedListing[], systemPrompt: string): Promise<ScoringResult[]>;
+  scoreWithImage(listing: PreparedListing, systemPrompt: string): Promise<ScoringResult>;
   healthCheck(): Promise<boolean>;
 }
 
 class OllamaProvider implements LLMProvider { ... }    // local, free, private
 class ClaudeProvider implements LLMProvider { ... }    // cloud, ~$2-5/month, higher quality vision
-class HybridProvider implements LLMProvider { ... }    // Ollama for text, Claude for vision
+class HybridProvider implements LLMProvider { ... }    // Ollama for text, configurable for vision
 ```
+
+`HybridProvider` uses Ollama for text batch scoring (pass 1) and a configurable backend for vision (pass 2). Vision backend is selected via `llm.vision_backend` in config: `"ollama"` or `"claude"`. See `packages/core/src/llm/hybrid.ts`.
 
 Config selects the provider:
 ```yaml
 llm:
   provider: "hybrid"       # "ollama" | "claude" | "hybrid"
+  batch_size: 15
   ollama_host: "http://192.168.1.X:11434"
-  ollama_text_model: "qwen2.5:7b"
-  ollama_vision_model: "llama3.2-vision:11b"  # omit if VRAM insufficient
-  claude_model: "claude-haiku-4-5"            # used only if provider includes claude
+  models:
+    text: "qwen2.5:7b"
+    vision: "llama3.2-vision:11b"   # omit if VRAM insufficient
+  vision_backend: "ollama"          # "ollama" | "claude"
 ```
 
 ---
@@ -203,7 +207,21 @@ LLM assesses fit likelihood using user's actual measurements as ground truth:
 - Height: YOUR_HEIGHT
 - Weight: ~YOUR_WEIGHT lbs
 - Chest: ~YOUR_CHEST_SIZE"
-- Waist: ~44" actual (wears 40-42 in pants — prefers a bit of room)
+- Pants: sizing is highly unreliable — default ALL pants to UNCERTAIN unless measurements listed.
+  Target cut: mid-rise, relaxed or straight leg, wears with slight natural drop.
+  Slim/tapered/low-rise won't fit regardless of waist label.
+  
+  Brand-level sizing tendencies (inform UNCERTAIN reason, never override to YES without measurements):
+  - Japanese brands (Beams Plus, Needles, etc.): run 1-2 sizes small — size up from label
+  - Italian/European: EU 56-60 range needed; often slim seat even at large waist — flag
+  - Engineered Garments, Universal Works, vintage US military: relaxed cut, label 40-42 may work
+  - Modern European slim cut: wrong pattern entirely, no sizing up fixes it — reject
+  
+  Pants with actual measurements (inseam × waist, or seat/thigh) → LLM can make a real call.
+  Pants without measurements → always UNCERTAIN with note "verify measurements before buying".
+  
+  Note: tops are the primary use case for this monitor. Pants are a secondary, harder signal.
+- Belly: ~44" at widest point — relevant for shirt drape through midsection, not pants fit
 - Typical US size: XXL tops, though some XL oversized fits work
 - Dress shirt: 18" neck, 34-35" sleeve
 
@@ -265,7 +283,15 @@ Score as:
 - NO: fails quality OR fails value OR clear aesthetic mismatch.
 
 Include which dimensions passed/failed in your reason.
-``` He is YOUR_HEIGHT, 250 lbs. Body measurements: chest ~YOUR_CHEST_SIZE", waist ~44" (wears 40-42 pants).
+``` He is YOUR_HEIGHT, 250 lbs. Chest ~YOUR_CHEST_SIZE", belly ~44" at widest. Tops: XXL.
+Pants: label 40-42 is unreliable — fit depends on seat/thigh room and rise.
+Relaxed/straight cut with generous seat fits; slim cut or low-rise at 40-42 does not.
+Pants sizing is unreliable — default to UNCERTAIN for all pants unless:
+actual measurements are listed (inseam × waist, seat, or thigh), OR brand is known to run
+relaxed/generous AND cut is explicitly described as relaxed/straight/wide-leg.
+Japanese brands run 1-2 sizes small. Italian/EU brands run slim through seat even at large
+waist labels. Modern European slim cut is wrong pattern entirely — reject.
+Always note "verify measurements before buying" in pants UNCERTAIN reason.
 Typical size XXL tops, some oversized XL work. Lives in YOUR_CITY, YOUR_STATE (hot, humid).
 Programmer, casual office environment.
 
@@ -327,6 +353,7 @@ interface PreparedListing {
   price: number;
   condition: string | null;
   size: string;
+  image_url?: string;   // included for vision pass (MAYBE items only)
 }
 
 function prepareForLLM(listing: Listing): PreparedListing {
@@ -339,6 +366,7 @@ function prepareForLLM(listing: Listing): PreparedListing {
     price: listing.price,
     condition: listing.condition,
     size: listing.size,
+    // image_url added only for vision pass — not included in text batch
   };
 }
 ```
@@ -480,6 +508,50 @@ If the response is malformed JSON or missing listings, the caller will treat all
 This two-pass approach uses images where they matter (ambiguous items) without multiplying cost across all listings. Image tokens (~1,500 per image) only incurred for MAYBE items, which at steady state is 2-5 listings/run.
 
 **Cost impact at steady state:** 3 MAYBE items × 1,500 image tokens = 4,500 extra tokens = $0.0045/run. Negligible.
+
+---
+
+## Seeded Feedback — ongoing ground truth
+
+The feedback table has two write paths:
+
+**Path 1: Telegram ✅/❌** — in-the-moment reaction to an alert (covered in 05-alert-system.md)
+
+**Path 2: Config seed** — you explicitly declare known-good and known-bad pieces in `config.yaml` at any time. Loaded into the feedback table on every run startup. This is how you inject ground truth before the first alert ever fires, and how you continue to calibrate the system as you discover new pieces (in stores, secondhand, anywhere).
+
+```yaml
+# config.yaml — add to at any time, takes effect next run
+seed_feedback:
+  positive:
+    - brand: "Engineered Garments"
+      title: "Fatigue Pant dark olive"
+      description: "relaxed straight cut, mid-rise, cotton twill, fits well through seat"
+      notes: "pants: relaxed US cut, this brand sizing works for me"
+    - brand: "Unknown"
+      title: "Wide wale corduroy overshirt charcoal"
+      description: "cotton corduroy, boxy, patch pockets, dark charcoal"
+      notes: "tops: this is exactly the texture and weight I want"
+
+  negative:
+    - brand: "Theory"
+      title: "Slim trouser grey"
+      description: "slim cut, tapered leg, wool blend"
+      notes: "pants: slim cut doesn't fit regardless of brand or waist label"
+    - brand: "Any"
+      title: "graphic print tee"
+      description: "screen print graphic front"
+      notes: "hard no — wrong aesthetic entirely"
+```
+
+On startup, the system upserts seed entries into the `feedback` table with `source = 'seed'`. Seed entries are permanent (not rotated out like Telegram feedback). Telegram feedback still rotates at 30 most recent — seeds stay as anchors underneath.
+
+This means:
+- You can add a piece you tried in a store that didn't fit → immediate calibration
+- You can add a piece you found and loved → reinforces that signal
+- No alert needed — works entirely outside the monitoring loop
+- Survives DB wipes — seeds are in config, always re-applied on startup
+
+**`source` column on feedback table:** add `source TEXT NOT NULL DEFAULT 'telegram'` — values: `'telegram'` | `'seed'`. Seed entries never rotated, always injected first in the few-shot block.
 
 ---
 

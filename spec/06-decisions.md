@@ -126,80 +126,76 @@
 
 ---
 
-## ADR-007: Aesthetic prompt in config, not code
+## ADR-007: Taste config in DB, not hardcoded
 
-**Decision:** Aesthetic description lives in `config.yaml`, not hardcoded in Python
+**Decision:** Taste (aesthetic_prompt, hard_no, positive_signals, price_ceiling, measurements) lives in the `profile_settings` DB table, editable via web UI (Curator role) and MCP server. `config.yaml` provides bootstrap defaults.
 
-**Context:** The LLM scoring prompt is the core "intelligence" of the system and will need tuning as preferences evolve.
+**Context:** The LLM scoring prompt is the core "intelligence" of the system and will need tuning as preferences evolve. Per-profile isolation also requires that Taste be stored per-profile in the DB, not in a flat file.
 
-**Why config:**
-- Edit without touching code
-- Can version-control changes to the aesthetic separately
-- User can modify it without understanding the codebase
-- Natural place for other tunable parameters (price ceiling, size filters)
+**Why DB-backed:**
+- Editable via web UI without touching config files or redeploying
+- Per-profile isolation — each profile's Taste is independent
+- `config_revisions` table tracks every change with a hash + timestamp — full audit trail
+- MCP server can write Taste directly from an LLM conversation
+- `config.yaml` bootstrap defaults are loaded into `profile_settings` on first run, then the DB is authoritative
 
 ---
 
-## ADR-011: Notification delivery — Telegram with ntfy.sh as v2 option
+## ADR-011: Notification delivery — Telegram primary, web app for history review
 
-**Decision:** Telegram Bot API for v1. ntfy.sh + web UI documented as v2 path.
+**Decision:** Telegram Bot API for push alerts. Web app (`apps/web`) provides browsable alert history and analytics as a secondary review interface. ntfy.sh is not used.
 
-**Context:** Multiple notification approaches evaluated. Key constraint: push notification is non-negotiable (listings sell within hours). Active dashboard-checking won't work in practice.
+**Context:** Multiple notification approaches evaluated. Key constraint: push notification is non-negotiable (listings sell within hours). Active dashboard-checking alone won't work in practice.
 
-**Why Telegram for v1:**
+**Why Telegram for push:**
 - Zero hosting required — just HTTP POST to `api.telegram.org`
-- Native inline keyboard buttons (✅/❌) enable the feedback loop without a server
+- Native inline keyboard buttons (✅/❌) enable the feedback loop without a webhook server
 - Inline image delivery — critical for clothing decisions
 - Free, instant push on iOS/Android
 - One bot serves multiple profiles via separate chat IDs
 
-**Why ntfy.sh + web UI is compelling for v2:**
-- Self-hosted on Synology — no data leaves the house
-- No third-party account required for family members
-- Web UI on Synology gives browsable alert history with full images
-- ntfy app is free and open source
-- Tradeoff: requires building a web UI (significant extra code) and exposing Synology externally via Tailscale or Cloudflare tunnel
+**Why web app for history review (built):**
+- Browsable alert history with full images, filters, and scoring dimensions
+- Accessible from any device on the network
+- Multi-user management (invite family/friends, set Roles)
+- Analytics: Monitor scorecard, feedback ratio, config timeline
+- No third-party dependency — runs entirely on Synology
+
+**Why not ntfy.sh:** Web app covers the self-hosted browsing use case. Adding ntfy alongside Telegram adds complexity without meaningful new capability.
 
 **Why not email:** Push unreliable (Promotions tab, delays). Feedback buttons require hosted webhook.
 **Why not SMS:** No inline images. Costs money (Twilio). Feedback loop requires hosted webhook.
 
 ---
 
-## ADR-008: Include image URLs in LLM scoring (REVISED)
+## ADR-008: Two-pass scoring — images for MAYBE items only (REVISED)
 
-**Decision:** Pass image URLs to Claude for all listings that have one. Text-only scoring for listings without images.
+**Decision:** Two-pass scoring. Pass 1: text-only (Ollama batch) for all new listings. Pass 2: vision scoring via configurable backend (Ollama or Claude) for MAYBE items with `image_url` only.
 
-**Context:** Original spec deferred image scoring as optional. This was wrong for a fashion tool.
+**Context:** Original spec deferred image scoring as optional. A later revision proposed images for all listings. The implemented approach is the pragmatic middle: text first, vision only where it matters (ambiguous MAYBE cases).
 
-**Why images are required:**
-- Resale listing text quality is poor — "great condition black jacket" describes nothing useful
-- Texture, color accuracy, construction quality, and fit are visual — cannot be inferred from text
-- Text-only scoring is 40-50% of available signal; with images it's 80-90%
-- Claude vision via URL adds negligible latency and minimal cost (~same token count as text)
+**Why two-pass over all-image scoring:**
+- Vision tokens are 5-15× more expensive than text tokens — scoring all listings with images multiplies cost significantly
+- Text classification (YES/NO) is reliable for clear matches and clear misses
+- Images add the most value for ambiguous MAYBE items where text alone is insufficient
+- At steady state, only 2-5 MAYBE items per run reach vision — cost impact is negligible
 
-**Why not download and base64 encode:**
-- Image URLs from eBay, Grailed, Depop are stable during a listing's life
-- Passing URL is simpler and Claude fetches directly
-- Some platforms (Vestiaire) may have auth-gated images — fallback to text-only for those
+**Pass 2 behavior:**
+- MAYBE items with `image_url` → vision re-score → YES or NO (or stays MAYBE on parse error)
+- MAYBE items without `image_url` → stay MAYBE, alert with lower-confidence note
+- Post-vision MAYBE still alerts — it signals ambiguity, not disqualification
+- `filterAlertable` includes both YES and MAYBE regardless of whether vision ran
 
-**Implementation:**
-```python
-# In the batch prompt, include image_url per listing if available
-{
-    "listing_id": "grailed:12345",
-    "title": "...",
-    "image_url": "https://...",   # Claude fetches this
-    ...
-}
-```
+**Vision backend selection:**
 
-**Cost impact:** Vision input is billed at same token rate — an image costs roughly 1,000-2,000 tokens equivalent. At 15 listings/batch with images, adds ~15,000-30,000 tokens/batch. At $1.00/M, that's $0.015-0.030/batch vs $0.002 text-only. Significant multiplier — use images for MAYBE items only, or cap at top-5 listings per batch ranked by text score.
+| VRAM | Text (pass 1) | Vision (pass 2) | Config |
+|------|--------------|-----------------|--------|
+| < 6 GB | `qwen2.5:7b` Q4 | Claude API | `hybrid`, `vision_backend: claude` |
+| 6–10 GB | `qwen2.5:7b` | `llava:7b` or Claude | `hybrid`, `vision_backend: ollama` |
+| 12–16 GB | `qwen2.5:7b` | `llama3.2-vision:11b` | `ollama` |
+| CPU only | too slow | too slow | `claude` |
 
-**Pragmatic approach:** Two-pass scoring.
-1. Pass 1: text-only, fast, cheap. Score all new listings.
-2. Pass 2: image scoring only for MAYBE items from pass 1. Resolves ambiguity.
-
-This keeps costs low while using images where they actually matter.
+See `packages/core/src/pipeline/scorer.ts` for the implementation. See `packages/core/src/llm/hybrid.ts` for `HybridProvider`.
 
 ---
 
@@ -262,3 +258,15 @@ This shows CI discipline without exposing any real data or credentials. The scra
 - New schema: see 03-data-model.md
 
 **Learning rate:** Meaningful signal after ~20-30 feedback events. Saturates around 50-100 — rotate to most recent 30 examples after that.
+
+---
+
+## docs/adr/0001: MCP server is the primary interface
+
+See `docs/adr/0001-mcp-as-primary-interface.md`. MCP manages Monitors and Taste conversationally. Web app is secondary. CLI is pipeline/debug only.
+
+---
+
+## docs/adr/0002: Secrets stored encrypted in DB
+
+See `docs/adr/0002-secrets-encrypted-in-db.md`. Platform credentials and Telegram tokens are XChaCha20-Poly1305 encrypted in `profile_secrets`. Encryption key is the only secret in `.env`.

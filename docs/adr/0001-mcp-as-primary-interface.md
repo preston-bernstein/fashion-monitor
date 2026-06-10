@@ -1,0 +1,3 @@
+# MCP server is the primary interface
+
+The original spec called for no web UI. A web app was built anyway for configuration and analytics. Rather than making the web app primary, the MCP server is designated the primary interface — Monitors, Taste, and queries are managed in conversation with an LLM client (Claude Desktop or similar). The web app is a strong secondary interface for cases where a conversational UI isn't appropriate (multi-user management, bulk analytics, audit log review). The CLI remains for pipeline execution and local debugging only. This ordering keeps the tool aligned with an LLM-native workflow where the user is already in a Claude/Ollama session while actively shopping.

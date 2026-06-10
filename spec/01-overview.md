@@ -15,11 +15,12 @@ A personal monitoring tool that:
 1. Continuously watches 6 resale platforms for men's XXL clothing
 2. Uses an LLM to score each result against a defined aesthetic — so unknown brands and new discoveries get surfaced, not just known keywords
 3. Sends alerts only for high-confidence matches, so the signal-to-noise ratio stays high
+4. Exposes an **MCP server** as the primary conversational interface — add Monitors, query results, and tune Taste in conversation with Claude or another LLM client (see `docs/adr/0001-mcp-as-primary-interface.md`)
 
 ## User Context
 
 - Male, YOUR_HEIGHT, ~YOUR_WEIGHT lbs
-- Size: XXL tops, chest ~YOUR_CHEST_SIZE", waist ~44" actual (wears 40-42 pants), dress shirt ~18 neck / 34-35 sleeve
+- Size: XXL tops, chest ~YOUR_CHEST_SIZE", pants waist 40-42, belly ~44" at widest, dress shirt ~18 neck / 34-35 sleeve
 - Wide flat feet, thin orthotics (shoes separately tracked)
 - Location: YOUR_CITY, YOUR_STATE — hot, humid climate; fabric breathability is a real constraint
 - Office environment, programmer, smart casual acceptable
@@ -36,58 +37,46 @@ A personal monitoring tool that:
 - False positive rate low enough that alerts are worth opening (target: >60% of alerts are genuinely interesting)
 - No duplicate alerts for the same listing
 - Works unattended — runs on a schedule, no manual intervention needed
-- Easy to tune the aesthetic prompt without touching code
+- Easy to tune the aesthetic prompt (Taste) from an LLM conversation via MCP or through the web UI
 
-## Non-Goals (v1)
+## Non-Goals
 
 - Not a purchasing tool — no auto-buy, no cart management
 - Not a price history tracker — though seen price can be stored
 - Not real-time — hourly polling acceptable
 - Not covering shoes yet — footwear is a separate future consideration
 - Not covering Vinted initially if complexity is too high — deprioritized
-- No web UI or account system — config-file based only
 
-## Multi-Profile (v2)
+## Interface Hierarchy
 
-v1 is single-profile (Preston). v2 adds support for wife, friends, family — each with their own aesthetic, measurements, price preferences, and Telegram chat.
+Three interfaces exist. Priority order reflects the intended workflow:
 
-**What v1 must do now to make v2 non-destructive:**
-- `profile_id TEXT NOT NULL DEFAULT 'default'` column on `seen_listings`, `feedback`, `alert_log` tables — cheap insurance, zero behavioral change in v1
-- Aesthetic prompt, measurements, Telegram chat ID, price ceiling — all in config, never in code (already planned)
-- No business logic assumes a single profile anywhere
+1. **MCP server** — primary. Manages Monitors and Taste conversationally inside an active LLM session (Claude Desktop or similar). Adding a new Monitor, adjusting the aesthetic prompt, querying recent alerts — all done in conversation. See `docs/adr/0001-mcp-as-primary-interface.md`.
+2. **Web app** — strong secondary. Configuration, analytics, multi-user management, audit log review. Cases where a conversational UI isn't appropriate.
+3. **CLI** — pipeline execution and local debugging only. Not a user-facing interface.
 
-**v2 design (for reference, not in scope now):**
+## Multi-User Support
 
-```yaml
-# config.yaml
-profiles:
-  preston:
-    telegram_chat_id: "..."
-    measurements: {chest: "YOUR_CHEST_SIZEin", waist: "44in", size: "XXL"}
-    aesthetic_prompt: "dark academic, corduroy, tweed, slub cotton..."
-    price_ceiling: 300
-    platforms: [ebay, grailed, vestiaire, depop, poshmark]
+Multi-user and multi-profile are **implemented** (not future). The identity model:
 
-  sarah:
-    telegram_chat_id: "..."   # different person, different Telegram chat
-    measurements: {size: "S/M", ...}
-    aesthetic_prompt: "..."
-    price_ceiling: 150
-    platforms: [depop, poshmark, vestiaire]
-```
+- **Profile** — owns a Taste, a set of Monitors, and an alert destination (Telegram chat). All DB rows are scoped via `profile_id`. A Profile can exist without a web User (CLI-only use).
+- **User** — an authenticated account that can log into the web app. Holds a Role on one or more Profiles.
+- **Role** — 5 roles: Owner, Admin, Curator, Operator, Viewer. Capabilities enforced via RBAC at the API layer. See `packages/shared/src/rbac.ts`.
 
-Each profile gets its own:
+Each Profile gets its own:
 - Scoped DB rows (via `profile_id`)
-- Scoped feedback loop (her ✅/❌ teaches her model, not Preston's)
+- Scoped feedback loop (feedback per profile, not shared)
 - Scoped Telegram destination
-- Independent scoring — the LLM prompt is rebuilt per-profile
+- Independent scoring — LLM prompt rebuilt per profile
 
-The scheduler runs profiles sequentially or concurrently (config flag). No shared state between profiles except the DB file.
+Profile-level Taste and system settings are stored in the `profile_settings` table (key/JSON rows). Per-profile credentials (Telegram tokens, API keys) are stored encrypted in `profile_secrets` — see `docs/adr/0002-secrets-encrypted-in-db.md`.
 
 ## Decisions (resolved — see 06-decisions.md for rationale)
 
 - [x] Alert delivery: **Telegram** (ADR-004)
 - [x] Execution: **Synology Docker** + Task Scheduler; GitHub Actions **CI only** (ADR-005, ADR-010)
-- [x] Vinted: **deprioritized to v2** — EU inventory, maintenance burden (ADR-006)
-- [x] Price ceiling: **per-category in config.yaml** (see 03-data-model.md)
+- [x] Vinted: **deprioritized** — EU inventory, maintenance burden (ADR-006)
+- [x] Price ceiling: **per-category in config** (see 03-data-model.md)
 - [x] History retention: **90 days** for seen_listings, 30 days for runs (see 03-data-model.md)
+- [x] Primary interface: **MCP server** (docs/adr/0001)
+- [x] Secrets: **encrypted in DB** via XChaCha20-Poly1305 (docs/adr/0002)
