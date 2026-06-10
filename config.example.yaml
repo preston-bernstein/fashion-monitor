@@ -13,33 +13,78 @@ measurements:
   typical_size: "XXL"
 
 aesthetic_prompt: |
-  Dark academic / textured naturalist. Natural textures, quality fabric, intentional
-  not costume-y. Tweed, twill, corduroy, slub cotton, dark linen, Italian fabrics.
-  Dark palette. No graphics, slim fit, or tropical prints.
+  Two complementary aesthetics. Either works alone; both can layer intentionally.
+
+  PRIMARY — Dark academic / textured naturalist: natural textures, quality fabric,
+  intentional not costume-y. Tweed, twill, corduroy (wide wale preferred), slub
+  cotton, dark linen, Italian fabrics, structured knits. References: Nick Cave,
+  Brian Jonestown Massacre, Beastie Boys late 90s.
+
+  SECONDARY — Dark techwear: functional, minimal, modern. Technical outerwear
+  (hardshells, raincoats, softshells) is always welcome — ideal for Atlanta's
+  sudden downpours and humidity. Quality technical pieces in dark palette either
+  blend with the naturalist aesthetic or strike an intentional modern contrast.
+  The contrast must feel deliberate, not accidental. Think: dark GORE-TEX shell
+  over a corduroy overshirt, or Veilance trousers with a textured knit.
+  References: Arc'teryx Veilance, Acronym, Nemen, Snow Peak.
+
+  ACCESSORIES IN SCOPE: technical hats (bucket hats, structured caps, wide-brim),
+  quality boots (dark leather Chelsea/Derby/hiking, Vibram sole, Goodyear welt).
+
+  DARK PALETTE REQUIRED for both aesthetics: black, charcoal, dark grey, navy,
+  dark brown, burgundy, forest green, slate, deep olive. For techwear specifically:
+  black and slate only — no coyote, no sage, no bright tech colorways, no camo.
+
+  CLIMATE — Atlanta GA, hot and humid year-round. Technical shells and breathable
+  fabrics are a positive signal. Heavy wool/tweed acceptable fall/winter only.
+  Note climate-heavy pieces but do not hard-reject them.
+
+  No graphics, no embroidery as decoration, no slim fit, no tropical prints,
+  no loud logos, no light colors.
 
 hard_no:
   - graphic tees or graphic prints
   - embroidery as decoration
   - tropical, floral, or vacation prints
-  - athletic or sportswear styling
+  - athletic or sportswear styling — running gear, gym wear, sport performance
+    branding. Techwear and technical outerwear are explicitly welcome and not
+    considered sportswear.
   - loud or oversized logos
   - light colors (white, cream, pastels, light grey)
   - slim fit or tailored slim
+  - techwear in non-dark colorways (coyote, sage, bright orange, neon, camo)
 
 positive_signals:
   strong:
-    - corduroy
-    - tweed
-    - twill
-    - slub cotton
-    - linen
+    # naturalist
+    - corduroy, tweed, twill, waffle knit, bouclé, herringbone, slub cotton,
+      brushed cotton, linen, suede
+    - Italian cotton, Pima, Supima, merino, cashmere blend
+    - black, charcoal, dark grey, navy, dark brown, burgundy, forest green,
+      slate, deep olive
+    - unstructured, relaxed fit, boxy, patch pockets
+    - made in Italy, Japan, USA, Portugal
+    # techwear
+    - GORE-TEX, hardshell, softshell, technical shell, waterproof-breathable,
+      Pertex, Polartec, taped seams, DWR treatment
+    - Arc'teryx, Veilance, Acronym, Nemen, Snow Peak, Goldwin,
+      Descente Allterrain, Stone Island Shadow Project
+    - storm hood, articulated patterning, zipped security pockets, drop hem
+    # boots / accessories
+    - dark leather boots, Chelsea boot, Derby boot, Vibram sole, Goodyear welt,
+      full-grain leather, dark suede boot
+    - technical hat, bucket hat, structured cap, wide-brim hat (dark only)
   weak:
+    - Japanese or Scandinavian brand
     - deadstock or NOS
+    - high original retail price
 
 price_ceiling:
   tops: 300
   pants: 250
   outerwear: 500
+  boots: 450
+  accessories: 200
   default: 300
 
 platforms:
@@ -71,13 +116,43 @@ database:
 scraper:
   poshmark_profile_path: data/poshmark-profile
 
-# Optional — omit to use built-in defaults per platform.
-# searches:
-#   depop:
-#     - id: depop-corduroy
-#       q: "corduroy jacket shirt dark"
-#       status: active
-#       note: "rewrite if too noisy"
-#   ebay:
-#     - id: ebay-corduroy-jacket
-#       q: "men jacket corduroy charcoal black XXL"
+searches:
+  grailed:
+    - id: grailed-textured-knit
+      q: "corduroy waffle knit wool dark textured"
+      status: active
+    - id: grailed-designer
+      q: "john varvatos helmut lang engineered garments theory"
+      status: active
+    - id: grailed-techwear-dark
+      q: "acronym nemen veilance stone island shadow technical dark"
+      status: active
+      note: "premium techwear — grailed has the best inventory"
+    - id: grailed-technical-outerwear
+      q: "arc'teryx veilance technical shell jacket dark"
+      status: active
+  ebay:
+    - id: ebay-corduroy-jacket
+      q: "men jacket corduroy charcoal black XXL"
+      status: active
+    - id: ebay-designer-shirt
+      q: "john varvatos helmut lang theory XXL shirt"
+      status: active
+    - id: ebay-wool-sweater
+      q: "dale norway sweater men XXL wool"
+      status: active
+    - id: ebay-raincoat-shell
+      q: "men technical shell jacket raincoat GORE-TEX dark XXL"
+      status: active
+      note: "functional outerwear for Atlanta rain"
+    - id: ebay-boots-dark
+      q: "men dark leather boots chelsea derby 12 goodyear welt"
+      status: active
+  depop:
+    - id: depop-corduroy
+      q: "corduroy jacket shirt dark"
+      status: active
+  poshmark:
+    - id: poshmark-corduroy
+      q: "corduroy jacket dark"
+      status: active
