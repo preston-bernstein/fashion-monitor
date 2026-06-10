@@ -3,6 +3,7 @@ x-log-shipping-labels: &log-shipping-labels
 
 services:
   scraper:
+    image: fashion-monitor/cli
     build: .
     command: ["node", "apps/cli/dist/run.js", "--config", "/data/config.yaml"]
     labels:
@@ -14,6 +15,7 @@ services:
     restart: "no"
 
   poshmark:
+    image: fashion-monitor/cli
     build: .
     command: ["node", "apps/cli/dist/run.js", "--config", "/data/config.yaml", "--platforms", "poshmark"]
     labels:
@@ -25,6 +27,7 @@ services:
     restart: "no"
 
   feedback-bot:
+    image: fashion-monitor/cli
     build: .
     command: ["node", "apps/cli/dist/feedback-bot.js", "--config", "/data/config.yaml"]
     labels:
@@ -36,6 +39,7 @@ services:
     restart: unless-stopped
 
   dashboard:
+    image: fashion-monitor/cli
     build: .
     command:
       [
@@ -101,6 +105,7 @@ services:
     restart: unless-stopped
 
   dashboard-report:
+    image: fashion-monitor/cli
     build: .
     profiles: ["tools"]
     command: ["node", "apps/cli/dist/report.js", "--config", "/data/config.yaml"]
