@@ -328,9 +328,7 @@ export class SearchGroupsRepo {
     }
 
     const existing = this.listExecutions(group.id);
-    const remove = this.db.prepare(
-      `DELETE FROM scrape_queries WHERE profile_id = ? AND id = ?`,
-    );
+    const remove = this.db.prepare(`DELETE FROM scrape_queries WHERE profile_id = ? AND id = ?`);
     for (const row of existing) {
       if (!desired.has(row.platform)) {
         remove.run(this.profileId, row.id);

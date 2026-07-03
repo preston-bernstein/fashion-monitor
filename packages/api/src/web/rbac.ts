@@ -1,10 +1,4 @@
-import {
-  CAPABILITIES,
-  ROLE_LABELS,
-  ROLES,
-  type Capability,
-  type Role,
-} from "@fm/shared/rbac.js";
+import { CAPABILITIES, ROLE_LABELS, ROLES, type Capability, type Role } from "@fm/shared/rbac.js";
 
 export { CAPABILITIES, ROLES, ROLE_LABELS, type Capability, type Role };
 

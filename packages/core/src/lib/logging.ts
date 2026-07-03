@@ -136,12 +136,7 @@ function wrapPino(pinoChild: PinoLogger, scope: string): Logger {
 }
 
 /** Consistent error log with serialized ctx.err. */
-export function logError(
-  logger: Logger,
-  event: string,
-  err: unknown,
-  extra?: LogContext,
-): void {
+export function logError(logger: Logger, event: string, err: unknown, extra?: LogContext): void {
   logger.error(event, { ...extra, err: serializeError(err) });
 }
 

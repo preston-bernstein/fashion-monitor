@@ -9,12 +9,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v4
+
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
-          cache: npm
+          node-version: "24"
+          cache: pnpm
 
-      - run: npm ci
+      - run: pnpm install --frozen-lockfile
 
       - name: Live platform smoke
         env:
@@ -24,5 +26,5 @@ jobs:
           GRAILED_API_KEY: ${{ secrets.GRAILED_API_KEY }}
           SCRAPFLY_API_KEY: ${{ secrets.SCRAPFLY_API_KEY }}
         run: |
-          npx playwright install chromium --with-deps
-          npm run verify:scrapers
+          pnpm exec playwright install chromium --with-deps
+          pnpm run verify:scrapers

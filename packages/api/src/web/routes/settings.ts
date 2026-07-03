@@ -33,23 +33,27 @@ export async function registerSettingsRoutes(app: FastifyInstance, ctx: WebConte
     );
   }
 
-  app.get("/api/taste", { preHandler: requireCapability(ctx, "taste:read") }, async (req, reply) => {
-    reply.header("Cache-Control", "no-store");
-    const s = settings();
-    return {
-      taste: {
-        aesthetic_prompt: s.get<string>("aesthetic_prompt") ?? "",
-        hard_no: s.get<string[]>("hard_no") ?? [],
-        positive_signals: s.get<{ strong: string[]; weak: string[] }>("positive_signals") ?? {
-          strong: [],
-          weak: [],
+  app.get(
+    "/api/taste",
+    { preHandler: requireCapability(ctx, "taste:read") },
+    async (req, reply) => {
+      reply.header("Cache-Control", "no-store");
+      const s = settings();
+      return {
+        taste: {
+          aesthetic_prompt: s.get<string>("aesthetic_prompt") ?? "",
+          hard_no: s.get<string[]>("hard_no") ?? [],
+          positive_signals: s.get<{ strong: string[]; weak: string[] }>("positive_signals") ?? {
+            strong: [],
+            weak: [],
+          },
+          price_ceiling: s.get<Record<string, number>>("price_ceiling") ?? { default: 0 },
+          measurements: s.get<Record<string, unknown>>("measurements") ?? {},
         },
-        price_ceiling: s.get<Record<string, number>>("price_ceiling") ?? { default: 0 },
-        measurements: s.get<Record<string, unknown>>("measurements") ?? {},
-      },
-      canWrite: req.capabilities.has("taste:write"),
-    };
-  });
+        canWrite: req.capabilities.has("taste:write"),
+      };
+    },
+  );
 
   app.put(
     "/api/taste",
@@ -90,30 +94,34 @@ export async function registerSettingsRoutes(app: FastifyInstance, ctx: WebConte
     },
   );
 
-  app.get("/api/system", { preHandler: requireCapability(ctx, "system:read") }, async (req, reply) => {
-    reply.header("Cache-Control", "no-store");
-    const s = settings();
-    return {
-      system: {
-        platforms: (s.get<Record<string, boolean>>("platforms") ?? {}) as Record<string, boolean>,
-        llm: LlmConfigSchema.parse(s.get("llm") ?? {}),
-        alert_options: s.get<{ mode: string; notify_empty: boolean }>("alert_options") ?? {
-          mode: "immediate",
-          notify_empty: false,
+  app.get(
+    "/api/system",
+    { preHandler: requireCapability(ctx, "system:read") },
+    async (req, reply) => {
+      reply.header("Cache-Control", "no-store");
+      const s = settings();
+      return {
+        system: {
+          platforms: (s.get<Record<string, boolean>>("platforms") ?? {}) as Record<string, boolean>,
+          llm: LlmConfigSchema.parse(s.get("llm") ?? {}),
+          alert_options: s.get<{ mode: string; notify_empty: boolean }>("alert_options") ?? {
+            mode: "immediate",
+            notify_empty: false,
+          },
+          scraper: s.get<{ poshmark_profile_path: string }>("scraper") ?? {
+            poshmark_profile_path: "data/poshmark-profile",
+          },
         },
-        scraper: s.get<{ poshmark_profile_path: string }>("scraper") ?? {
-          poshmark_profile_path: "data/poshmark-profile",
+        options: {
+          platforms: [...PLATFORMS],
+          providers: [...LLM_PROVIDERS],
+          visionBackends: [...VISION_BACKENDS],
+          alertModes: [...ALERT_MODES],
         },
-      },
-      options: {
-        platforms: [...PLATFORMS],
-        providers: [...LLM_PROVIDERS],
-        visionBackends: [...VISION_BACKENDS],
-        alertModes: [...ALERT_MODES],
-      },
-      canWrite: req.capabilities.has("system:write"),
-    };
-  });
+        canWrite: req.capabilities.has("system:write"),
+      };
+    },
+  );
 
   app.put(
     "/api/system",

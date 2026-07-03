@@ -6,3 +6,7 @@ export function getGrailedCredentials(): { appId: string; apiKey: string } {
   }
   return { appId, apiKey };
 }
+
+export async function validateGrailedCredentials(): Promise<void> {
+  getGrailedCredentials();
+}

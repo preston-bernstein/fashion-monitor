@@ -71,17 +71,7 @@ export class SearchGroupImagesRepo {
            profile_id, group_id, source, listing_platform, listing_id, url, sort_order, caption, created_at, updated_at
          ) VALUES (?, ?, 'listing', ?, ?, ?, ?, ?, ?, ?)`,
       )
-      .run(
-        this.profileId,
-        groupId,
-        platform,
-        listingId,
-        url,
-        sortOrder,
-        caption ?? null,
-        now,
-        now,
-      );
+      .run(this.profileId, groupId, platform, listingId, url, sortOrder, caption ?? null, now, now);
 
     return this.getById(Number(result.lastInsertRowid))!;
   }

@@ -71,7 +71,10 @@ export async function scrapeAll(
       });
     } else {
       errors.push(`${scraper.platform}: ${result.error}`);
-      runLog.warn(LogEvents.PlatformScrapeFailed, { platform: scraper.platform, error: result.error });
+      runLog.warn(LogEvents.PlatformScrapeFailed, {
+        platform: scraper.platform,
+        error: result.error,
+      });
     }
   });
 
@@ -118,111 +121,111 @@ export async function runPipeline(ctx: RunContext): Promise<RunStats> {
 
   try {
     return await withRunContext(runId, async () => {
-    const scrapers = ctx.scrapers ?? createScrapers(config, ctx.platformFilter);
-    const queriesByPlatform = allPlatformSearches(config);
-    const runLog = log.child({ runId });
-    const { listings, errors, queryResults, scrapeOutcomes } = await scrapeAll(
-      scrapers,
-      queriesByPlatform,
-      runId,
-    );
-    recordScrapeOutcomes(integrationHealthRepo, scrapers, scrapeOutcomes, runId, nowIso);
-    queryTracker = new QueryRunTracker(queryResults);
+      const scrapers = ctx.scrapers ?? createScrapers(config, ctx.platformFilter);
+      const queriesByPlatform = allPlatformSearches(config);
+      const runLog = log.child({ runId });
+      const { listings, errors, queryResults, scrapeOutcomes } = await scrapeAll(
+        scrapers,
+        queriesByPlatform,
+        runId,
+      );
+      recordScrapeOutcomes(integrationHealthRepo, scrapers, scrapeOutcomes, runId, nowIso);
+      queryTracker = new QueryRunTracker(queryResults);
 
-    stats.listingsFound = listings.length;
-    stats.errors.push(...errors);
+      stats.listingsFound = listings.length;
+      stats.errors.push(...errors);
 
-    const { listings: deduped, dbSkipped } = dedupePipeline(listings, seenRepo);
-    stats.listingsNew = deduped.length;
-    for (const listing of deduped) {
-      queryTracker.recordNew(listing);
-    }
-
-    const { passed, rejected } = prefilterListings(deduped, config);
-    stats.prefilterRejected = rejected.length;
-
-    for (const { listing, reason } of rejected) {
-      queryTracker.recordPrefilterRejected(listing);
-      seenRepo.markSeen(listing, "NO", nowIso);
-      runLog.info(LogEvents.PipelinePrefilterRejected, {
-        platform: listing.platform,
-        queryId: listing.sourceQueryId,
-        id: listing.id,
-        reason,
-      });
-    }
-
-    const provider = ctx.provider ?? createProviderFromConfig(config.llm);
-    const healthy = await recordTimedHealthCheck(
-      integrationHealthRepo,
-      `llm:${config.llm.provider}`,
-      () => provider.healthCheck(),
-      runId,
-      nowIso,
-    );
-
-    if (!healthy) {
-      for (const listing of passed) {
-        seenRepo.markPending(listing, nowIso);
+      const { listings: deduped, dbSkipped } = dedupePipeline(listings, seenRepo);
+      stats.listingsNew = deduped.length;
+      for (const listing of deduped) {
+        queryTracker.recordNew(listing);
       }
-      runLog.warn(LogEvents.PipelineLlmUnavailable, { pending: passed.length });
+
+      const { passed, rejected } = prefilterListings(deduped, config);
+      stats.prefilterRejected = rejected.length;
+
+      for (const { listing, reason } of rejected) {
+        queryTracker.recordPrefilterRejected(listing);
+        seenRepo.markSeen(listing, "NO", nowIso);
+        runLog.info(LogEvents.PipelinePrefilterRejected, {
+          platform: listing.platform,
+          queryId: listing.sourceQueryId,
+          id: listing.id,
+          reason,
+        });
+      }
+
+      const provider = ctx.provider ?? createProviderFromConfig(config.llm);
+      const healthy = await recordTimedHealthCheck(
+        integrationHealthRepo,
+        `llm:${config.llm.provider}`,
+        () => provider.healthCheck(),
+        runId,
+        nowIso,
+      );
+
+      if (!healthy) {
+        for (const listing of passed) {
+          seenRepo.markPending(listing, nowIso);
+        }
+        runLog.warn(LogEvents.PipelineLlmUnavailable, { pending: passed.length });
+        scrapeQueriesRepo.recordQueryRuns(runId, queryTracker.toArray());
+        runsRepo.finish(runId, new Date().toISOString(), stats, stats.errors.join("; ") || null);
+        return stats;
+      }
+
+      const pendingBacklog = seenRepo.fetchPendingListings();
+      if (pendingBacklog.length > 0) {
+        runLog.info(LogEvents.PipelinePendingBacklog, { count: pendingBacklog.length });
+      }
+
+      const toScore = mergeListings(pendingBacklog, passed);
+      const scoreResult = await scoreListings(toScore, config, provider, feedbackRepo);
+      stats.scoredYes = scoreResult.yes.length;
+      stats.scoredMaybe = scoreResult.maybe.length;
+      stats.scoredNo = scoreResult.no.length;
+
+      for (const { listing, result } of scoreResult.scored) {
+        queryTracker.recordScore(listing, result.score);
+        seenRepo.recordScore(listing, result.score, nowIso);
+      }
+
+      const alertable = filterAlertable(scoreResult.scored);
+      const alerter = createTelegramAlerter(config.alert);
+
+      if (config.alert.mode === "digest") {
+        if (alertable.length > 0) {
+          const sent = await alerter.sendDigest(alertable);
+          recordAlertDelivery(integrationHealthRepo, "send_digest", sent, runId, nowIso);
+          if (sent) {
+            stats.alertsSent = alertable.length;
+            for (const scored of alertable) {
+              queryTracker.recordAlert(scored.listing);
+            }
+            recordAlertsSent(alertable, alertLogRepo, seenRepo, nowIso);
+          }
+        }
+      } else {
+        for (const scored of alertable) {
+          const sent = await alerter.sendAlert(scored);
+          recordAlertDelivery(integrationHealthRepo, "send_alert", sent, runId, nowIso);
+          if (sent) {
+            stats.alertsSent++;
+            queryTracker.recordAlert(scored.listing);
+            recordAlertSent(scored, alertLogRepo, seenRepo, nowIso);
+          }
+        }
+      }
+
+      if (config.alert.notify_empty && alertable.length === 0) {
+        const sent = await alerter.sendEmptyRunNotice();
+        recordAlertDelivery(integrationHealthRepo, "send_empty_notice", sent, runId, nowIso);
+      }
+
       scrapeQueriesRepo.recordQueryRuns(runId, queryTracker.toArray());
       runsRepo.finish(runId, new Date().toISOString(), stats, stats.errors.join("; ") || null);
+      runLog.info(LogEvents.PipelineRunComplete, { profileId, ...stats, dbSkipped });
       return stats;
-    }
-
-    const pendingBacklog = seenRepo.fetchPendingListings();
-    if (pendingBacklog.length > 0) {
-      runLog.info(LogEvents.PipelinePendingBacklog, { count: pendingBacklog.length });
-    }
-
-    const toScore = mergeListings(pendingBacklog, passed);
-    const scoreResult = await scoreListings(toScore, config, provider, feedbackRepo);
-    stats.scoredYes = scoreResult.yes.length;
-    stats.scoredMaybe = scoreResult.maybe.length;
-    stats.scoredNo = scoreResult.no.length;
-
-    for (const { listing, result } of scoreResult.scored) {
-      queryTracker.recordScore(listing, result.score);
-      seenRepo.recordScore(listing, result.score, nowIso);
-    }
-
-    const alertable = filterAlertable(scoreResult.scored);
-    const alerter = createTelegramAlerter(config.alert);
-
-    if (config.alert.mode === "digest") {
-      if (alertable.length > 0) {
-        const sent = await alerter.sendDigest(alertable);
-        recordAlertDelivery(integrationHealthRepo, "send_digest", sent, runId, nowIso);
-        if (sent) {
-          stats.alertsSent = alertable.length;
-          for (const scored of alertable) {
-            queryTracker.recordAlert(scored.listing);
-          }
-          recordAlertsSent(alertable, alertLogRepo, seenRepo, nowIso);
-        }
-      }
-    } else {
-      for (const scored of alertable) {
-        const sent = await alerter.sendAlert(scored);
-        recordAlertDelivery(integrationHealthRepo, "send_alert", sent, runId, nowIso);
-        if (sent) {
-          stats.alertsSent++;
-          queryTracker.recordAlert(scored.listing);
-          recordAlertSent(scored, alertLogRepo, seenRepo, nowIso);
-        }
-      }
-    }
-
-    if (config.alert.notify_empty && alertable.length === 0) {
-      const sent = await alerter.sendEmptyRunNotice();
-      recordAlertDelivery(integrationHealthRepo, "send_empty_notice", sent, runId, nowIso);
-    }
-
-    scrapeQueriesRepo.recordQueryRuns(runId, queryTracker.toArray());
-    runsRepo.finish(runId, new Date().toISOString(), stats, stats.errors.join("; ") || null);
-    runLog.info(LogEvents.PipelineRunComplete, { profileId, ...stats, dbSkipped });
-    return stats;
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown pipeline error";

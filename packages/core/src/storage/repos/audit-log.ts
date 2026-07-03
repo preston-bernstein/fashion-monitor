@@ -19,13 +19,7 @@ export interface AuditRow {
   recorded_at: string;
 }
 
-export type AuditCategory =
-  | "auth"
-  | "monitors"
-  | "settings"
-  | "secrets"
-  | "users"
-  | "system";
+export type AuditCategory = "auth" | "monitors" | "settings" | "secrets" | "users" | "system";
 
 export interface AuditFilterParams {
   limit?: number;

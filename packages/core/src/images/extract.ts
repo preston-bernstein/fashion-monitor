@@ -35,8 +35,7 @@ export function extractListingImages(listing: Listing): ExtractedImage[] {
 
   switch (listing.platform) {
     case "ebay": {
-      const additional =
-        (raw.additionalImages as Array<{ imageUrl?: string }> | undefined) ?? [];
+      const additional = (raw.additionalImages as Array<{ imageUrl?: string }> | undefined) ?? [];
       additional.forEach((img, i) => pushUnique(images, seen, img.imageUrl, i + 1));
       break;
     }
