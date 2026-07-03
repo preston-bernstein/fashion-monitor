@@ -29,7 +29,7 @@ describe("analytics queries", () => {
     const startedIso = started.toISOString();
     const finishedIso = finished.toISOString();
     const seen = new SeenListingsRepo(db, profileId);
-    const runs = new RunsRepo(db);
+    const runs = new RunsRepo(db, "default");
     const alerts = new AlertLogRepo(db, profileId);
 
     seen.markSeen(sampleListing({ id: "a1", platform: "ebay" }), "YES", startedIso);
@@ -72,7 +72,7 @@ describe("analytics queries", () => {
     expect(overview.totalAlerts).toBe(1);
     expect(overview.totalYes).toBe(1);
 
-    const runRows = fetchRunSummaries(db, 5);
+    const runRows = fetchRunSummaries(db, profileId, 5);
     expect(runRows[0].duration_seconds).toBeGreaterThanOrEqual(59);
     expect(runRows[0].duration_seconds).toBeLessThanOrEqual(61);
     expect(runRows[0].listings_found).toBe(10);
@@ -80,7 +80,7 @@ describe("analytics queries", () => {
     const scores = fetchScoreByPlatform(db, profileId);
     expect(scores.some((s) => s.platform === "ebay" && s.score === "YES")).toBe(true);
 
-    const daily = fetchDailyRuns(db, 7);
+    const daily = fetchDailyRuns(db, profileId, 7);
     expect(daily.length).toBeGreaterThan(0);
     expect(daily[0].total_alerts).toBe(1);
 
@@ -92,8 +92,8 @@ describe("analytics queries", () => {
   it("formats a text report", () => {
     const report = formatFullReport({
       overview: fetchOverview(db, profileId),
-      runs: fetchRunSummaries(db, 5),
-      daily: fetchDailyRuns(db, 7),
+      runs: fetchRunSummaries(db, profileId, 5),
+      daily: fetchDailyRuns(db, profileId, 7),
       scores: fetchScoreByPlatform(db, profileId),
       platformAlerts: [],
       alerts: [],

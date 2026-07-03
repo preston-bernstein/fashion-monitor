@@ -38,8 +38,8 @@ async function main(): Promise<void> {
 
     const report = formatFullReport({
       overview: fetchOverview(db, profileId),
-      runs: fetchRunSummaries(db, 15),
-      daily: fetchDailyRuns(db, days),
+      runs: fetchRunSummaries(db, profileId, 15),
+      daily: fetchDailyRuns(db, profileId, days),
       scores: fetchScoreByPlatform(db, profileId),
       platformAlerts: fetchPlatformAlerts(db, profileId),
       alerts: fetchRecentAlerts(db, profileId, 10),

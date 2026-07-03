@@ -25,7 +25,7 @@ describe("query scorecard quality fields", () => {
     const queries = new ScrapeQueriesRepo(db, profileId);
     const execId = executionId("ebay-quality", "ebay");
 
-    const runId = new RunsRepo(db).start(ts);
+    const runId = new RunsRepo(db, "default").start(ts);
     queries.recordQueryRuns(runId, [
       {
         queryId: execId,
