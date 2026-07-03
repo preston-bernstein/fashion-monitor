@@ -27,7 +27,7 @@ import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 50;
 
-function buildAuditUrl(filters: AuditFiltersState, offset: number): string {
+export function buildAuditUrl(filters: AuditFiltersState, offset: number): string {
   const params = new URLSearchParams({
     limit: String(PAGE_SIZE),
     offset: String(offset),
