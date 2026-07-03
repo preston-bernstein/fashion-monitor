@@ -86,4 +86,91 @@ describe("storage repos", () => {
       new Date().toISOString(),
     );
   });
+
+  it("RunsRepo.recentFunnel persists prefiltered counts, orders newest-first, and is profile-scoped", () => {
+    const runsDefault = new RunsRepo(db, "default");
+    const runsOther = new RunsRepo(db, "other");
+
+    const id1 = runsDefault.start("2026-01-01T00:00:00.000Z");
+    runsDefault.finish(
+      id1,
+      "2026-01-01T00:05:00.000Z",
+      {
+        listingsFound: 10,
+        listingsNew: 6,
+        prefilterRejected: 2,
+        scoredYes: 1,
+        scoredMaybe: 1,
+        scoredNo: 2,
+        alertsSent: 1,
+        errors: [],
+      },
+      null,
+    );
+
+    const id2 = runsDefault.start("2026-01-02T00:00:00.000Z");
+    runsDefault.finish(
+      id2,
+      "2026-01-02T00:05:00.000Z",
+      {
+        listingsFound: 4,
+        listingsNew: 4,
+        prefilterRejected: 0,
+        scoredYes: 0,
+        scoredMaybe: 0,
+        scoredNo: 4,
+        alertsSent: 0,
+        errors: [],
+      },
+      "boom",
+    );
+
+    const otherId = runsOther.start("2026-01-03T00:00:00.000Z");
+    runsOther.finish(
+      otherId,
+      "2026-01-03T00:05:00.000Z",
+      {
+        listingsFound: 1,
+        listingsNew: 1,
+        prefilterRejected: 0,
+        scoredYes: 1,
+        scoredMaybe: 0,
+        scoredNo: 0,
+        alertsSent: 1,
+        errors: [],
+      },
+      null,
+    );
+
+    const funnel = runsDefault.recentFunnel(5);
+    expect(funnel).toHaveLength(2);
+    expect(funnel.map((r) => r.id)).toEqual([id2, id1]);
+    expect(funnel[1].prefilter_rejected).toBe(2);
+    expect(funnel[0].had_error).toBe(1);
+    expect(funnel[1].had_error).toBe(0);
+    expect(funnel.some((r) => r.id === otherId)).toBe(false);
+  });
+
+  it("AlertLogRepo.latestAlertedAt returns the newest alert per profile, or null when empty", () => {
+    const alertsDefault = new AlertLogRepo(db, "default");
+    const alertsOther = new AlertLogRepo(db, "other");
+    const result = {
+      listing_id: "ebay:abc123",
+      score: "YES" as const,
+      quality: "pass" as const,
+      value: "pass" as const,
+      aesthetic: "pass" as const,
+      size: "HIGH" as const,
+      reason: "Good match",
+    };
+
+    expect(alertsDefault.latestAlertedAt()).toBeNull();
+
+    alertsDefault.insert(sampleListing({ id: "1" }), result, "2026-01-01T00:00:00.000Z");
+    alertsDefault.insert(sampleListing({ id: "2" }), result, "2026-01-03T00:00:00.000Z");
+    alertsDefault.insert(sampleListing({ id: "3" }), result, "2026-01-02T00:00:00.000Z");
+
+    expect(alertsDefault.latestAlertedAt()).toBe("2026-01-03T00:00:00.000Z");
+    expect(alertsOther.latestAlertedAt()).toBeNull();
+  });
 });

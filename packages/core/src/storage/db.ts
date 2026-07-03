@@ -48,6 +48,11 @@ const COLUMN_PATCHES: Array<{ table: string; column: string; ddl: string }> = [
     column: "profile_id",
     ddl: "ALTER TABLE runs ADD COLUMN profile_id TEXT NOT NULL DEFAULT 'default'",
   },
+  {
+    table: "runs",
+    column: "prefilter_rejected",
+    ddl: "ALTER TABLE runs ADD COLUMN prefilter_rejected INTEGER NOT NULL DEFAULT 0",
+  },
 ];
 
 function applyColumnPatches(db: Db): void {

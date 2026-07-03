@@ -40,6 +40,15 @@ export class AlertLogRepo {
       | undefined;
   }
 
+  latestAlertedAt(): string | null {
+    const row = this.db
+      .prepare(
+        `SELECT alerted_at FROM alert_log WHERE profile_id = ? ORDER BY alerted_at DESC LIMIT 1`,
+      )
+      .get(this.profileId) as { alerted_at: string } | undefined;
+    return row?.alerted_at ?? null;
+  }
+
   insert(listing: Listing, result: ScoringResult, alertedAt: string): void {
     this.db
       .prepare(

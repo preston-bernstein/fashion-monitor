@@ -117,6 +117,26 @@ export interface ConnectionTestResponse {
   testedAt: string;
 }
 
+export interface RunFunnelDto {
+  id: number;
+  startedAt: string;
+  finishedAt: string | null;
+  durationSeconds: number | null;
+  scraped: number;
+  new: number;
+  prefiltered: number;
+  scoredYes: number;
+  scoredMaybe: number;
+  scoredNo: number;
+  alerted: number;
+  hadError: boolean;
+}
+
+export interface HealthResponse {
+  runs: RunFunnelDto[];
+  lastAlertedAt: string | null;
+}
+
 export interface UserRow {
   id: number;
   email: string;

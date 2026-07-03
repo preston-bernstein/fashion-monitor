@@ -2,6 +2,7 @@ import { createRootRoute, createRoute, createRouter, Outlet, redirect } from "@t
 import { AppShell } from "@/components/app-shell";
 import { LoginPage } from "@/pages/login";
 import { AnalyticsPage } from "@/pages/analytics";
+import { HealthPage } from "@/pages/health";
 import { MonitorsPage } from "@/pages/monitors";
 import { TastePage } from "@/pages/taste";
 import { SystemPage } from "@/pages/system";
@@ -31,6 +32,12 @@ const analyticsRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: "/",
   component: AnalyticsPage,
+});
+
+const healthRoute = createRoute({
+  getParentRoute: () => appLayoutRoute,
+  path: "/health",
+  component: HealthPage,
 });
 
 const monitorsRoute = createRoute({
@@ -96,6 +103,7 @@ const routeTree = rootRoute.addChildren([
   loginRoute,
   appLayoutRoute.addChildren([
     analyticsRoute,
+    healthRoute,
     monitorsRoute,
     tasteRoute,
     systemRoute,

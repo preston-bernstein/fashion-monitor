@@ -16,7 +16,10 @@ export interface NavSection {
 export const NAV_SECTIONS: NavSection[] = [
   {
     label: "Observe",
-    items: [{ to: "/", label: "Analytics", cap: "analytics:read" }],
+    items: [
+      { to: "/", label: "Analytics", cap: "analytics:read" },
+      { to: "/health", label: "Health", cap: "analytics:read" },
+    ],
   },
   {
     label: "Curator",
