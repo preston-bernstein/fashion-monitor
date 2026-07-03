@@ -12,11 +12,11 @@ Run after deploy or major scraper/LLM changes. Requires real credentials in `con
 ## Unit / integration (local)
 
 ```bash
-npm ci
-npm run typecheck
-npm test
-npm run test:coverage
-npm run test:e2e
+pnpm install --frozen-lockfile
+pnpm run typecheck
+pnpm test
+pnpm run test:coverage
+pnpm run test:e2e
 ```
 
 ## Live scraper verification (the big five)
@@ -25,8 +25,8 @@ Each platform needs different setup. Run:
 
 ```bash
 cp .env.example .env   # fill in what you have
-node node_modules/playwright/cli.js install chromium   # required for Depop fallback + Poshmark
-npm run verify:scrapers
+pnpm exec playwright install chromium   # required for Depop fallback + Poshmark
+pnpm run verify:scrapers
 ```
 
 | Platform | Required env | Optional | Notes |
@@ -37,7 +37,7 @@ npm run verify:scrapers
 | **Vestiaire** | `SCRAPFLY_API_KEY` | — | Cloudflare blocks bare fetch |
 | **Poshmark** | — | — | Playwright stealth + profile dir. May need logged-in profile for tiles |
 
-`npm run test:live` runs the same checks via Vitest (`@live` tag).
+`pnpm run test:live` runs the same checks via Vitest (`@live` tag).
 
 GitHub Actions **Live smoke** workflow: set secrets `EBAY_CLIENT_ID`, `EBAY_CLIENT_SECRET`, `GRAILED_APP_ID`, `GRAILED_API_KEY`, `SCRAPFLY_API_KEY`.
 
@@ -49,15 +49,15 @@ export EBAY_CLIENT_SECRET=...
 export GRAILED_APP_ID=...
 export GRAILED_API_KEY=...
 export SCRAPFLY_API_KEY=...   # vestiaire
-npm run verify:scrapers
+pnpm run verify:scrapers
 # or
-npm run test:live
+pnpm run test:live
 ```
 
 ## Single pipeline run
 
 ```bash
-npm run dev:run -- --config config.yaml
+pnpm run dev:run -- --config config.yaml
 ```
 
 Verify:
@@ -80,7 +80,7 @@ Stop Ollama (or point config at bad URL), run once:
 ## Feedback bot
 
 ```bash
-npm run dev:feedback -- --config config.yaml
+pnpm run dev:feedback -- --config config.yaml
 ```
 
 - [ ] Tap **Good find** / **Not for me** on a Telegram alert
@@ -102,7 +102,7 @@ docker compose logs -f scraper
 ## Mutation testing (optional, slow)
 
 ```bash
-npm run test:mutation
+pnpm run test:mutation
 ```
 
 Review Stryker report; investigate surviving mutants in `pipeline/` and `listing-snapshot.ts`.
