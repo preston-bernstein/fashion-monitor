@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, MoreHorizontal, Pause, Pencil, Play, Trash2 } from "lucide-react";
 import type { SearchGroup } from "@fm/shared/dto.js";
 import { LazyImage } from "@/components/common/lazy-image";
+import { MonitorImageManager } from "@/components/monitors/monitor-image-manager";
 import { fetchMonitorImages, monitorImagesQueryKey } from "@/lib/monitor-images-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -114,10 +115,18 @@ function GroupRow({
           </TableCell>
         ) : null}
       </TableRow>
-      {expanded && displayImages.length > 0 ? (
+      {expanded && canWrite && gallery ? (
         <TableRow className="bg-muted/20">
           <TableCell />
-          <TableCell colSpan={canWrite ? 6 : 5}>
+          <TableCell colSpan={6}>
+            <MonitorImageManager groupId={group.id} gallery={gallery} />
+          </TableCell>
+        </TableRow>
+      ) : null}
+      {expanded && !canWrite && displayImages.length > 0 ? (
+        <TableRow className="bg-muted/20">
+          <TableCell />
+          <TableCell colSpan={5}>
             <div className="flex flex-wrap items-center gap-2 py-1">
               <span className="text-xs text-muted-foreground">Images</span>
               {displayImages.slice(0, 6).map((url) => (

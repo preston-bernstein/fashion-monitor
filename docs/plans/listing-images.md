@@ -1,6 +1,6 @@
 # Listing images architecture
 
-**Status:** MVP implemented (migration 014). Auto-pick gallery implemented 2026-07-03. Thumbnail cache and monitor edit picker UI deferred.
+**Status:** MVP implemented (migration 014). Auto-pick gallery and monitor gallery-management UI implemented 2026-07-03. Thumbnail cache deferred.
 
 ---
 
@@ -163,7 +163,6 @@ Audit actions: `search_group.image.add`, `search_group.image.remove`.
 ## Deferred
 
 - Thumbnail cache module (`data/image-cache/`, LRU cap).
-- Monitor edit UI: "pick from recent listings".
 - `upload` source for user-provided files.
 - `srcset` / blur placeholders.
 - Backfill migration from historical `listing_snapshot` JSON (optional one-off script).
@@ -180,5 +179,5 @@ Audit actions: `search_group.image.add`, `search_group.image.remove`.
 | Pipeline hook | `seen-listings.ts` |
 | Shared schemas | `packages/shared/src/schemas/images.ts` |
 | API routes | `packages/api/src/web/routes/images.ts` |
-| Web | `lazy-image.tsx`, `monitor-table.tsx`, `dashboard-sections.tsx` |
-| Tests | `extract.test.ts`, `listing-images.test.ts`, `images.test.ts` |
+| Web | `lazy-image.tsx`, `monitor-table.tsx`, `monitor-image-manager.tsx`, `dashboard-sections.tsx` |
+| Tests | `extract.test.ts`, `listing-images.test.ts`, `images.test.ts`, `monitor-image-manager.test.tsx` |
