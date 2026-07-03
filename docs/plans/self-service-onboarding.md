@@ -52,9 +52,13 @@ Implementation: `packages/shared/src/connections.ts` (tiered registry, documents
 
 Implementation: `GET /api/profile-health` (`packages/api/src/web/routes/health.ts`, gated by `analytics:read` — deliberately the lowest tier, since viewer/curator are exactly who this page is for), `apps/web/src/pages/health.tsx` + `apps/web/src/components/health/run-funnel-table.tsx`. 9 new tests (2 core + 3 api + 4 component) plus a real end-to-end smoke test against a running dashboard with seeded run/alert rows.
 
-## Phase 5 — Onboarding checklist (the "dashboard first" UX) (Q7)
+## Phase 5 — Onboarding checklist (the "dashboard first" UX) (Q7) [x]
 
 Ordered first-run checklist on her dashboard: ① set Taste → ② add first Monitor → ③ connect ntfy + Test (banner "no alert destination yet" until it passes) → ④ optionally connect platforms.
+
+Implemented 2026-07-03 as `OnboardingChecklist` on the Analytics (`/`) landing page. No new read endpoints — each step reads an existing response (`GET /api/taste`'s `aesthetic_prompt`, `GET /api/monitors`'s `groups.length`, `GET /api/connections`'s ntfy status) that was already being fetched elsewhere in the app. Only new surface is the dismiss flag (`GET/POST /api/onboarding`, a `ProfileSettingsRepo` key, no migration). Auto-hides once every step that role can see is done, or once dismissed. Verified against a real invite→redeem→login flow: a freshly-created profile reports all three steps incomplete, while the file-seeded `default` profile (which already has monitors/taste from `config.yaml`) correctly reports everything done.
+
+This completes the plan's four build phases (Phase 1 multi-tenancy foundations through Phase 5 onboarding checklist). What's left is the Spikes below — both require the owner's own judgment (ToS risk tolerance, live measurement against real platforms) rather than being open implementation work.
 
 ---
 
