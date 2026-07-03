@@ -32,7 +32,7 @@ Gallery URLs exist in raw API payloads but were **not** persisted before this wo
 
 - `seen_listings.listing_snapshot` — full listing JSON (including `imageUrl`) while score is `PENDING`; cleared after scoring.
 - `feedback.image_url` — primary URL copied at feedback time.
-- ntfy alerts — do not currently attach `listing.imageUrl` (gap vs. the old Telegram `sendPhoto` alerter; ntfy's JSON publish API supports an `attach` field if this is picked up later).
+- ntfy alerts — `sendAlert` attaches `listing.imageUrl` via ntfy's JSON publish `attach` field (closes the gap vs. the old Telegram `sendPhoto` alerter). `sendDigest` still does not attach an image — ntfy only supports one attachment per message and a digest covers multiple listings.
 - LLM vision — `prepareForLLM()` passes `image_url` from primary only.
 
 No dedicated image table existed prior to migration 014.

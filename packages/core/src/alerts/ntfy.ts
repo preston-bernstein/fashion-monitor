@@ -28,6 +28,7 @@ interface NtfyPublishPayload {
   priority: number;
   tags?: string[];
   click?: string;
+  attach?: string;
 }
 
 export class NtfyAlerter implements AlertClient {
@@ -83,6 +84,7 @@ export class NtfyAlerter implements AlertClient {
       priority: isYes ? 4 : 3,
       tags: [isYes ? "white_check_mark" : "warning"],
       click: listing.url,
+      attach: listing.imageUrl ?? undefined,
     });
   }
 

@@ -119,6 +119,28 @@ describe("ntfy alerts", () => {
     expect(init.headers["Authorization"]).toBeUndefined();
   });
 
+  it("attaches the listing image via ntfy's attach field", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const alerter = createNtfyAlerter(baseConfig);
+    await alerter.sendAlert(scoredListing());
+
+    const body = JSON.parse(String(fetchMock.mock.calls[0][1].body));
+    expect(body.attach).toBe("https://example.com/image.jpg");
+  });
+
+  it("omits attach when the listing has no image", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const alerter = createNtfyAlerter(baseConfig);
+    await alerter.sendAlert({ ...scoredListing(), listing: { ...sampleListing(), imageUrl: null } });
+
+    const body = JSON.parse(String(fetchMock.mock.calls[0][1].body));
+    expect(body.attach).toBeUndefined();
+  });
+
   it("returns false and does not throw on a non-ok response", async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 401 });
     vi.stubGlobal("fetch", fetchMock);
