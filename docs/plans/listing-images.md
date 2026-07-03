@@ -1,6 +1,6 @@
 # Listing images architecture
 
-**Status:** MVP implemented (migration 014). Thumbnail cache, auto-pick gallery, and monitor edit picker UI deferred.
+**Status:** MVP implemented (migration 014). Auto-pick gallery implemented 2026-07-03. Thumbnail cache and monitor edit picker UI deferred.
 
 ---
 
@@ -75,7 +75,7 @@ search_group_images (
 
 - FK to `search_groups` with `ON DELETE CASCADE`.
 - **Curated** rows are explicit user/API picks.
-- **Auto-pick** from recent high-score listings: deferred; API returns `fallback` from latest `listing_images` for the group via `seen_listings.source_query_id`.
+- **Auto-pick** from recent high-score listings: implemented 2026-07-03. `ListingImagesRepo.findAutoPickForGroup()` returns the `fallback` array — YES/MAYBE-scored listings only (NO/PENDING/unscored excluded), YES ranked ahead of MAYBE, then by recency. Used only when a Monitor has zero curated (`search_group_images`) rows.
 
 ---
 
@@ -163,7 +163,6 @@ Audit actions: `search_group.image.add`, `search_group.image.remove`.
 ## Deferred
 
 - Thumbnail cache module (`data/image-cache/`, LRU cap).
-- Auto-pick gallery from recent YES/MAYBE listings.
 - Monitor edit UI: "pick from recent listings".
 - `upload` source for user-provided files.
 - `srcset` / blur placeholders.

@@ -74,7 +74,14 @@ export class ListingImagesRepo {
     return row?.url ?? null;
   }
 
-  findLatestForGroup(
+  /**
+   * Auto-pick fallback shown when a Monitor has no curated gallery: the most
+   * recent YES/MAYBE-scored listings' primary images, YES ranked ahead of
+   * MAYBE. Deliberately excludes NO/PENDING/unscored listings — a "recent
+   * listings" fallback with no score filter would just as happily show
+   * rejected junk as good matches.
+   */
+  findAutoPickForGroup(
     groupId: string,
     limit = 5,
   ): Array<{ platform: Platform; listing_id: string; url: string; score: string | null }> {
@@ -89,7 +96,8 @@ export class ListingImagesRepo {
          WHERE li.profile_id = ?
            AND li.position = 0
            AND sl.source_query_id = ?
-         ORDER BY sl.first_seen DESC
+           AND sl.score IN ('YES', 'MAYBE')
+         ORDER BY CASE sl.score WHEN 'YES' THEN 0 ELSE 1 END, sl.first_seen DESC
          LIMIT ?`,
       )
       .all(this.profileId, groupId, limit) as Array<{

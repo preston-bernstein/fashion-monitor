@@ -76,6 +76,81 @@ describe("listing and search group images repos", () => {
     expect(groupImages.listForGroup("corduroy")).toHaveLength(1);
   });
 
+  it("findAutoPickForGroup excludes NO/PENDING listings and orders YES before MAYBE by recency", () => {
+    const groups = new SearchGroupsRepo(db, "default");
+    const seen = new SeenListingsRepo(db, "default");
+    const images = new ListingImagesRepo(db, "default");
+
+    groups.createGroup(
+      {
+        id: "auto-pick",
+        query_text: "corduroy jacket",
+        platforms: ["ebay"],
+        query_overrides: {},
+        enabled: true,
+        status: "active",
+        note: null,
+      },
+      new Date("2026-01-01T00:00:00.000Z").toISOString(),
+    );
+
+    seen.markSeen(
+      sampleListing({
+        id: "no-1",
+        sourceQueryId: "auto-pick",
+        imageUrl: "https://i.ebayimg.com/no.jpg",
+      }),
+      "NO",
+      new Date("2026-01-04T00:00:00.000Z").toISOString(),
+    );
+    seen.markPending(
+      sampleListing({
+        id: "pending-1",
+        sourceQueryId: "auto-pick",
+        imageUrl: "https://i.ebayimg.com/pending.jpg",
+      }),
+      new Date("2026-01-04T00:00:00.000Z").toISOString(),
+    );
+    seen.markSeen(
+      sampleListing({
+        id: "maybe-older",
+        sourceQueryId: "auto-pick",
+        imageUrl: "https://i.ebayimg.com/maybe-older.jpg",
+      }),
+      "MAYBE",
+      new Date("2026-01-01T00:00:00.000Z").toISOString(),
+    );
+    seen.markSeen(
+      sampleListing({
+        id: "yes-newer",
+        sourceQueryId: "auto-pick",
+        imageUrl: "https://i.ebayimg.com/yes-newer.jpg",
+      }),
+      "YES",
+      new Date("2026-01-03T00:00:00.000Z").toISOString(),
+    );
+    seen.markSeen(
+      sampleListing({
+        id: "yes-newest",
+        sourceQueryId: "auto-pick",
+        imageUrl: "https://i.ebayimg.com/yes-newest.jpg",
+      }),
+      "YES",
+      new Date("2026-01-05T00:00:00.000Z").toISOString(),
+    );
+
+    const picked = images.findAutoPickForGroup("auto-pick", 5);
+    expect(picked.map((p) => p.url)).toEqual([
+      "https://i.ebayimg.com/yes-newest.jpg",
+      "https://i.ebayimg.com/yes-newer.jpg",
+      "https://i.ebayimg.com/maybe-older.jpg",
+    ]);
+
+    expect(images.findAutoPickForGroup("auto-pick", 1).map((p) => p.url)).toEqual([
+      "https://i.ebayimg.com/yes-newest.jpg",
+    ]);
+  });
+
   it("rejects disallowed curated URLs", () => {
     const groups = new SearchGroupsRepo(db, "default");
     const groupImages = new SearchGroupImagesRepo(db, "default");

@@ -64,7 +64,7 @@ export async function registerImageRoutes(app: FastifyInstance, ctx: WebContext)
 
       reply.header("Cache-Control", "private, max-age=60");
       const curated = groupImages(req.profileId!).listForGroup(id);
-      const fallback = listingImages(req.profileId!).findLatestForGroup(id, 5);
+      const fallback = listingImages(req.profileId!).findAutoPickForGroup(id, 5);
       return {
         group_id: id,
         curated: curated.map(toSearchGroupImageDto),

@@ -88,6 +88,66 @@ describe("monitor and listing images API", () => {
     expect(afterBody.curated[0]?.url).toBe("https://i.ebayimg.com/fallback.jpg");
   });
 
+  it("auto-picks only YES/MAYBE listings, YES ranked ahead of MAYBE", async () => {
+    const seen = new SeenListingsRepo(db, "default");
+    const now = new Date().toISOString();
+
+    await client.post("/api/monitors", {
+      id: "auto-pick-watch",
+      query_text: "corduroy jacket",
+      platforms: ["ebay"],
+      status: "active",
+      enabled: true,
+    });
+
+    seen.markSeen(
+      sampleListing({
+        id: "rejected-1",
+        sourceQueryId: "auto-pick-watch",
+        imageUrl: "https://i.ebayimg.com/no.jpg",
+      }),
+      "NO",
+      now,
+    );
+    seen.markPending(
+      sampleListing({
+        id: "pending-1",
+        sourceQueryId: "auto-pick-watch",
+        imageUrl: "https://i.ebayimg.com/pending.jpg",
+      }),
+      now,
+    );
+    seen.markSeen(
+      sampleListing({
+        id: "maybe-1",
+        sourceQueryId: "auto-pick-watch",
+        imageUrl: "https://i.ebayimg.com/maybe.jpg",
+      }),
+      "MAYBE",
+      now,
+    );
+    seen.markSeen(
+      sampleListing({
+        id: "yes-1",
+        sourceQueryId: "auto-pick-watch",
+        imageUrl: "https://i.ebayimg.com/yes.jpg",
+      }),
+      "YES",
+      now,
+    );
+
+    const res = await client.get("/api/monitors/auto-pick-watch/images");
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as { fallback: Array<{ url: string; score: string | null }> };
+
+    expect(body.fallback).toHaveLength(2);
+    expect(body.fallback.map((f) => f.url)).toEqual([
+      "https://i.ebayimg.com/yes.jpg",
+      "https://i.ebayimg.com/maybe.jpg",
+    ]);
+    expect(body.fallback.every((f) => f.score === "YES" || f.score === "MAYBE")).toBe(true);
+  });
+
   it("returns listing images and removes curated entries", async () => {
     const seen = new SeenListingsRepo(db, "default");
     const now = new Date().toISOString();
