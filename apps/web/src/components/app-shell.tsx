@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 
-function navItemActive(pathname: string, to: string, search?: Record<string, string>): boolean {
+export function navItemActive(pathname: string, to: string, search?: Record<string, string>): boolean {
   if (to === "/") return pathname === "/";
   if (search?.tab) {
     const params = new URLSearchParams(window.location.search);
