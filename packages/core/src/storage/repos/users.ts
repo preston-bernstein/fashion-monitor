@@ -117,6 +117,11 @@ export class MembershipsRepo {
   }
 }
 
+export interface ProfileRow {
+  id: string;
+  name: string;
+}
+
 export class ProfilesRepo {
   constructor(private readonly db: Db) {}
 
@@ -132,5 +137,13 @@ export class ProfilesRepo {
   exists(id: string): boolean {
     const row = this.db.prepare(`SELECT 1 FROM profiles WHERE id = ?`).get(id);
     return row !== undefined;
+  }
+
+  /**
+   * v1: every row in `profiles` is active — there is no status column yet.
+   * Revisit if/when a profile lifecycle (suspended/deleted) is introduced.
+   */
+  list(): ProfileRow[] {
+    return this.db.prepare(`SELECT id, name FROM profiles ORDER BY id`).all() as ProfileRow[];
   }
 }

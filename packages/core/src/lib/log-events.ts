@@ -11,6 +11,7 @@ export const LogEvents = {
   PipelineScorerBatchStart: "pipeline.scorer.batch.start",
   PipelineScorerVisionStart: "pipeline.scorer.vision.start",
   PipelineScorerVisionFlip: "pipeline.scorer.vision.flip",
+  PipelineProfileSkipped: "pipeline.profile.skipped",
   IntegrationEventRecorded: "pipeline.integration.recorded",
 
   // Platforms

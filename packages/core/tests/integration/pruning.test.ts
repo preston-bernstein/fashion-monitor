@@ -8,7 +8,7 @@ describe("storage pruning", () => {
   it("prunes old seen_listings and runs", () => {
     const { db } = createMemoryDb();
     const seenRepo = new SeenListingsRepo(db, "default");
-    const runsRepo = new RunsRepo(db);
+    const runsRepo = new RunsRepo(db, "default");
 
     const oldDate = "2024-01-01T00:00:00.000Z";
     const recentDate = "2025-06-01T00:00:00.000Z";

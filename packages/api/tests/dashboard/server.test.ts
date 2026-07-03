@@ -15,7 +15,7 @@ describe("dashboard server", () => {
   });
 
   it("serves health publicly, gates the JSON API, and serves the SPA shell", async () => {
-    const runs = new RunsRepo(db);
+    const runs = new RunsRepo(db, "default");
     const runId = runs.start(new Date().toISOString());
     runs.finish(
       runId,

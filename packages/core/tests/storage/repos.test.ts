@@ -45,7 +45,7 @@ describe("storage repos", () => {
 
   it("stores feedback and runs", () => {
     const feedback = new FeedbackRepo(db, "default");
-    const runs = new RunsRepo(db);
+    const runs = new RunsRepo(db, "default");
     const alerts = new AlertLogRepo(db, "default");
 
     feedback.insert(

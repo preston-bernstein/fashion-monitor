@@ -43,6 +43,11 @@ const COLUMN_PATCHES: Array<{ table: string; column: string; ddl: string }> = [
     column: "group_id",
     ddl: "ALTER TABLE scrape_query_runs ADD COLUMN group_id TEXT",
   },
+  {
+    table: "runs",
+    column: "profile_id",
+    ddl: "ALTER TABLE runs ADD COLUMN profile_id TEXT NOT NULL DEFAULT 'default'",
+  },
 ];
 
 function applyColumnPatches(db: Db): void {

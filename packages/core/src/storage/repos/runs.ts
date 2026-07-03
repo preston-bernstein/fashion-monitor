@@ -4,6 +4,7 @@ import { pruneOlderThan as pruneRowsOlderThan } from "../prune.js";
 
 export interface RunRecord {
   id: number;
+  profile_id: string;
   started_at: string;
   finished_at: string | null;
   listings_found: number;
@@ -16,10 +17,15 @@ export interface RunRecord {
 }
 
 export class RunsRepo {
-  constructor(private readonly db: Db) {}
+  constructor(
+    private readonly db: Db,
+    private readonly profileId: string,
+  ) {}
 
   start(startedAt: string): number {
-    const result = this.db.prepare(`INSERT INTO runs (started_at) VALUES (?)`).run(startedAt);
+    const result = this.db
+      .prepare(`INSERT INTO runs (profile_id, started_at) VALUES (?, ?)`)
+      .run(this.profileId, startedAt);
     return Number(result.lastInsertRowid);
   }
 
@@ -35,7 +41,7 @@ export class RunsRepo {
           scored_no = ?,
           alerts_sent = ?,
           error = ?
-         WHERE id = ?`,
+         WHERE id = ? AND profile_id = ?`,
       )
       .run(
         finishedAt,
@@ -47,10 +53,17 @@ export class RunsRepo {
         stats.alertsSent,
         error,
         runId,
+        this.profileId,
       );
   }
 
   pruneOlderThan(days: number, now: Date): number {
-    return pruneRowsOlderThan(this.db, `DELETE FROM runs WHERE started_at < ?`, [], days, now);
+    return pruneRowsOlderThan(
+      this.db,
+      `DELETE FROM runs WHERE started_at < ? AND profile_id = ?`,
+      [this.profileId],
+      days,
+      now,
+    );
   }
 }

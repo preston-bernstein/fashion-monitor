@@ -90,7 +90,7 @@ export async function runPipeline(ctx: RunContext): Promise<RunStats> {
   const seenRepo = new SeenListingsRepo(ctx.db, profileId);
   const feedbackRepo = new FeedbackRepo(ctx.db, profileId);
   const alertLogRepo = new AlertLogRepo(ctx.db, profileId);
-  const runsRepo = new RunsRepo(ctx.db);
+  const runsRepo = new RunsRepo(ctx.db, profileId);
   const scrapeQueriesRepo = new ScrapeQueriesRepo(ctx.db, profileId);
   const searchGroupsRepo = new SearchGroupsRepo(ctx.db, profileId);
   const configRevisionsRepo = new ConfigRevisionsRepo(ctx.db, profileId);

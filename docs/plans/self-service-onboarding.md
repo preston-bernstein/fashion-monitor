@@ -18,9 +18,9 @@ Non-goals (deferred): public registration, billing/quotas beyond the monitor cap
 
 ## Phase 1 — Multi-tenancy foundations (blocks everything)
 
-1. **Multi-profile pipeline runner** (ADR-0005). Scheduled tick lists active profiles → runs existing single-profile pipeline per profile, serially. Per-profile `runs`/`integration_events` already `profile_id`-scoped.
-2. **Isolation audit.** Verify every query is `profile_id`-scoped and RBAC is per-membership — no cross-profile leak — *before* a real second tenant exists. This is a correctness gate, not a nicety.
-3. **`max_monitors_per_profile` cap** (default 25), enforced at Monitor-create in `@fm/api`.
+1. [x] **Multi-profile pipeline runner** (ADR-0005). Scheduled tick lists active profiles → runs existing single-profile pipeline per profile, serially. Per-profile `runs`/`integration_events` already `profile_id`-scoped. Implemented 2026-07-03: `runProfilesSerially` in `apps/cli/src/run.ts`.
+2. [x] **Isolation audit.** Verify every query is `profile_id`-scoped and RBAC is per-membership — no cross-profile leak — *before* a real second tenant exists. This is a correctness gate, not a nicety. Audited 2026-07-03: no blocking findings across `packages/core/src/storage/repos/*`, `analytics/queries.ts`, and the web/MCP request paths (see PR); `packages/core/tests/storage/isolation.test.ts` adds a regression gate.
+3. [x] **`max_monitors_per_profile` cap** (default 25), enforced at Monitor-create in `@fm/api`. Implemented 2026-07-03 as `MAX_MONITORS_PER_PROFILE` (`@fm/shared/limits.ts`) via `SearchGroupsRepo.assertMonitorCapNotExceeded()` — shared by the web API and the MCP `add_monitor` tool.
 
 ## Phase 2 — Invites & account lifecycle (ADR-0003)
 

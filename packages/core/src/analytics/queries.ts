@@ -76,7 +76,9 @@ export interface PlatformAlertRow {
 }
 
 export function fetchOverview(db: Db, profileId: string): OverviewStats {
-  const runs = db.prepare(`SELECT COUNT(*) AS n, MAX(started_at) AS last_run FROM runs`).get() as {
+  const runs = db
+    .prepare(`SELECT COUNT(*) AS n, MAX(started_at) AS last_run FROM runs WHERE profile_id = ?`)
+    .get(profileId) as {
     n: number;
     last_run: string | null;
   };
@@ -128,16 +130,17 @@ export function fetchOverview(db: Db, profileId: string): OverviewStats {
   };
 }
 
-export function fetchRunSummaries(db: Db, limit = 20): RunSummaryRow[] {
+export function fetchRunSummaries(db: Db, profileId: string, limit = 20): RunSummaryRow[] {
   return db
     .prepare(
       `SELECT id, started_at, finished_at, duration_seconds, listings_found, listings_new,
               scored_yes, scored_maybe, scored_no, alerts_sent, error, had_error
        FROM v_run_summary
+       WHERE profile_id = ?
        ORDER BY id DESC
        LIMIT ?`,
     )
-    .all(limit) as RunSummaryRow[];
+    .all(profileId, limit) as RunSummaryRow[];
 }
 
 export function fetchScoreByPlatform(db: Db, profileId: string): ScoreByPlatformRow[] {
@@ -172,16 +175,16 @@ export function fetchRecentAlerts(db: Db, profileId: string, limit = 20): AlertR
     .all(profileId, limit) as AlertRow[];
 }
 
-export function fetchDailyRuns(db: Db, days = 14): DailyRunRow[] {
+export function fetchDailyRuns(db: Db, profileId: string, days = 14): DailyRunRow[] {
   return db
     .prepare(
       `SELECT run_date, run_count, total_found, total_new, total_yes, total_maybe,
               total_no, total_alerts, error_runs
        FROM v_daily_runs
-       WHERE run_date >= date('now', ?)
+       WHERE profile_id = ? AND run_date >= date('now', ?)
        ORDER BY run_date DESC`,
     )
-    .all(`-${days} days`) as DailyRunRow[];
+    .all(profileId, `-${days} days`) as DailyRunRow[];
 }
 
 export function fetchPlatformAlerts(db: Db, profileId: string): PlatformAlertRow[] {
@@ -204,10 +207,10 @@ export function fetchDashboardPayload(db: Db, profileId: string, config: Config)
 
   return {
     overview: fetchOverview(db, profileId),
-    runs: fetchRunSummaries(db, 15),
+    runs: fetchRunSummaries(db, profileId, 15),
     alerts: fetchRecentAlerts(db, profileId, 15),
     scoresByPlatform: fetchScoreByPlatform(db, profileId),
-    dailyRuns: fetchDailyRuns(db, 14),
+    dailyRuns: fetchDailyRuns(db, profileId, 14),
     platformAlerts: fetchPlatformAlerts(db, profileId),
     groupScorecard: searchGroupsRepo.fetchGroupScorecard(),
     queryScorecard: scrapeQueriesRepo.fetchScorecard(),
