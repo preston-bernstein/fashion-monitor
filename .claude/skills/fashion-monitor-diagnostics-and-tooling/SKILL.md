@@ -18,6 +18,7 @@ All take `[db_path]` (default `data/fashion_monitor.db`); run from repo root. **
 | `scorecard.sh` | `v_search_group_scorecard` rollup + worst-20 per-platform `v_query_scorecard` | every active Monitor accruing runs; chronic `yes_rate` 0 with high `listings_new` → Monitor needs revision |
 | `integration-health.sh` | `v_integration_uptime_7d` + `v_integration_recent_failures` | uptime ~100% per integration; clustered failures name the sick dependency |
 | `feedback-diet.sh` | feedback counts + the 30 newest rows the prompt can draw from | as of 2026-07-02 this is EMPTY (feedback ingestion severed — expected until the alerting campaign lands) |
+| `needs-revision.sh [db] [min_runs] [min_new] [max_yes_rate]` | `v_query_scorecard` rows with enough history/volume to judge (defaults: >=5 runs, >=10 new listings) and a yes_rate at or below the threshold (default 0.15, NULL counts as failing) | F2 (query-generation intelligence) step 1 — report only, never mutates `scrape_queries`/`search_groups`; empty output = no query currently needs revision |
 
 ## Log events (`packages/core/src/lib/log-events.ts` — the registry of record)
 
