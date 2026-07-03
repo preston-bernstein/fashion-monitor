@@ -33,14 +33,16 @@ Non-goals (deferred): public registration, billing/quotas beyond the monitor cap
 ## Phase 3 — Connections page (Sonarr-style, our aesthetic) (ADR-0004)
 
 0. [x] **Prerequisite discovered during implementation, not in the original plan:** `ebay_client_id`/`ebay_client_secret`, `grailed_app_id`/`grailed_api_key`, and `scrapfly_api_key` were listed as self-service-settable in `KNOWN_SECRETS`, but the eBay/Grailed/Vestiaire scrapers read exclusively from `process.env`, never from the per-profile `profile_secrets` store — a second profile's own connected credentials were silently shadowed by the deployment's shared `.env`, with every profile on a server using whichever credentials happened to be in that one `.env` file. A Connections "Test" button built on top of this would have given false confidence. Fixed 2026-07-03: `Config` gained `platform_credentials` (mirrors the existing `ntfy_token` pattern), `loadProfileConfig` resolves each key DB-first-then-env-then-fallback via `resolveSecret` (also fixed `resolveSecret`'s own precedence, previously env-over-DB even for `ntfy_token` — no test locked in the old order, and DB-first is the only correct semantic once a second profile exists), and the three scrapers read `config.platform_credentials.*` before falling back to `process.env` (preserved for callers like `verify-scrapers.ts` that build a `Config` without going through `loadProfileConfig`).
-1. **Connection model/UI.** One card per platform: type badge, required fields, **Test** button, status badge (`untested`/`ok`/`degraded`/`failed`/`not_connected`), and for login platforms a risk-ack gate (`risk_acknowledged`).
-2. **Per-type Test** writes `integration_event` (`operation='test'`):
-   - eBay → fetch OAuth token + one sample search.
-   - ntfy → send "✅ connected" test notification to her topic.
-   - login platforms → load search with stored session, assert authenticated.
+1. [x] **Connection model/UI.** One card per platform: type badge, status badge (`untested`/`ok`/`degraded`/`failed`/`not_connected`), Test/Disconnect actions. Scoped 2026-07-03 to a **backend + dormant-UI slice** (owner decision): login platforms render locked/dormant cards with no risk-ack gate, since that gate only makes sense once the Spikes below actually land — building it now would be UI for a flow nobody can complete yet.
+2. [x] **Per-type Test** writes `integration_event` (`operation='test'`), sharing the same integration name the pipeline itself uses (`scraper:ebay`, `alerts:ntfy`) so manual tests and pipeline runs share one uptime timeline:
+   - eBay → fetch OAuth token + one sample search (reuses the existing scraper's own `search()`).
+   - ntfy → new `sendTestNotification()`, distinct from real alert messages.
    - Grailed → no test; card shows "Automatic."
-3. **Disconnect** (mandatory) → deletes `profile_secrets` rows, flips to `not_connected`, audit entry.
-4. **Login connections stay dormant** until ToS research + anonymous-vs-logged-in lift measurement (see Spikes).
+   - login platforms → **deferred**, not implemented. The Test endpoint 400s with `dormant` for these; "load search with stored session, assert authenticated" only makes sense once login connections themselves exist (see Spikes).
+3. [x] **Disconnect** (mandatory) → deletes `profile_secrets` rows, flips to `not_connected`, audit entry.
+4. **Login connections stay dormant** until ToS research + anonymous-vs-logged-in lift measurement (see Spikes) — enforced today by the registry's `dormant: true` flag and the Test/Disconnect routes rejecting dormant platforms outright.
+
+Implementation: `packages/shared/src/connections.ts` (tiered registry, documents a known ADR-vs-code discrepancy for Vestiaire's type), `packages/api/src/web/routes/connections.ts` (GET/test/disconnect), `apps/web/src/pages/connections.tsx` + `apps/web/src/components/connections/*` (UI). 18 new tests (11 API + 7 component) plus a real end-to-end smoke test against a running dashboard and a local ntfy container.
 
 ## Phase 4 — Per-profile Health page (her "monitor flow and uptime") (Q8)
 
