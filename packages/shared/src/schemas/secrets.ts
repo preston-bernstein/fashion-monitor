@@ -11,8 +11,7 @@ export const SecretInputSchema = z.object({
 });
 
 export const KNOWN_SECRETS = [
-  "telegram_bot_token",
-  "telegram_chat_id",
+  "ntfy_token",
   "anthropic_api_key",
   "ebay_client_id",
   "ebay_client_secret",

@@ -11,8 +11,7 @@ describe("config", () => {
         price_ceiling: { default: 300 },
         platforms: { ebay: true },
         alert: {
-          telegram_bot_token: "x",
-          telegram_chat_id: "y",
+          ntfy_url: "http://ntfy",
         },
         llm: { provider: "invalid" },
       }),
@@ -39,7 +38,7 @@ describe("config", () => {
         depop: false,
         poshmark: false,
       },
-      alert: { telegram_bot_token: "tok", telegram_chat_id: "1" },
+      alert: { ntfy_url: "http://ntfy" },
       llm: { provider: "mock" },
     });
     expect(config.llm.provider).toBe("mock");

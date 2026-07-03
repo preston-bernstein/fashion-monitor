@@ -23,8 +23,8 @@ export const minimalConfig: Config = {
     vision_backend: "ollama",
   },
   alert: {
-    telegram_bot_token: "test-token",
-    telegram_chat_id: "12345",
+    ntfy_url: "http://ntfy-test",
+    ntfy_topic: "fashion-monitor-test",
     mode: "immediate",
     notify_empty: false,
   },

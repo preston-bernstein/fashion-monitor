@@ -5,7 +5,7 @@ Run after deploy or major scraper/LLM changes. Requires real credentials in `con
 ## Prerequisites
 
 - [ ] `config.yaml` copied from `config.example.yaml` and filled in
-- [ ] `.env` has Telegram token, platform keys, optional `SCRAPFLY_API_KEY`
+- [ ] `.env` has `NTFY_TOKEN` (if ntfy auth is enabled), platform keys, optional `SCRAPFLY_API_KEY`
 - [ ] Ollama reachable at configured host (default `http://host.docker.internal:11434`)
 - [ ] SQLite path writable (`data/fashion_monitor.db` or configured path)
 
@@ -66,7 +66,7 @@ Verify:
 - [ ] `listingsFound` > 0 when platforms healthy
 - [ ] LLM health check passes (`pipeline.scorer.batch.start` in logs)
 - [ ] New listings get scores YES / MAYBE / NO (not stuck PENDING unless LLM down)
-- [ ] Telegram receives alert(s) in configured mode (`immediate` or `digest`)
+- [ ] ntfy topic receives alert(s) in configured mode (`immediate` or `digest`)
 - [ ] `runs` table has a finished row; `seen_listings` updated
 
 ## LLM unavailable path
@@ -74,24 +74,25 @@ Verify:
 Stop Ollama (or point config at bad URL), run once:
 
 - [ ] Listings marked `PENDING` in `seen_listings`
-- [ ] No Telegram alerts for unscored listings
+- [ ] No ntfy alerts for unscored listings
 - [ ] Restart Ollama, run again — backlog scored and alerts sent
 
-## Feedback bot
+## Dashboard feedback
 
 ```bash
-pnpm run dev:feedback -- --config config.yaml
+pnpm run dev:dashboard -- --config config.yaml
 ```
 
-- [ ] Tap **Good find** / **Not for me** on a Telegram alert
-- [ ] Bot logs `feedback-bot.recorded`
-- [ ] Row in `feedback` table with title, price, score from `alert_log`
+- [ ] Click **Good find** (👍) / **Not for me** (👎) on an alert in the dashboard's Recent alerts table
+- [ ] `POST /api/feedback` returns 201
+- [ ] Row in `feedback` table with title, brand, price, `source_query_id` copied from `alert_log`
+- [ ] `audit_log` has a `feedback.record` entry
 
 ## Docker (Synology)
 
 ```bash
 docker compose build
-docker compose up -d scraper feedback-bot
+docker compose up -d scraper dashboard proxy
 docker compose logs -f scraper
 ```
 

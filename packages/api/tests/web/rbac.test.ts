@@ -87,7 +87,7 @@ describe("rbac capability enforcement (JSON API)", () => {
     expect(new SearchGroupsRepo(db, "default").getGroup("ebay-test")).toBeDefined();
 
     const secretAttempt = await curator.put("/api/secrets", {
-      key: "telegram_bot_token",
+      key: "ntfy_token",
       value: "nope",
     });
     expect(secretAttempt.statusCode).toBe(403);
@@ -116,7 +116,7 @@ describe("rbac capability enforcement (JSON API)", () => {
     expect(stored?.mode).toBe("digest");
 
     const secret = await operator.put("/api/secrets", {
-      key: "telegram_bot_token",
+      key: "ntfy_token",
       value: "operator-set-token",
     });
     expect(secret.statusCode).toBe(200);

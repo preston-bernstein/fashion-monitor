@@ -39,7 +39,7 @@ describe("db-backed profile config", () => {
     expect(loaded.aesthetic_prompt).toBe(minimalConfig.aesthetic_prompt);
     expect(loaded.searches?.ebay?.[0]?.id).toBe(executionId("ebay-seed", "ebay"));
     expect(loaded.searches?.ebay?.[0]?.groupId).toBe("ebay-seed");
-    expect(loaded.alert.telegram_bot_token).toBe(minimalConfig.alert.telegram_bot_token);
+    expect(loaded.alert.ntfy_url).toBe(minimalConfig.alert.ntfy_url);
     expect(loaded.profile_id).toBe("default");
   });
 
@@ -70,15 +70,15 @@ describe("db-backed profile config", () => {
     expect(loaded.searches?.ebay?.some((s) => s.groupId === "manual-add")).toBe(true);
   });
 
-  it("resolves telegram secrets from env over fallback", () => {
+  it("resolves ntfy secrets from env over fallback", () => {
     const now = new Date().toISOString();
     seedProfileFromConfig(db, minimalConfig, now);
-    process.env.TELEGRAM_BOT_TOKEN = "env-token-xyz";
+    process.env.NTFY_TOKEN = "env-token-xyz";
     try {
       const loaded = loadProfileConfig(db, "default", { fallback: minimalConfig });
-      expect(loaded.alert.telegram_bot_token).toBe("env-token-xyz");
+      expect(loaded.alert.ntfy_token).toBe("env-token-xyz");
     } finally {
-      delete process.env.TELEGRAM_BOT_TOKEN;
+      delete process.env.NTFY_TOKEN;
     }
   });
 });

@@ -1,6 +1,6 @@
 # Fashion Monitor
 
-Personal resale monitoring: scrape eBay, Grailed, Vestiaire, Depop, and Poshmark; score listings with a local LLM against your aesthetic; alert via Telegram.
+Personal resale monitoring: scrape eBay, Grailed, Vestiaire, Depop, and Poshmark; score listings with a local LLM against your aesthetic; alert via ntfy.
 
 Agent policy: [.cursor/rules/no-agent-attribution.mdc](.cursor/rules/no-agent-attribution.mdc) (no AI attribution in commits or code).
 
@@ -15,7 +15,7 @@ packages/
   api/      @fm/api    — Fastify JSON API + dashboard server (serves built SPA)
 apps/
   web/      @fm/web    — React SPA (Vite 8 / React 19 / Tailwind 4)
-  cli/      @fm/cli    — run, feedback-bot, report, dashboard entrypoints
+  cli/      @fm/cli    — run, report, dashboard entrypoints
 ```
 
 Dependency graph: `shared` ← `core`, `api`, `web`, `cli`; `core` ← `api`, `cli`; `api` ← `cli`; `web` → `shared` only.
@@ -35,7 +35,7 @@ pnpm run dev:run
 ## Config
 
 - `config.yaml` — aesthetic, price ceilings, enabled platforms, LLM provider
-- `.env` — secrets (`TELEGRAM_*`, `EBAY_*`, `GRAILED_*`, optional `ANTHROPIC_API_KEY`, `SESSION_SECRET`, `SECRETS_KEY`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`)
+- `.env` — secrets (`NTFY_TOKEN`, `EBAY_*`, `GRAILED_*`, optional `ANTHROPIC_API_KEY`, `SESSION_SECRET`, `SECRETS_KEY`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`)
 
 Default LLM provider is **`ollama`** ($0). Set `llm.provider: mock` for local testing without Ollama.
 
@@ -72,7 +72,7 @@ Multi-stage image uses `turbo prune --docker` + pnpm. Mount NAS volume at `/data
 ```bash
 docker compose build
 docker compose run --rm scraper
-docker compose up -d feedback-bot
+docker compose up -d dashboard proxy
 ```
 
 Schedule via Synology Task Scheduler:
@@ -81,12 +81,11 @@ Schedule via Synology Task Scheduler:
 |-----|---------|----------|
 | Main scrape | `docker compose run --rm scraper` | 60 min |
 | Poshmark | `docker compose run --rm poshmark` | 3 h |
-| Feedback | `docker compose up -d feedback-bot` | always on |
 | Web app | `docker compose up -d dashboard proxy` | always on (HTTPS via proxy) |
 | Grafana | `docker compose up -d grafana` | always on (:3000) |
 | Loki logs | `docker compose --profile loki up -d loki promtail` | optional (with Grafana) |
 
-The web app has login + role-based access + DB-backed editable config. Set `ADMIN_EMAIL`/`ADMIN_PASSWORD` to bootstrap the first owner. Full guide: [docs/web-app.md](docs/web-app.md).
+The web app has login + role-based access + DB-backed editable config, and is where alert feedback (👍/👎) is recorded. Set `ADMIN_EMAIL`/`ADMIN_PASSWORD` to bootstrap the first owner. Full guide: [docs/web-app.md](docs/web-app.md).
 
 ## Stack (mid-2026)
 

@@ -55,7 +55,7 @@ Set in `.env` or the process environment. Fastify shares the same root Pino inst
 
 ### Redaction
 
-`redactSecrets(obj)` redacts values whose keys match sensitive patterns (`password`, `token`, `secret`, `cookie`, `csrf`, `hash`, `api_key`, `authorization`, `encrypted`, `payload`). Use near auth and secrets routes; never log raw Telegram tokens, API keys, password hashes, or encrypted secret payloads.
+`redactSecrets(obj)` redacts values whose keys match sensitive patterns (`password`, `token`, `secret`, `cookie`, `csrf`, `hash`, `api_key`, `authorization`, `encrypted`, `payload`). Use near auth and secrets routes; never log raw ntfy tokens, API keys, password hashes, or encrypted secret payloads.
 
 ### Pipeline correlation
 
@@ -81,6 +81,7 @@ Append-only human/security actions queryable via `GET /api/audit` (`system:read`
 | `secret.upsert` | Secret value stored (key only in `target`, never the value) |
 | `pipeline.trigger` | Manual run requested from Secrets UI |
 | `user.create` / `user.role` / `user.status` | User management |
+| `feedback.record` | 👍/👎 recorded on an alert (`POST /api/feedback`) |
 
 `detail` is JSON when structured context helps, e.g.:
 
@@ -101,7 +102,7 @@ Keep these in `integration_events`, `runs`, or structured logs only:
 
 - Per-platform scrape success/failure
 - LLM health check results
-- Telegram send/poll results
+- ntfy send results
 - Pipeline run completion stats (authoritative in `runs`)
 - Read-only API access (including GET 403)
 
@@ -114,11 +115,11 @@ Today logs go to **stdout** only. In Docker, capture container stdout. For centr
 Start Grafana (SQLite metrics) plus Loki log shipping:
 
 ```bash
-docker compose up -d grafana dashboard proxy feedback-bot
+docker compose up -d grafana dashboard proxy
 docker compose --profile loki up -d loki promtail
 ```
 
-Promtail uses Docker service discovery and scrapes JSON stdout from compose services labeled `fm.logging=true` (`scraper`, `poshmark`, `feedback-bot`, `dashboard`). Loki is **not** published to the host — only Grafana and Promtail talk to it on the compose network.
+Promtail uses Docker service discovery and scrapes JSON stdout from compose services labeled `fm.logging=true` (`scraper`, `poshmark`, `dashboard`). Loki is **not** published to the host — only Grafana and Promtail talk to it on the compose network.
 
 **Security:** Loki runs with `auth_enabled: false`. Do not expose port 3100 publicly without a reverse proxy and authentication. Grafana on `:3000` should stay on a trusted network; change `GRAFANA_ADMIN_PASSWORD`.
 

@@ -17,12 +17,12 @@ describe("full pipeline flow (real code, fake I/O)", () => {
       llm: { ...config.llm, provider: "mock" as const },
     };
 
-    let telegramBody: Record<string, unknown> | null = null;
+    let ntfyBody: string | null = null;
     vi.stubGlobal(
       "fetch",
       vi.fn().mockImplementation(async (input, init) => {
-        if (String(input).includes("api.telegram.org")) {
-          telegramBody = JSON.parse(String(init?.body));
+        if (String(input).startsWith(flowConfig.alert.ntfy_url)) {
+          ntfyBody = String(init?.body);
           return { ok: true };
         }
         throw new Error(`unexpected fetch: ${input}`);
@@ -62,12 +62,8 @@ describe("full pipeline flow (real code, fake I/O)", () => {
     ]);
     expect(alerts).toHaveLength(1);
     expect(runs).toEqual([{ alerts_sent: 1, error: null }]);
-    expect(telegramBody).toMatchObject({
-      chat_id: "12345",
-      caption: expect.stringContaining("Flow verify"),
-      reply_markup: expect.objectContaining({
-        inline_keyboard: expect.any(Array),
-      }),
-    });
+    const parsedNtfyBody = JSON.parse(ntfyBody ?? "{}");
+    expect(parsedNtfyBody.message).toContain("Flow verify");
+    expect(parsedNtfyBody.click).toContain("https://example.com/listing");
   });
 });

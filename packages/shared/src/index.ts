@@ -7,3 +7,4 @@ export * from "./schemas/users.js";
 export * from "./schemas/secrets.js";
 export * from "./schemas/llm.js";
 export * from "./schemas/images.js";
+export * from "./schemas/feedback.js";

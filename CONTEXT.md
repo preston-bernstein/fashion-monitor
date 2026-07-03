@@ -1,6 +1,6 @@
 # Fashion Monitor
 
-A personal resale monitoring tool that watches multiple secondhand platforms for clothing matching a defined aesthetic, scores results with an LLM, and alerts the owner via Telegram.
+A personal resale monitoring tool that watches multiple secondhand platforms for clothing matching a defined aesthetic, scores results with an LLM, and alerts the owner via ntfy.
 
 ## Language
 
@@ -13,11 +13,15 @@ The aesthetic half of a profile's configuration — aesthetic prompt, hard-no ru
 _Avoid_: Aesthetic, Profile, Preferences
 
 **User**:
-An authenticated account that can log into the web app and holds a Role. One User maps to one Profile in v1.
+An authenticated account that can log into the web app and holds a Role on one or more Profiles (M:N via memberships). A User invited via an Invite gets their own newly-created Profile and is its Owner.
 _Avoid_: Account, Person
 
+**Invite**:
+A one-time token (delivered as a link) the system Owner generates to onboard a new User. Redeeming it creates the User, creates a fresh Profile, and makes that User the Profile's Owner. There is no public self-registration; an Invite is the only way in.
+_Avoid_: Signup, Registration, Token
+
 **Profile**:
-The owner of a Taste, a set of Monitors, and an alert destination (Telegram chat). Scopes all DB rows via profile_id. Can exist without a web User (e.g. CLI-only).
+The owner of a Taste, a set of Monitors, and an alert destination (ntfy topic). Scopes all DB rows via profile_id. Can exist without a web User (e.g. CLI-only).
 _Avoid_: User, Account
 
 **Role**:
@@ -29,7 +33,7 @@ The LLM verdict for a listing: YES, MAYBE, or NO. Text batch scoring runs first;
 _Avoid_: Rating, Verdict, Grade
 
 **Interface hierarchy**:
-MCP server is the primary interface — adding Monitors, querying results, and tuning Taste happen in conversation with an LLM client. The web app is a strong secondary interface for configuration, analytics, and multi-user management. The CLI is for pipeline execution and local debugging only.
+Audience-dependent. For the system Owner / power user, the MCP server is primary — adding Monitors, querying results, and tuning Taste happen in conversation with an LLM client. For invited end users (who may never touch an LLM client), the web app is primary and self-sufficient: onboarding, Taste, Monitors, Connections, alerts, and health all live there. The CLI is for pipeline execution and local debugging only.
 _Avoid_: (not a noun term — captured here as a design axiom)
 
 **Query Override**:
@@ -37,8 +41,12 @@ A per-platform replacement query on a Monitor. When set, the override is sent to
 _Avoid_: Platform Override, Custom Query
 
 **Secret**:
-A per-profile credential (Telegram token, platform API key, etc.) stored encrypted at rest in the DB. Plaintext never persists; only callers with secrets:write capability can write, only the pipeline decrypts at runtime. The encryption key itself lives only in .env and is the single root secret.
+A per-profile credential (ntfy token, platform API key, etc.) stored encrypted at rest in the DB. Plaintext never persists; only callers with secrets:write capability can write, only the pipeline decrypts at runtime. The encryption key itself lives only in .env and is the single root secret.
 _Avoid_: Token, Credential, API Key
+
+**Connection**:
+A per-profile, per-platform link a User establishes so the pipeline can reach a platform on that profile's behalf. Holds the platform's credentials (stored as `Secret`s), a test/health status, and — for login-based platforms — an explicit per-platform risk acknowledgment. Three kinds: API-key (eBay developer keys, sanctioned), none (Grailed — public search, no account to connect), and login (Poshmark/Depop/Vestiaire — stores the user's session, violates ToS, ban risk borne by the user; off by default). When a platform is not connected, the pipeline falls back to anonymous public scraping. A Connection layers test + status + ToS acceptance on top of `Secret`; it is not the same thing.
+_Avoid_: Account, Integration, Indexer, Link
 
 **Pipeline**:
 The autonomous background process that scrapes platforms, deduplicates, prefilters, scores, and dispatches alerts on a schedule. PENDING is a pipeline-internal score state used when the LLM is unreachable — listings are replayed on the next healthy run. Users only ever see YES, MAYBE, or NO as outcomes.
@@ -49,7 +57,7 @@ The three axes the LLM reasons across when producing a Score: aesthetic (does it
 _Avoid_: Sub-scores, Factors, Criteria
 
 **Feedback**:
-Positive or negative signals recorded from Telegram replies, injected as few-shot examples into the LLM prompt. Seed entries are permanent anchors that encode the core aesthetic and never rotate out. Telegram-sourced entries rotate to most recent 30 after saturation. Seed entries are the aesthetic constitution; Telegram feedback is the legislature.
+Positive or negative signals recorded from the web dashboard's alert history, injected as few-shot examples into the LLM prompt. Seed entries are permanent anchors that encode the core aesthetic and never rotate out. Dashboard-sourced entries rotate to most recent 30 after saturation. Seed entries are the aesthetic constitution; dashboard feedback is the legislature.
 _Avoid_: Training Data, Examples, Signals
 
 **Default Searches**:

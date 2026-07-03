@@ -17,6 +17,8 @@ COPY --from=pruner /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
 RUN pnpm install --frozen-lockfile
 
 COPY --from=pruner /app/out/full/ .
+COPY --from=pruner /app/tsconfig.base.json ./tsconfig.base.json
+RUN node -e "const fs=require('fs'),t=JSON.parse(fs.readFileSync('turbo.json'));delete t.tasks['@fm/api#build'];fs.writeFileSync('turbo.json',JSON.stringify(t,null,2));"
 RUN pnpm turbo run build --filter=@fm/mcp-server
 
 FROM base AS runner

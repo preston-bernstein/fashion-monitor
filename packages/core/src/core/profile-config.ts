@@ -7,7 +7,7 @@ import { ScrapeQueriesRepo, type ScrapeQueryRow } from "../storage/repos/scrape-
 import type { ProfileSecretsRepo } from "../storage/repos/profile-secrets.js";
 
 /**
- * Keys persisted in profile_settings. Secrets (telegram token/chat id) and infra
+ * Keys persisted in profile_settings. Secrets (ntfy token) and infra
  * (database path) are intentionally excluded and sourced from env / secret store.
  */
 export const TASTE_SETTING_KEYS = [
@@ -21,7 +21,7 @@ export const TASTE_SETTING_KEYS = [
 export const SYSTEM_SETTING_KEYS = ["platforms", "llm", "alert_options", "scraper"] as const;
 
 export interface LoadProfileConfigOptions {
-  /** Encrypted secret store; consulted before fallback for telegram credentials. */
+  /** Encrypted secret store; consulted before fallback for ntfy token. */
   secrets?: ProfileSecretsRepo;
   /** Bootstrap config (from config.yaml) used for db path + secret fallback. */
   fallback?: Config;
@@ -80,18 +80,7 @@ export function loadProfileConfig(
     notify_empty: fb?.alert.notify_empty ?? false,
   };
 
-  const telegramToken = resolveSecret(
-    "TELEGRAM_BOT_TOKEN",
-    "telegram_bot_token",
-    opts,
-    fb?.alert.telegram_bot_token,
-  );
-  const telegramChatId = resolveSecret(
-    "TELEGRAM_CHAT_ID",
-    "telegram_chat_id",
-    opts,
-    fb?.alert.telegram_chat_id,
-  );
+  const ntfyToken = resolveSecret("NTFY_TOKEN", "ntfy_token", opts, fb?.alert.ntfy_token);
 
   const raw = {
     profile_id: profileId,
@@ -104,8 +93,9 @@ export function loadProfileConfig(
     searches,
     llm: stored.llm ?? fb?.llm ?? {},
     alert: {
-      telegram_bot_token: telegramToken,
-      telegram_chat_id: telegramChatId,
+      ntfy_url: fb?.alert.ntfy_url ?? "http://ntfy",
+      ntfy_topic: fb?.alert.ntfy_topic ?? "fashion-monitor",
+      ntfy_token: ntfyToken,
       mode: alertOptions.mode ?? fb?.alert.mode ?? "immediate",
       notify_empty: alertOptions.notify_empty ?? fb?.alert.notify_empty ?? false,
     },

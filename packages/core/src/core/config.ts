@@ -25,8 +25,9 @@ export { MeasurementsSchema, PriceCeilingSchema, LlmConfigSchema };
 export type { Measurements, LlmConfig };
 
 export const AlertConfigSchema = z.object({
-  telegram_bot_token: z.string().min(1),
-  telegram_chat_id: z.string().min(1),
+  ntfy_url: z.string().min(1),
+  ntfy_topic: z.string().min(1).default("fashion-monitor"),
+  ntfy_token: z.string().optional(),
   mode: z.enum(["immediate", "digest"]).default("immediate"),
   notify_empty: z.boolean().default(false),
 });

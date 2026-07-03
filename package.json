@@ -10,12 +10,10 @@
   "scripts": {
     "build": "turbo run build",
     "dev:run": "pnpm --filter @fm/cli exec tsx src/run.ts",
-    "dev:feedback": "pnpm --filter @fm/cli exec tsx src/feedback-bot.ts",
     "dev:report": "pnpm --filter @fm/cli exec tsx src/report.ts",
     "dev:dashboard": "pnpm --filter @fm/cli exec tsx src/dashboard.ts",
     "dev:web": "pnpm --filter @fm/web dev",
     "start:run": "node apps/cli/dist/run.js",
-    "start:feedback": "node apps/cli/dist/feedback-bot.js",
     "start:report": "node apps/cli/dist/report.js",
     "start:dashboard": "node apps/cli/dist/dashboard.js",
     "lint": "turbo run lint",

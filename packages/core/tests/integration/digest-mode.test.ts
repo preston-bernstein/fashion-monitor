@@ -38,13 +38,14 @@ describe("digest alert mode", () => {
     });
 
     expect(stats.alertsSent).toBe(2);
-    const sendMessageCalls = fetchMock.mock.calls.filter((call) =>
-      String(call[0]).includes("sendMessage"),
+    const ntfyCalls = fetchMock.mock.calls.filter((call) =>
+      String(call[0]).startsWith(config.alert.ntfy_url),
     );
-    expect(sendMessageCalls).toHaveLength(1);
+    expect(ntfyCalls).toHaveLength(1);
 
-    const body = JSON.parse(String(sendMessageCalls[0][1]?.body));
-    expect(body.text).toContain("2 matches");
-    expect(body.text).toContain("Digest match");
+    const [, init] = ntfyCalls[0];
+    const body = JSON.parse(String(init?.body));
+    expect(body.title).toContain("2 matches");
+    expect(body.message).toContain("Helmut Lang Wool Crewneck XXL");
   });
 });

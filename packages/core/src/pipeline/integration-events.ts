@@ -144,10 +144,10 @@ export function recordAlertDelivery(
   recordEvent(
     repo,
     {
-      integration: "alerts:telegram",
+      integration: "alerts:ntfy",
       operation,
       status: sent ? "ok" : "fail",
-      error: sent ? null : (error ?? "telegram send returned false"),
+      error: sent ? null : (error ?? "ntfy send returned false"),
       runId,
       recordedAt,
     },

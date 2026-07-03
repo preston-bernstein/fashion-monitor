@@ -132,7 +132,7 @@ export function SecretsPanel() {
                         <FormItem className="grow">
                           <FormLabel>Key</FormLabel>
                           <FormControl>
-                            <Input list="known-secrets" placeholder="telegram_bot_token" {...field} />
+                            <Input list="known-secrets" placeholder="ntfy_token" {...field} />
                           </FormControl>
                           <datalist id="known-secrets">
                             {data.knownSecrets.map((k) => (

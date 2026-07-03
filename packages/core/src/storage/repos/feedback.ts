@@ -56,23 +56,3 @@ export class FeedbackRepo {
       .all(this.profileId, signal, limit) as FeedbackRow[];
   }
 }
-
-export class FeedbackBotStateRepo {
-  constructor(private readonly db: Db) {}
-
-  getOffset(): number {
-    const row = this.db
-      .prepare(`SELECT value FROM feedback_bot_state WHERE key = 'update_offset'`)
-      .get() as { value: string } | undefined;
-    return row ? parseInt(row.value, 10) : 0;
-  }
-
-  setOffset(offset: number): void {
-    this.db
-      .prepare(
-        `INSERT INTO feedback_bot_state (key, value) VALUES ('update_offset', ?)
-         ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
-      )
-      .run(String(offset));
-  }
-}

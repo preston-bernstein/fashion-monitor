@@ -26,7 +26,7 @@ Open your database (default `data/fashion_monitor.db`). After at least one pipel
 | `v_daily_runs` | Daily aggregates |
 | `v_seen_listings_enriched` | Seen listings + alerted flag |
 | `v_platform_alert_totals` | Alert counts and avg price by platform |
-| `v_integration_uptime_7d` | Per-integration uptime % (scrapers, LLM, Telegram) |
+| `v_integration_uptime_7d` | Per-integration uptime % (scrapers, LLM, ntfy) |
 | `v_integration_recent_failures` | Fail/degraded events, newest first |
 | `v_integration_daily` | Daily problem counts by integration |
 
@@ -45,7 +45,7 @@ SELECT * FROM v_score_by_platform WHERE profile_id = 'default';
 ## 2. CLI report
 
 ```bash
-npm run dev:report -- --config config.yaml
+pnpm run dev:report -- --config config.yaml
 # optional: --days 30 for daily section
 ```
 
@@ -68,8 +68,7 @@ Every pipeline run records connectivity checks to `integration_events`:
 | `scraper:{platform}` | After each platform scrape (ok / degraded / fail) |
 | `scraper:{platform}:{queryId}` | Per-query failure when scrape is partial or failed |
 | `llm:{provider}` | LLM health check before scoring |
-| `alerts:telegram` | Each alert digest/send/empty-notice attempt |
-| `feedback:telegram` | Each feedback-bot poll (when that process is running) |
+| `alerts:ntfy` | Each alert digest/send/empty-notice attempt |
 | `pipeline:run` | Uncaught pipeline error |
 
 **CLI report:** sections *Integration uptime (7d)* and *Recent integration failures*.
@@ -121,7 +120,7 @@ API: `GET /api/dashboard` returns JSON payload. Integration health fields are om
 |------|----------------|-------------|------------|
 | **Audit log** | User actions (login, config edits, secret changes) | Operations → Audit | `system:read` |
 | **Config revisions** | Snapshots of taste/system/monitors after each change | Analytics → Config revisions | `analytics:read` |
-| **Ops telemetry** | Scraper/LLM/Telegram health (`integration_events`) | Operations → Secrets & health | `secrets:read` |
+| **Ops telemetry** | Scraper/LLM/ntfy health (`integration_events`) | Operations → Secrets & health | `secrets:read` |
 
 Curator-facing **Query performance** (`/query-performance`) shows `v_query_scorecard` and `v_query_run_history` from the dashboard payload.
 
@@ -134,7 +133,7 @@ Migration `011_query_scorecard_quality.sql` extends `v_query_scorecard` with cur
 | `scored_yes` | Listings scored YES across all runs |
 | `yes_rate` | YES / (YES + MAYBE + NO) |
 | `alert_rate` | Alerts / new listings |
-| `feedback_positive` / `feedback_negative` | Telegram feedback tied to `source_query_id` |
+| `feedback_positive` / `feedback_negative` | Dashboard feedback tied to `source_query_id` |
 | `feedback_ratio` | Positive / (positive + negative) |
 | `last_alert_at` | Most recent alert for this query |
 | `last_good_signal_at` | Latest alert or positive feedback timestamp |
@@ -189,7 +188,7 @@ Raw tables (for custom SQL):
 - `runs` — pipeline run stats
 - `seen_listings` — dedupe + scores
 - `alert_log` — sent alerts
-- `feedback` — Telegram button feedback
+- `feedback` — dashboard thumbs up/down feedback
 
 ## Search intelligence (phase 1)
 

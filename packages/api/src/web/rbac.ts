@@ -7,7 +7,14 @@ const ALL: Capability[] = [...CAPABILITIES];
 export const ROLE_CAPABILITIES: Record<Role, Capability[]> = {
   owner: ALL,
   admin: ALL,
-  curator: ["monitors:read", "monitors:write", "taste:read", "taste:write", "analytics:read"],
+  curator: [
+    "monitors:read",
+    "monitors:write",
+    "taste:read",
+    "taste:write",
+    "analytics:read",
+    "feedback:write",
+  ],
   operator: [
     "monitors:read",
     "taste:read",

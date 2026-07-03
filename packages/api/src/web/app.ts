@@ -29,6 +29,7 @@ import { registerSettingsRoutes } from "./routes/settings.js";
 import { registerSecretsRoutes } from "./routes/secrets.js";
 import { registerUserRoutes } from "./routes/users.js";
 import { registerAuditRoutes } from "./routes/audit.js";
+import { registerFeedbackRoutes } from "./routes/feedback.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 // The compiled SPA is copied here by @fm/api#build (apps/web/dist -> dist/public).
@@ -309,6 +310,7 @@ export async function buildApp(options: WebAppOptions): Promise<FastifyInstance>
   await registerSecretsRoutes(app, ctx);
   await registerUserRoutes(app, ctx);
   await registerAuditRoutes(app, ctx);
+  await registerFeedbackRoutes(app, ctx);
 
   // --- Static SPA assets + client-side routing fallback ---
   // The SPA shell. Explicit so the bare "/" doesn't hit the static directory

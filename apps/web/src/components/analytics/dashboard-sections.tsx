@@ -1,6 +1,8 @@
 import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import type { DashboardPayload, QueryScorecardRow, SearchGroupScorecardRow } from "@fm/shared/dto.js";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, ThumbsDown, ThumbsUp } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { fmtDateTime, fmtPrice } from "@/lib/format";
 import {
@@ -9,8 +11,12 @@ import {
 } from "@/lib/query-quality";
 import { LazyImage } from "@/components/common/lazy-image";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { SimpleTable } from "@/components/analytics/chart-primitives";
+import { useCan } from "@/hooks/use-auth";
+import { apiPost, ApiError } from "@/lib/api";
+import { toastApiError } from "@/lib/mutation-toast";
 import { cn } from "@/lib/utils";
 
 function qualityClass(level: ReturnType<typeof overallQueryQuality>): string {
@@ -232,6 +238,56 @@ export function QueryScorecardSection({ data }: { data: DashboardPayload }) {
   );
 }
 
+type FeedbackSignal = "positive" | "negative";
+
+function AlertFeedbackButtons({ platform, listing_id }: { platform: string; listing_id: string }) {
+  const can = useCan();
+  const queryClient = useQueryClient();
+  const [given, setGiven] = useState<FeedbackSignal | null>(null);
+
+  const mutation = useMutation({
+    mutationFn: (signal: FeedbackSignal) =>
+      apiPost("/api/feedback", { platform, listing_id, signal }),
+    onSuccess: (_data, signal) => {
+      setGiven(signal);
+      toast.success(signal === "positive" ? "Marked as liked" : "Marked as not for me");
+      void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+    onError: (error) => {
+      if (error instanceof ApiError) toastApiError(error, "Feedback failed");
+    },
+  });
+
+  if (!can("feedback:write")) return null;
+
+  return (
+    <div className="flex gap-1">
+      <Button
+        variant={given === "positive" ? "default" : "outline"}
+        size="icon"
+        className="size-7"
+        disabled={mutation.isPending || given !== null}
+        aria-label="Good find"
+        title="Good find"
+        onClick={() => mutation.mutate("positive")}
+      >
+        <ThumbsUp className="size-3.5" />
+      </Button>
+      <Button
+        variant={given === "negative" ? "destructive" : "outline"}
+        size="icon"
+        className="size-7"
+        disabled={mutation.isPending || given !== null}
+        aria-label="Not for me"
+        title="Not for me"
+        onClick={() => mutation.mutate("negative")}
+      >
+        <ThumbsDown className="size-3.5" />
+      </Button>
+    </div>
+  );
+}
+
 export function AlertsAndRevisionsSection({ data }: { data: DashboardPayload }) {
   return (
     <div className="grid gap-4 lg:grid-cols-2">
@@ -241,7 +297,7 @@ export function AlertsAndRevisionsSection({ data }: { data: DashboardPayload }) 
         </CardHeader>
         <CardContent>
           <SimpleTable
-            head={["", "When", "Platform", "Query", "Price", "Title", "Score"]}
+            head={["", "When", "Platform", "Query", "Price", "Title", "Score", "Feedback"]}
             rows={data.alerts.map((a) => [
               a.image_url ? (
                 <LazyImage
@@ -282,6 +338,11 @@ export function AlertsAndRevisionsSection({ data }: { data: DashboardPayload }) 
                 a.title || a.listing_id
               ),
               a.score ? <Badge variant="outline">{a.score}</Badge> : "",
+              <AlertFeedbackButtons
+                key="fb"
+                platform={a.platform}
+                listing_id={a.listing_id}
+              />,
             ])}
             empty="No alerts yet."
           />

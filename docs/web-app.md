@@ -13,7 +13,7 @@ The CLI pipeline (`@fm/cli` → `run.ts`) keeps working unchanged — it reads c
 
 Public API paths: `/api/health`, `/api/csrf`, `/api/login`, `/api/logout`.
 
-Key endpoints: `GET/POST/PATCH/DELETE /api/monitors`, `GET/PUT /api/taste`, `GET/PUT /api/system`, `GET/PUT /api/secrets`, `POST /api/secrets/trigger-run`, `GET /api/users` + user role/status patches, `GET /api/dashboard`, `GET /api/audit?limit=&offset=&category=&actor=&since=`.
+Key endpoints: `GET/POST/PATCH/DELETE /api/monitors`, `GET/PUT /api/taste`, `GET/PUT /api/system`, `GET/PUT /api/secrets`, `POST /api/secrets/trigger-run`, `GET /api/users` + user role/status patches, `GET /api/dashboard`, `GET /api/audit?limit=&offset=&category=&actor=&since=`, `POST /api/feedback` (`feedback:write` — 👍/👎 on an alert; copies title/brand/price/`source_query_id` from `alert_log`, feeds the LLM prompt's few-shot examples).
 
 ## SPA navigation (persona zones)
 
@@ -47,7 +47,7 @@ Three distinct observability layers — do not conflate them:
 | **Config revisions** | `config_revisions` | `GET /api/dashboard` → config revisions section | `analytics:read` (curator analytics) |
 | **Ops telemetry** | `integration_events` + views | `GET /api/secrets` (uptime/failures), Secrets & health tab; stripped from dashboard for users without `secrets:read` | operator+ only |
 
-Audit records *who changed what* (login, monitor edits, secret upserts). Config revisions snapshot *what config looked like* at each change. Integration events record *external dependency health* (scrapers, LLM, Telegram).
+Audit records *who changed what* (login, monitor edits, secret upserts). Config revisions snapshot *what config looked like* at each change. Integration events record *external dependency health* (scrapers, LLM, ntfy).
 
 See [logging-and-audit.md](./logging-and-audit.md) for structured stdout logs (Pino), event id conventions, redaction, and the full audit action list.
 
@@ -88,7 +88,7 @@ Applied idempotently on every boot. Create more users from the **Users** page af
 | `SESSION_SECRET` | Cookie signing (≥ 16 chars; stable across restarts in prod) |
 | `SECRETS_KEY` | 64-char hex — encrypts secrets at rest in SQLite |
 | `COOKIE_SECURE` | `true` behind TLS (docker-compose sets this for dashboard) |
-| `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | Alert delivery (also editable in UI secrets) |
+| `NTFY_TOKEN` | Alert delivery auth, if the ntfy topic requires it (also editable in UI secrets) |
 | `ANTHROPIC_API_KEY` | Optional Claude provider |
 | `EBAY_*` / `GRAILED_*` | Platform credentials |
 

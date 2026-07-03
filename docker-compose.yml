@@ -26,16 +26,17 @@ services:
       - .env
     restart: "no"
 
-  feedback-bot:
-    image: fashion-monitor/cli
-    build: .
-    command: ["node", "apps/cli/dist/feedback-bot.js", "--config", "/data/config.yaml"]
-    labels:
-      <<: *log-shipping-labels
+  ntfy:
+    image: binwiederhier/ntfy
+    command: serve
+    environment:
+      NTFY_CACHE_FILE: /var/cache/ntfy/cache.db
+      NTFY_AUTH_FILE: /var/lib/ntfy/auth.db
     volumes:
-      - ./data:/data
-    env_file:
-      - .env
+      - ntfy-cache:/var/cache/ntfy
+      - ntfy-lib:/var/lib/ntfy
+    ports:
+      - "${NTFY_PORT:-8282}:80"
     restart: unless-stopped
 
   dashboard:
@@ -125,7 +126,7 @@ services:
       - ./data:/data:ro
       - grafana-data:/var/lib/grafana
     ports:
-      - "3000:3000"
+      - "${GRAFANA_PORT:-3001}:3000"
     restart: unless-stopped
 
   loki:
@@ -153,3 +154,5 @@ volumes:
   loki-data:
   caddy-data:
   caddy-config:
+  ntfy-cache:
+  ntfy-lib:

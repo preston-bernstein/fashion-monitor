@@ -24,8 +24,8 @@ export const LogEvents = {
   PlatformVestiaireFetchBlocked: "platform.vestiaire.fetch.blocked",
 
   // Alerts
-  AlertsTelegramSendFailed: "alerts.telegram.send.failed",
-  AlertsTelegramSendError: "alerts.telegram.send.error",
+  AlertsSendFailed: "alerts.send.failed",
+  AlertsSendError: "alerts.send.error",
 
   // Web
   WebAuthLogin: "web.auth.login",
@@ -42,10 +42,6 @@ export const LogEvents = {
   CliRunFailed: "cli.run.failed",
   CliDashboardStarted: "cli.dashboard.started",
   CliDashboardFailed: "cli.dashboard.failed",
-  CliFeedbackBotStart: "cli.feedback-bot.start",
-  CliFeedbackBotPoll: "cli.feedback-bot.poll",
-  CliFeedbackBotRecorded: "cli.feedback-bot.recorded",
-  CliFeedbackBotPollError: "cli.feedback-bot.poll.error",
   CliReportComplete: "cli.report.complete",
 } as const;
 

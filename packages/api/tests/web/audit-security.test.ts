@@ -37,7 +37,7 @@ describe("audit security events", () => {
 
     const before = auditActions(db).filter((a) => a === "auth.forbidden").length;
     const res = await curator.put("/api/secrets", {
-      key: "telegram_bot_token",
+      key: "ntfy_token",
       value: "blocked",
     });
     expect(res.statusCode).toBe(403);

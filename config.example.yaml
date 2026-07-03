@@ -17,7 +17,7 @@ aesthetic_prompt: |
 
   PRIMARY — Dark academic / textured naturalist: natural textures, quality fabric,
   intentional not costume-y. Tweed, twill, corduroy (wide wale preferred), slub
-  cotton, dark linen, Italian fabrics, structured knits. References: Nick Cave,
+  cotton, dark linen, Italian fabrics, structured knits, velvet. References: Nick Cave,
   Brian Jonestown Massacre, Beastie Boys late 90s.
 
   SECONDARY — Dark techwear: functional, minimal, modern. Technical outerwear
@@ -27,6 +27,13 @@ aesthetic_prompt: |
   The contrast must feel deliberate, not accidental. Think: dark GORE-TEX shell
   over a corduroy overshirt, or Veilance trousers with a textured knit.
   References: Arc'teryx Veilance, Acronym, Nemen, Snow Peak.
+
+  STATEMENT PIECES (rare exception): A single bold outerwear piece — vivid colorway,
+  vintage souvenir jacket, team colorway — worn over an all-dark base can work as
+  intentional striking contrast. The rest of the outfit must be fully committed to
+  dark palette. One statement piece max. Grounded by dark boots and no other color.
+  Think: Lenny Kravitz, early Prince. Score only if construction and fabric quality
+  are strong — not just any loud jacket.
 
   ACCESSORIES IN SCOPE: technical hats (bucket hats, structured caps, wide-brim),
   quality boots (dark leather Chelsea/Derby/hiking, Vibram sole, Goodyear welt).
@@ -58,7 +65,7 @@ positive_signals:
   strong:
     # naturalist
     - corduroy, tweed, twill, waffle knit, bouclé, herringbone, slub cotton,
-      brushed cotton, linen, suede
+      brushed cotton, linen, suede, velvet
     - Italian cotton, Pima, Supima, merino, cashmere blend
     - black, charcoal, dark grey, navy, dark brown, burgundy, forest green,
       slate, deep olive
@@ -105,8 +112,9 @@ llm:
   vision_backend: ollama # ollama | claude — used when provider is hybrid
 
 alert:
-  telegram_bot_token: "${TELEGRAM_BOT_TOKEN}"
-  telegram_chat_id: "${TELEGRAM_CHAT_ID}"
+  ntfy_url: "http://ntfy"
+  ntfy_topic: "fashion-monitor"
+  # ntfy_token: "${NTFY_TOKEN}"  # uncomment if ntfy auth is enabled
   mode: immediate # immediate | digest
   notify_empty: false
 

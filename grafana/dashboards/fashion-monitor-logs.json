@@ -119,7 +119,7 @@
       "targets": [
         {
           "datasource": { "type": "loki", "uid": "fashion-loki" },
-          "expr": "{service=~\"scraper|poshmark|dashboard|feedback-bot\"}",
+          "expr": "{service=~\"scraper|poshmark|dashboard\"}",
           "refId": "A"
         }
       ],

@@ -32,7 +32,7 @@ Gallery URLs exist in raw API payloads but were **not** persisted before this wo
 
 - `seen_listings.listing_snapshot` — full listing JSON (including `imageUrl`) while score is `PENDING`; cleared after scoring.
 - `feedback.image_url` — primary URL copied at feedback time.
-- Telegram alerts — send `listing.imageUrl` when present.
+- ntfy alerts — do not currently attach `listing.imageUrl` (gap vs. the old Telegram `sendPhoto` alerter; ntfy's JSON publish API supports an `attach` field if this is picked up later).
 - LLM vision — `prepareForLLM()` passes `image_url` from primary only.
 
 No dedicated image table existed prior to migration 014.

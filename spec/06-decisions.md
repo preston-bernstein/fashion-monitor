@@ -63,6 +63,8 @@
 
 ## ADR-004: Telegram over email/SMS
 
+**Superseded by `docs/adr/0007-ntfy-over-telegram-for-push-alerts.md` (2026-07-03) — push alerts now go through self-hosted ntfy.**
+
 **Decision:** Telegram
 
 **Context:** Need push alerts with images. Options: email, SMS (Twilio), Telegram, Discord, Slack.
@@ -142,6 +144,8 @@
 ---
 
 ## ADR-011: Notification delivery — Telegram primary, web app for history review
+
+**Superseded by `docs/adr/0007-ntfy-over-telegram-for-push-alerts.md` (2026-07-03) — "ntfy.sh is not used" below no longer holds; push alerts now go through self-hosted ntfy. The web-app-for-history-review reasoning still stands.**
 
 **Decision:** Telegram Bot API for push alerts. Web app (`apps/web`) provides browsable alert history and analytics as a secondary review interface. ntfy.sh is not used.
 
@@ -270,3 +274,9 @@ See `docs/adr/0001-mcp-as-primary-interface.md`. MCP manages Monitors and Taste 
 ## docs/adr/0002: Secrets stored encrypted in DB
 
 See `docs/adr/0002-secrets-encrypted-in-db.md`. Platform credentials and Telegram tokens are XChaCha20-Poly1305 encrypted in `profile_secrets`. Encryption key is the only secret in `.env`.
+
+---
+
+## docs/adr/0007: ntfy over Telegram for push alerts
+
+See `docs/adr/0007-ntfy-over-telegram-for-push-alerts.md`. Supersedes ADR-004 and ADR-011 above — push alerts now go through a self-hosted ntfy instance instead of the Telegram Bot API.

@@ -52,7 +52,7 @@ describe("integration health metrics", () => {
     const uptime = repo.fetchUptime7d();
     expect(uptime.some((r) => r.integration === "scraper:depop" && r.ok_count >= 1)).toBe(true);
     expect(uptime.some((r) => r.integration === "llm:mock" && r.ok_count >= 1)).toBe(true);
-    expect(uptime.some((r) => r.integration === "alerts:telegram" && r.ok_count >= 1)).toBe(true);
+    expect(uptime.some((r) => r.integration === "alerts:ntfy" && r.ok_count >= 1)).toBe(true);
 
     db.close();
     vi.restoreAllMocks();

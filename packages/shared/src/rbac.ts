@@ -10,6 +10,7 @@ export const CAPABILITIES = [
   "analytics:read",
   "pipeline:trigger",
   "users:manage",
+  "feedback:write",
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];

@@ -5,7 +5,7 @@ import { createProviderFromConfig } from "../llm/factory.js";
 import type { LLMProvider } from "../llm/provider.js";
 import { LogEvents } from "../lib/log-events.js";
 import { createLogger, withRunContext } from "../lib/logging.js";
-import { createTelegramAlerter } from "../alerts/telegram.js";
+import { createNtfyAlerter } from "../alerts/ntfy.js";
 import { recordAlertSent, recordAlertsSent } from "./alert-dispatch.js";
 import { createScrapers } from "../platforms/registry.js";
 import type { PlatformScraper, QueryScrapeResult, ScrapeOutcome } from "../platforms/types.js";
@@ -191,7 +191,7 @@ export async function runPipeline(ctx: RunContext): Promise<RunStats> {
       }
 
       const alertable = filterAlertable(scoreResult.scored);
-      const alerter = createTelegramAlerter(config.alert);
+      const alerter = createNtfyAlerter(config.alert);
 
       if (config.alert.mode === "digest") {
         if (alertable.length > 0) {
