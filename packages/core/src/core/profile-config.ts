@@ -46,15 +46,22 @@ function groupMonitors(rows: ScrapeQueryRow[]): Partial<Record<Platform, SearchQ
   return out;
 }
 
+/**
+ * DB (this profile's own connected credential) wins over env (the
+ * deployment-wide default/bootstrap value) wins over the config.yaml
+ * fallback. DB-first matters once a second profile exists: a shared env var
+ * must never shadow a profile's own explicitly-connected credential — see
+ * self-service-onboarding.md Phase 3's Connection model.
+ */
 function resolveSecret(
   envName: string,
   storeKey: string,
   opts: LoadProfileConfigOptions,
   fallbackValue: string | undefined,
 ): string | undefined {
+  if (opts.secrets?.has(storeKey)) return opts.secrets.get(storeKey);
   const env = process.env[envName];
   if (env && env.length > 0) return env;
-  if (opts.secrets?.has(storeKey)) return opts.secrets.get(storeKey);
   return fallbackValue;
 }
 
@@ -81,6 +88,34 @@ export function loadProfileConfig(
   };
 
   const ntfyToken = resolveSecret("NTFY_TOKEN", "ntfy_token", opts, fb?.alert.ntfy_token);
+  const fbCreds = fb?.platform_credentials;
+  const platformCredentials = {
+    ebay_client_id: resolveSecret("EBAY_CLIENT_ID", "ebay_client_id", opts, fbCreds?.ebay_client_id),
+    ebay_client_secret: resolveSecret(
+      "EBAY_CLIENT_SECRET",
+      "ebay_client_secret",
+      opts,
+      fbCreds?.ebay_client_secret,
+    ),
+    grailed_app_id: resolveSecret(
+      "GRAILED_APP_ID",
+      "grailed_app_id",
+      opts,
+      fbCreds?.grailed_app_id,
+    ),
+    grailed_api_key: resolveSecret(
+      "GRAILED_API_KEY",
+      "grailed_api_key",
+      opts,
+      fbCreds?.grailed_api_key,
+    ),
+    scrapfly_api_key: resolveSecret(
+      "SCRAPFLY_API_KEY",
+      "scrapfly_api_key",
+      opts,
+      fbCreds?.scrapfly_api_key,
+    ),
+  };
 
   const raw = {
     profile_id: profileId,
@@ -103,6 +138,7 @@ export function loadProfileConfig(
       path: opts.databasePath ?? fb?.database.path ?? "data/fashion_monitor.db",
     },
     scraper: stored.scraper ?? fb?.scraper ?? { poshmark_profile_path: "data/poshmark-profile" },
+    platform_credentials: platformCredentials,
   };
 
   return ConfigSchemaWithDefaults.parse(raw);

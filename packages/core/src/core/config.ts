@@ -32,6 +32,23 @@ export const AlertConfigSchema = z.object({
   notify_empty: z.boolean().default(false),
 });
 
+/**
+ * Per-platform API credentials, resolved per-profile by loadProfileConfig
+ * (profile_secrets DB store, falling back to the matching env var — see
+ * resolveSecret in profile-config.ts). Scrapers read these instead of
+ * process.env directly so a second profile's own connected credentials
+ * aren't silently shadowed by the deployment's shared env vars.
+ */
+export const PlatformCredentialsSchema = z
+  .object({
+    ebay_client_id: z.string().optional(),
+    ebay_client_secret: z.string().optional(),
+    grailed_app_id: z.string().optional(),
+    grailed_api_key: z.string().optional(),
+    scrapfly_api_key: z.string().optional(),
+  })
+  .default({});
+
 export const ConfigSchema = z.object({
   profile_id: z.string().default("default"),
   measurements: MeasurementsSchema,
@@ -58,6 +75,7 @@ export const ConfigSchema = z.object({
       poshmark_profile_path: z.string().default("data/poshmark-profile"),
     })
     .default({ poshmark_profile_path: "data/poshmark-profile" }),
+  platform_credentials: PlatformCredentialsSchema,
 });
 
 export const ConfigSchemaWithDefaults = ConfigSchema.transform((cfg) => ({

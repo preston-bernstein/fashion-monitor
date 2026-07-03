@@ -24,15 +24,20 @@ export class EbayScraper implements PlatformScraper {
   private token: string | null = null;
   private tokenExpiresAt = 0;
 
-  constructor(private readonly _config: Config) {}
+  constructor(private readonly config: Config) {}
 
   private async getToken(): Promise<string> {
     if (this.token && Date.now() < this.tokenExpiresAt - 60_000) {
       return this.token;
     }
 
-    const clientId = process.env.EBAY_CLIENT_ID;
-    const clientSecret = process.env.EBAY_CLIENT_SECRET;
+    // Prefer the per-profile resolved credential (DB > env > config.yaml —
+    // see profile-config.ts); fall back to the raw env var directly for
+    // callers that build a Config without going through loadProfileConfig
+    // (e.g. scripts/verify-scrapers.ts).
+    const clientId = this.config.platform_credentials?.ebay_client_id ?? process.env.EBAY_CLIENT_ID;
+    const clientSecret =
+      this.config.platform_credentials?.ebay_client_secret ?? process.env.EBAY_CLIENT_SECRET;
     if (!clientId || !clientSecret) {
       throw new Error("EBAY_CLIENT_ID and EBAY_CLIENT_SECRET required");
     }

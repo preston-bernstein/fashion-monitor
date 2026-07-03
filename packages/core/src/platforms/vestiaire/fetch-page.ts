@@ -18,8 +18,14 @@ export class VestiaireRedirectError extends Error {
   }
 }
 
-export async function fetchViaScrapfly(url: string): Promise<string> {
-  const key = process.env.SCRAPFLY_API_KEY;
+/**
+ * `apiKey` should come from the per-profile resolved credential
+ * (config.platform_credentials.scrapfly_api_key — see profile-config.ts);
+ * falls back to the raw env var for callers that build a Config without
+ * going through loadProfileConfig (e.g. verify-scrapers.ts).
+ */
+export async function fetchViaScrapfly(url: string, apiKey?: string): Promise<string> {
+  const key = apiKey ?? process.env.SCRAPFLY_API_KEY;
   if (!key) {
     throw new Error("SCRAPFLY_API_KEY required for Cloudflare bypass");
   }
@@ -32,7 +38,7 @@ export async function fetchViaScrapfly(url: string): Promise<string> {
 
 export async function fetchVestiaireHtml(
   url: string,
-  deps: { scrapfly?: (url: string) => Promise<string> } = {},
+  deps: { scrapfly?: (url: string) => Promise<string>; scrapflyApiKey?: string } = {},
 ): Promise<string> {
   const response = await fetchWithTimeout(url, { headers: VESTIAIRE_HEADERS });
 
@@ -49,7 +55,7 @@ export async function fetchVestiaireHtml(
       status: response.status,
       fallback: "scrapfly",
     });
-    const scrapfly = deps.scrapfly ?? fetchViaScrapfly;
+    const scrapfly = deps.scrapfly ?? ((u: string) => fetchViaScrapfly(u, deps.scrapflyApiKey));
     return scrapfly(url);
   }
 

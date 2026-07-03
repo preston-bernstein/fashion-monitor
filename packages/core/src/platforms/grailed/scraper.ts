@@ -15,11 +15,11 @@ export class GrailedScraper implements PlatformScraper {
   readonly platform = "grailed" as const;
   private credentialsValidated = false;
 
-  constructor(private readonly _config: Config) {}
+  constructor(private readonly config: Config) {}
 
   private async ensureCredentialsValid(): Promise<void> {
     if (this.credentialsValidated) return;
-    await validateGrailedCredentials();
+    await validateGrailedCredentials(this.config);
     this.credentialsValidated = true;
     log.info(LogEvents.PlatformGrailedCredentialsValid);
   }
@@ -36,7 +36,7 @@ export class GrailedScraper implements PlatformScraper {
         ],
         numericFilters: ["price_i <= 300"],
       },
-      getGrailedCredentials(),
+      getGrailedCredentials(this.config),
     );
 
     return (data.hits ?? []).map((hit) => normalizeGrailed(hit));

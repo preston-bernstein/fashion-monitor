@@ -12,7 +12,7 @@ export { extractVestiaireProductsFromHtml };
 export class VestiaireScraper implements PlatformScraper {
   readonly platform = "vestiaire" as const;
 
-  constructor(private readonly _config: Config) {}
+  constructor(private readonly config: Config) {}
 
   private buildSearchUrl(query: string): string {
     const params = new URLSearchParams({
@@ -29,7 +29,9 @@ export class VestiaireScraper implements PlatformScraper {
   private async searchQuery(text: string): Promise<Listing[]> {
     const url = this.buildSearchUrl(text);
     try {
-      const html = await fetchVestiaireHtml(url);
+      const html = await fetchVestiaireHtml(url, {
+        scrapflyApiKey: this.config.platform_credentials?.scrapfly_api_key,
+      });
       const products = extractVestiaireProductsFromHtml(html);
       return products.map((item) => normalizeVestiaire(item));
     } catch (err) {

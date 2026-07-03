@@ -4,8 +4,12 @@ import { seedProfileFromConfig } from "../../src/storage/seed.js";
 import { loadProfileConfig } from "../../src/core/profile-config.js";
 import { SearchGroupsRepo, executionId } from "../../src/storage/repos/search-groups.js";
 import { ProfileSettingsRepo } from "../../src/storage/repos/profile-settings.js";
+import { ProfileSecretsRepo } from "../../src/storage/repos/profile-secrets.js";
+import { SecretsCipher } from "../../src/lib/secrets-crypto.js";
 import { ProfilesRepo } from "../../src/storage/repos/users.js";
 import { minimalConfig } from "../helpers/fixtures.js";
+
+const TEST_SECRETS_KEY = "a".repeat(64);
 
 describe("db-backed profile config", () => {
   let db: Db;
@@ -79,6 +83,56 @@ describe("db-backed profile config", () => {
       expect(loaded.alert.ntfy_token).toBe("env-token-xyz");
     } finally {
       delete process.env.NTFY_TOKEN;
+    }
+  });
+
+  it("a profile's own connected secret wins over a shared env var (multi-tenant correctness)", () => {
+    const now = new Date().toISOString();
+    seedProfileFromConfig(db, minimalConfig, now);
+    const cipher = new SecretsCipher(TEST_SECRETS_KEY);
+    const secrets = new ProfileSecretsRepo(db, "default", cipher);
+    secrets.set("ntfy_token", "profiles-own-token", now, null);
+
+    process.env.NTFY_TOKEN = "shared-env-token";
+    try {
+      const loaded = loadProfileConfig(db, "default", { fallback: minimalConfig, secrets });
+      expect(loaded.alert.ntfy_token).toBe("profiles-own-token");
+    } finally {
+      delete process.env.NTFY_TOKEN;
+    }
+  });
+
+  it("resolves per-platform credentials from the DB secret store, falling back to env", () => {
+    const now = new Date().toISOString();
+    seedProfileFromConfig(db, minimalConfig, now);
+    const cipher = new SecretsCipher(TEST_SECRETS_KEY);
+    const secrets = new ProfileSecretsRepo(db, "default", cipher);
+    secrets.set("ebay_client_id", "db-ebay-id", now, null);
+
+    process.env.EBAY_CLIENT_SECRET = "env-ebay-secret";
+    try {
+      const loaded = loadProfileConfig(db, "default", { fallback: minimalConfig, secrets });
+      expect(loaded.platform_credentials.ebay_client_id).toBe("db-ebay-id");
+      expect(loaded.platform_credentials.ebay_client_secret).toBe("env-ebay-secret");
+      expect(loaded.platform_credentials.grailed_app_id).toBeUndefined();
+    } finally {
+      delete process.env.EBAY_CLIENT_SECRET;
+    }
+  });
+
+  it("a second profile's own eBay credential is not shadowed by profile 'default's env var", () => {
+    const now = new Date().toISOString();
+    seedProfileFromConfig(db, { ...minimalConfig, profile_id: "p2" }, now);
+    const cipher = new SecretsCipher(TEST_SECRETS_KEY);
+    const p2Secrets = new ProfileSecretsRepo(db, "p2", cipher);
+    p2Secrets.set("ebay_client_id", "p2-own-id", now, null);
+
+    process.env.EBAY_CLIENT_ID = "owners-env-id";
+    try {
+      const loaded = loadProfileConfig(db, "p2", { fallback: minimalConfig, secrets: p2Secrets });
+      expect(loaded.platform_credentials.ebay_client_id).toBe("p2-own-id");
+    } finally {
+      delete process.env.EBAY_CLIENT_ID;
     }
   });
 });

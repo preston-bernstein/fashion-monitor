@@ -1,11 +1,19 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it, vi, afterEach } from "vitest";
-import { fetchVestiaireHtml } from "../../src/platforms/vestiaire/fetch-page.js";
+import { fetchVestiaireHtml, fetchViaScrapfly } from "../../src/platforms/vestiaire/fetch-page.js";
 
 describe("vestiaire fetch", () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    delete process.env.SCRAPFLY_API_KEY;
+  });
+
+  it("fetchViaScrapfly requires a key from either the config param or env", async () => {
+    delete process.env.SCRAPFLY_API_KEY;
+    await expect(fetchViaScrapfly("https://example.com")).rejects.toThrow(
+      "SCRAPFLY_API_KEY required",
+    );
   });
 
   it("uses scrapfly when direct fetch returns 403", async () => {
