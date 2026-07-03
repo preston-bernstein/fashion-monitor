@@ -46,9 +46,11 @@ Implementation: `packages/shared/src/connections.ts` (tiered registry, documents
 
 ## Phase 4 — Per-profile Health page (her "monitor flow and uptime") (Q8)
 
-1. Plain-language, per-profile view — no LogQL. Connection badges (reuse Phase 3 status) + last-alert timestamp + "test all connections."
-2. **Funnel** from `runs`: scraped → new → prefiltered → scored (yes/maybe/no) → alerted, for her last run(s).
-3. Status derived from `integration_events` (manual Test + per-run health share one timeline). Operator/system-wide monitoring stays in Grafana/Loki — not rebuilt.
+1. [x] Plain-language, per-profile view — no LogQL. Connection badges (reuse Phase 3's `GET /api/connections`, same component) + last-alert timestamp + "test all connections" (client-side loop over the existing per-platform Test mutation, no new bulk endpoint).
+2. [x] **Funnel** from `runs`: scraped → new → prefiltered → scored (yes/maybe/no) → alerted, for her last run(s). Prerequisite gap closed: `RunStats.prefilterRejected` was computed in `orchestrator.ts` but never persisted — `runs.prefilter_rejected` added (migration 017), `RunsRepo.recentFunnel()` new.
+3. [x] Status derived from `integration_events` — satisfied by reuse: Connection badges on this page are the exact same component/endpoint as Phase 3, so manual Test and per-run health already share one timeline by construction, nothing new needed here. Operator/system-wide monitoring stays in Grafana/Loki — not rebuilt.
+
+Implementation: `GET /api/profile-health` (`packages/api/src/web/routes/health.ts`, gated by `analytics:read` — deliberately the lowest tier, since viewer/curator are exactly who this page is for), `apps/web/src/pages/health.tsx` + `apps/web/src/components/health/run-funnel-table.tsx`. 9 new tests (2 core + 3 api + 4 component) plus a real end-to-end smoke test against a running dashboard with seeded run/alert rows.
 
 ## Phase 5 — Onboarding checklist (the "dashboard first" UX) (Q7)
 
