@@ -32,6 +32,27 @@ export function parseReportArgs(argv: string[]): { configPath: string; days: num
   return { configPath, days };
 }
 
+export function parseEvalArgs(argv: string[]): {
+  configPath: string;
+  revisionId?: number;
+  provider?: string;
+  limit?: number;
+} {
+  let configPath = "config.yaml";
+  let revisionId: number | undefined;
+  let provider: string | undefined;
+  let limit: number | undefined;
+
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === "--config" && argv[i + 1]) configPath = argv[++i];
+    if (argv[i] === "--revision" && argv[i + 1]) revisionId = parseInt(argv[++i], 10);
+    if (argv[i] === "--provider" && argv[i + 1]) provider = argv[++i];
+    if (argv[i] === "--limit" && argv[i + 1]) limit = parseInt(argv[++i], 10);
+  }
+
+  return { configPath, revisionId, provider, limit };
+}
+
 export function parseDashboardArgs(argv: string[]): { configPath: string; host: string; port: number } {
   let configPath = "config.yaml";
   let host = process.env.DASHBOARD_HOST ?? "127.0.0.1";

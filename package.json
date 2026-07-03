@@ -12,6 +12,7 @@
     "dev:run": "pnpm --filter @fm/cli exec tsx src/run.ts",
     "dev:report": "pnpm --filter @fm/cli exec tsx src/report.ts",
     "dev:dashboard": "pnpm --filter @fm/cli exec tsx src/dashboard.ts",
+    "dev:eval": "pnpm --filter @fm/cli exec tsx src/eval.ts",
     "dev:web": "pnpm --filter @fm/web dev",
     "start:run": "node apps/cli/dist/run.js",
     "start:report": "node apps/cli/dist/report.js",
