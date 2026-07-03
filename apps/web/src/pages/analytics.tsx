@@ -3,6 +3,7 @@ import { apiGet } from "@/lib/api";
 import type { DashboardPayload } from "@fm/shared/dto.js";
 import { PageHeader, RequireCapability, LoadingPage } from "@/components/common";
 import { DashboardView } from "@/components/analytics/dashboard-view";
+import { OnboardingChecklist } from "@/components/analytics/onboarding-checklist";
 
 export function AnalyticsPage() {
   return (
@@ -24,5 +25,10 @@ function AnalyticsContent() {
   if (isError || !data) {
     return <p className="text-sm text-destructive">Failed to load dashboard: {String(error)}</p>;
   }
-  return <DashboardView data={data} />;
+  return (
+    <div className="space-y-6">
+      <OnboardingChecklist />
+      <DashboardView data={data} />
+    </div>
+  );
 }

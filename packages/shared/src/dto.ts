@@ -137,6 +137,10 @@ export interface HealthResponse {
   lastAlertedAt: string | null;
 }
 
+export interface OnboardingResponse {
+  dismissed: boolean;
+}
+
 export interface UserRow {
   id: number;
   email: string;
