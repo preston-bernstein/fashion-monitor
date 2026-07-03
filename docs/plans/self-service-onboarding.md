@@ -24,10 +24,11 @@ Non-goals (deferred): public registration, billing/quotas beyond the monitor cap
 
 ## Phase 2 — Invites & account lifecycle (ADR-0003)
 
-1. **Invite issue/redeem.** Owner generates one-time token → link. Redeem: create User, create Profile, Owner membership, mark token consumed. New `invites` table (token hash, created_by, profile_id-on-redeem, expires_at, consumed_at).
-2. **Password reset** = owner-regenerated one-time link (same machinery, no email).
-3. **Profile deletion** = Owner self-serve, cascades all `profile_id` rows + secrets + memberships + final audit record.
-4. Audit actions added: `invite.create`, `invite.redeem`, `password.reset`, `profile.delete`.
+0. [x] **Prerequisite discovered during implementation, not in the original plan:** the web API bound one fixed `profileId` per server instance at boot (login and every route closed over it) — a Phase 2 invite would have created a Profile nobody could ever log into through that same server. The Phase 1 isolation audit's "no blocking findings" was correct for its own scope (no second profile was ever reachable through the web layer at the time, so there was nothing to leak between); it didn't anticipate Phase 2 needing the web layer itself to become multi-tenant. Fixed 2026-07-03: login resolves the user's membership instead of a fixed value, session restore trusts the session's own `profile_id` (already stored, previously unused), and every route scopes via `req.profileId` instead of `ctx.profileId`. `packages/api/tests/web/profile-isolation.test.ts` is the regression gate (two owners, two profiles, one running app).
+1. [x] **Invite issue/redeem.** Owner generates one-time token → link. Redeem: create User, create Profile, Owner membership, mark token consumed. `invites` table (migration 016: token hash, purpose, created_by, target_user_id, profile_id-on-redeem, expires_at, consumed_at) — shared with item 2. `POST /api/invites` (issue, `users:manage`), `POST /api/invites/redeem` (public).
+2. [x] **Password reset** = owner-regenerated one-time link, same `invites` table with `purpose: "password_reset"` and `target_user_id` set. `POST /api/users/:id/password-reset-link` (issue), `POST /api/invites/redeem-password-reset` (public); destroys the user's existing sessions.
+3. [x] **Profile deletion** = Owner self-serve (`DELETE /api/profile`, gated by `role === "owner"` directly rather than a Capability — every other capability is shared by owner+admin). Cascades every `profile_id`-scoped table (`packages/core/src/storage/profile-deletion.ts`); the "final audit record" is written to the `default` system profile since the deleted profile's own audit_log doesn't survive.
+4. [x] Audit actions added: `invite.create`, `invite.redeem`, `password.reset.link`, `password.reset`, `profile.delete`.
 
 ## Phase 3 — Connections page (Sonarr-style, our aesthetic) (ADR-0004)
 

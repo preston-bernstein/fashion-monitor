@@ -30,6 +30,8 @@ import { registerSecretsRoutes } from "./routes/secrets.js";
 import { registerUserRoutes } from "./routes/users.js";
 import { registerAuditRoutes } from "./routes/audit.js";
 import { registerFeedbackRoutes } from "./routes/feedback.js";
+import { registerInviteRoutes } from "./routes/invites.js";
+import { registerProfileRoutes } from "./routes/profile.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 // The compiled SPA is copied here by @fm/api#build (apps/web/dist -> dist/public).
@@ -66,7 +68,14 @@ export interface WebAppOptions {
 }
 
 // `/api/*` paths reachable without a session (everything else needs auth).
-const PUBLIC_API_PATHS = new Set(["/api/health", "/api/csrf", "/api/login", "/api/logout"]);
+const PUBLIC_API_PATHS = new Set([
+  "/api/health",
+  "/api/csrf",
+  "/api/login",
+  "/api/logout",
+  "/api/invites/redeem",
+  "/api/invites/redeem-password-reset",
+]);
 
 function isApi(url: string): boolean {
   return url === "/api" || url.startsWith("/api/");
@@ -329,6 +338,8 @@ export async function buildApp(options: WebAppOptions): Promise<FastifyInstance>
   await registerUserRoutes(app, ctx);
   await registerAuditRoutes(app, ctx);
   await registerFeedbackRoutes(app, ctx);
+  await registerInviteRoutes(app, ctx);
+  await registerProfileRoutes(app, ctx);
 
   // --- Static SPA assets + client-side routing fallback ---
   // The SPA shell. Explicit so the bare "/" doesn't hit the static directory
