@@ -16,13 +16,17 @@ export async function registerUserRoutes(app: FastifyInstance, ctx: WebContext):
   const users = () => new UsersRepo(ctx.db);
   const memberships = () => new MembershipsRepo(ctx.db);
 
-  app.get("/api/users", { preHandler: requireCapability(ctx, "users:manage") }, async (_req, reply) => {
-    reply.header("Cache-Control", "no-store");
-    return {
-      users: users().listForProfile(ctx.profileId),
-      roles: ROLES.map((r) => ({ value: r, label: ROLE_LABELS[r] })),
-    };
-  });
+  app.get(
+    "/api/users",
+    { preHandler: requireCapability(ctx, "users:manage") },
+    async (_req, reply) => {
+      reply.header("Cache-Control", "no-store");
+      return {
+        users: users().listForProfile(ctx.profileId),
+        roles: ROLES.map((r) => ({ value: r, label: ROLE_LABELS[r] })),
+      };
+    },
+  );
 
   app.post(
     "/api/users",

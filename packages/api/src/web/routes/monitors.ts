@@ -8,10 +8,7 @@ import {
   type SearchGroupDto,
 } from "@fm/shared/schemas/search-groups.js";
 import type { ScrapeQueryRow } from "@fm/core/storage/repos/scrape-queries.js";
-import {
-  SearchGroupsRepo,
-  type SearchGroupRow,
-} from "@fm/core/storage/repos/search-groups.js";
+import { SearchGroupsRepo, type SearchGroupRow } from "@fm/core/storage/repos/search-groups.js";
 import { ConfigRevisionsRepo } from "@fm/core/storage/repos/config-revisions.js";
 import type { WebContext } from "../context.js";
 import { auditFromRequest, requireCapability } from "../context.js";
@@ -100,9 +97,7 @@ export async function registerMonitorRoutes(app: FastifyInstance, ctx: WebContex
       else executionsByGroup.set(exec.group_id, [exec]);
     }
     const lastRuns = groups.fetchLastRunByExecution(allExecutions.map((e) => e.id));
-    return allGroups.map((g) =>
-      toGroupDto(g, executionsByGroup.get(g.id) ?? [], lastRuns),
-    );
+    return allGroups.map((g) => toGroupDto(g, executionsByGroup.get(g.id) ?? [], lastRuns));
   }
 
   app.get(
@@ -200,9 +195,7 @@ export async function registerMonitorRoutes(app: FastifyInstance, ctx: WebContex
         detail: groupDiff(existingGroup, updated),
       });
       snapshotConfig(req.currentUser!.id);
-      const lastRuns = groups.fetchLastRunByExecution(
-        groups.listExecutions(id).map((e) => e.id),
-      );
+      const lastRuns = groups.fetchLastRunByExecution(groups.listExecutions(id).map((e) => e.id));
       return { group: toGroupDto(updated, groups.listExecutions(id), lastRuns) };
     },
   );

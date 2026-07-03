@@ -9,24 +9,30 @@ import { parseBody } from "../validation.js";
 export { KNOWN_SECRETS };
 
 export async function registerSecretsRoutes(app: FastifyInstance, ctx: WebContext): Promise<void> {
-  app.get("/api/secrets", { preHandler: requireCapability(ctx, "secrets:read") }, async (req, reply) => {
-    reply.header("Cache-Control", "no-store");
-    const repo = ctx.secretsRepo();
-    const health = new IntegrationHealthRepo(ctx.db, ctx.profileId);
-    const secrets = repo ? repo.list().map((m) => ({ key: m.key, updated_at: m.updated_at })) : [];
-    const runRequestedAt =
-      new ProfileSettingsRepo(ctx.db, ctx.profileId).get<string>("run_requested_at") ?? null;
-    return {
-      storeEnabled: Boolean(repo),
-      secrets,
-      knownSecrets: KNOWN_SECRETS,
-      uptime: health.fetchUptime7d(),
-      failures: health.fetchRecentFailures(15),
-      runRequestedAt,
-      canWrite: req.capabilities.has("secrets:write"),
-      canTrigger: req.capabilities.has("pipeline:trigger"),
-    };
-  });
+  app.get(
+    "/api/secrets",
+    { preHandler: requireCapability(ctx, "secrets:read") },
+    async (req, reply) => {
+      reply.header("Cache-Control", "no-store");
+      const repo = ctx.secretsRepo();
+      const health = new IntegrationHealthRepo(ctx.db, ctx.profileId);
+      const secrets = repo
+        ? repo.list().map((m) => ({ key: m.key, updated_at: m.updated_at }))
+        : [];
+      const runRequestedAt =
+        new ProfileSettingsRepo(ctx.db, ctx.profileId).get<string>("run_requested_at") ?? null;
+      return {
+        storeEnabled: Boolean(repo),
+        secrets,
+        knownSecrets: KNOWN_SECRETS,
+        uptime: health.fetchUptime7d(),
+        failures: health.fetchRecentFailures(15),
+        runRequestedAt,
+        canWrite: req.capabilities.has("secrets:write"),
+        canTrigger: req.capabilities.has("pipeline:trigger"),
+      };
+    },
+  );
 
   app.put(
     "/api/secrets",

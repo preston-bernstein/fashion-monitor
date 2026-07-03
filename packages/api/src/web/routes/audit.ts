@@ -52,24 +52,28 @@ function parseAuditQuery(query: Record<string, unknown>): {
 }
 
 export async function registerAuditRoutes(app: FastifyInstance, ctx: WebContext): Promise<void> {
-  app.get("/api/audit", { preHandler: requireCapability(ctx, "system:read") }, async (req, reply) => {
-    reply.header("Cache-Control", "no-store");
-    try {
-      const filters = parseAuditQuery((req.query ?? {}) as Record<string, unknown>);
-      const { entries, total } = ctx.audit.fetchFiltered(filters);
-      return {
-        entries,
-        total,
-        limit: filters.limit,
-        offset: filters.offset,
-        has_more: filters.offset + entries.length < total,
-      };
-    } catch (err) {
-      if (err instanceof Error && err.message === "invalid_since") {
-        reply.code(400);
-        return { error: "invalid_since", message: "since must be a valid ISO date" };
+  app.get(
+    "/api/audit",
+    { preHandler: requireCapability(ctx, "system:read") },
+    async (req, reply) => {
+      reply.header("Cache-Control", "no-store");
+      try {
+        const filters = parseAuditQuery((req.query ?? {}) as Record<string, unknown>);
+        const { entries, total } = ctx.audit.fetchFiltered(filters);
+        return {
+          entries,
+          total,
+          limit: filters.limit,
+          offset: filters.offset,
+          has_more: filters.offset + entries.length < total,
+        };
+      } catch (err) {
+        if (err instanceof Error && err.message === "invalid_since") {
+          reply.code(400);
+          return { error: "invalid_since", message: "since must be a valid ISO date" };
+        }
+        throw err;
       }
-      throw err;
-    }
-  });
+    },
+  );
 }

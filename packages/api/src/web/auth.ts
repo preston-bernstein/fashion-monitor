@@ -124,12 +124,10 @@ export async function ensureAdmin(
       role,
     );
     if (created && audit) {
-      audit.recordFromRequest(
-        { userId, actorEmail: env.email },
-        "system.bootstrap.admin",
-        now,
-        { target: env.email, detail: { role } },
-      );
+      audit.recordFromRequest({ userId, actorEmail: env.email }, "system.bootstrap.admin", now, {
+        target: env.email,
+        detail: { role },
+      });
     }
     return;
   }

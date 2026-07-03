@@ -148,7 +148,8 @@ describe("search groups", () => {
       ts,
     );
 
-    const runId = db.prepare(`INSERT INTO runs (started_at) VALUES (?)`).run(ts).lastInsertRowid as number;
+    const runId = db.prepare(`INSERT INTO runs (started_at) VALUES (?)`).run(ts)
+      .lastInsertRowid as number;
     queries.recordQueryRuns(Number(runId), [
       {
         queryId: executionId("rollup-test", "ebay"),
