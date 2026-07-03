@@ -141,6 +141,7 @@ Open **Explore → Loki** or the **Fashion Monitor Logs** dashboard.
 | `{requestId="550e8400-e29b-41d4-a716-446655440000"}` | One API request |
 | `{service="dashboard"} \| json \| event="web.request.complete"` | Dashboard HTTP traffic |
 | `{event="platform.query.failed"} \| json \| platform="ebay"` | eBay query failures |
+| `{event="pipeline.scorer.vision.flip"} \| json \| flipped="true"` | MAYBE verdicts vision changed (see fashion-monitor-research-frontier F3) |
 
 Structured fields (`event`, `scope`, `runId`, `requestId`, etc.) are parsed from Pino JSON lines when possible; filter by label or use `| json` in LogQL for fields inside the log line.
 

@@ -43,6 +43,12 @@ export async function scoreListings(
 
     log.info(LogEvents.PipelineScorerVisionStart, { listing_id: maybe.listing_id });
     const visionResult = await provider.scoreWithImage(prep, systemPrompt);
+    log.info(LogEvents.PipelineScorerVisionFlip, {
+      listing_id: maybe.listing_id,
+      text_verdict: maybe.score,
+      vision_verdict: visionResult.score,
+      flipped: maybe.score !== visionResult.score,
+    });
     const idx = allResults.findIndex((r) => r.listing_id === maybe.listing_id);
     if (idx >= 0) allResults[idx] = visionResult;
   }

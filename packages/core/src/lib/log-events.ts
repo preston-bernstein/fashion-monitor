@@ -10,6 +10,7 @@ export const LogEvents = {
   PipelinePendingBacklog: "pipeline.pending.backlog",
   PipelineScorerBatchStart: "pipeline.scorer.batch.start",
   PipelineScorerVisionStart: "pipeline.scorer.vision.start",
+  PipelineScorerVisionFlip: "pipeline.scorer.vision.flip",
   IntegrationEventRecorded: "pipeline.integration.recorded",
 
   // Platforms
