@@ -1,22 +1,11 @@
 import type { FastifyInstance } from "fastify";
 import { CONNECTIONS, findConnection } from "@fm/shared/connections.js";
+import type { ConnectionDto } from "@fm/shared/dto.js";
 import { IntegrationHealthRepo } from "@fm/core/storage/repos/integration-health.js";
 import { createEbayScraper } from "@fm/core/platforms/ebay/scraper.js";
 import { createNtfyAlerter } from "@fm/core/alerts/ntfy.js";
 import type { WebContext } from "../context.js";
 import { auditFromRequest, requireCapability } from "../context.js";
-
-interface ConnectionDto {
-  platform: string;
-  label: string;
-  type: string;
-  dormant: boolean;
-  automatic: boolean;
-  configured: boolean;
-  status: "ok" | "degraded" | "failed" | "untested" | "not_connected";
-  lastTestedAt: string | null;
-  lastError: string | null;
-}
 
 function toDto(ctx: WebContext, profileId: string, platform: string): ConnectionDto {
   const meta = findConnection(platform)!;

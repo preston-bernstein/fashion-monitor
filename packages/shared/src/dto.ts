@@ -92,6 +92,31 @@ export interface SecretsResponse {
   canTrigger: boolean;
 }
 
+export type ConnectionStatus = "ok" | "degraded" | "failed" | "untested" | "not_connected";
+
+export interface ConnectionDto {
+  platform: string;
+  label: string;
+  type: "api-key" | "none" | "login";
+  dormant: boolean;
+  automatic: boolean;
+  configured: boolean;
+  status: ConnectionStatus;
+  lastTestedAt: string | null;
+  lastError: string | null;
+}
+
+export interface ConnectionsResponse {
+  connections: ConnectionDto[];
+}
+
+export interface ConnectionTestResponse {
+  ok: boolean;
+  status: "ok" | "failed";
+  error: string | null;
+  testedAt: string;
+}
+
 export interface UserRow {
   id: number;
   email: string;

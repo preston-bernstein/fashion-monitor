@@ -36,6 +36,7 @@ export const NAV_SECTIONS: NavSection[] = [
         cap: "secrets:read",
         search: { tab: "secrets" },
       },
+      { to: "/connections", label: "Connections", cap: "secrets:read" },
       { to: "/audit", label: "Audit", cap: "system:read" },
     ],
   },

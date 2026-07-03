@@ -5,6 +5,7 @@ import { AnalyticsPage } from "@/pages/analytics";
 import { MonitorsPage } from "@/pages/monitors";
 import { TastePage } from "@/pages/taste";
 import { SystemPage } from "@/pages/system";
+import { ConnectionsPage } from "@/pages/connections";
 import { UsersPage } from "@/pages/users";
 import { AuditPage } from "@/pages/audit";
 import { QueryPerformancePage } from "@/pages/query-performance";
@@ -56,6 +57,12 @@ const systemRoute = createRoute({
   component: SystemPage,
 });
 
+const connectionsRoute = createRoute({
+  getParentRoute: () => appLayoutRoute,
+  path: "/connections",
+  component: ConnectionsPage,
+});
+
 const operationsRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: "/operations",
@@ -92,6 +99,7 @@ const routeTree = rootRoute.addChildren([
     monitorsRoute,
     tasteRoute,
     systemRoute,
+    connectionsRoute,
     operationsRoute,
     auditRoute,
     queryPerformanceRoute,
