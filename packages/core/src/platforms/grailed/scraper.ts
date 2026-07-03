@@ -6,7 +6,7 @@ import type { SearchRequest } from "../../config/searches.js";
 import { scrapeQueries } from "../scrape-utils.js";
 import type { PlatformScraper, ScrapeOutcome } from "../types.js";
 import { queryGrailedAlgolia } from "./algolia.js";
-import { getGrailedCredentials, validateGrailedCredentials } from "./credentials.js";
+import { getGrailedCredentials, validateGrailedCredentials } from "./env.js";
 import { normalizeGrailed } from "./normalize.js";
 
 const log = createLogger("platform.grailed");
