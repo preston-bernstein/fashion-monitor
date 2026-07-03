@@ -26,21 +26,26 @@ const SCORE_COLOR: Record<string, string> = {
   PENDING: "var(--chart-3)",
 };
 
-export function DashboardCharts({ data }: { data: DashboardPayload }) {
-  const dailyData = useMemo(
-    () => [...data.dailyRuns].reverse().map((d) => ({ ...d, label: d.run_date.slice(5) })),
-    [data.dailyRuns],
-  );
+/** Oldest-first (dailyRuns arrives newest-first) with an MM-DD label for the x-axis. */
+export function computeDailyData(dailyRuns: DashboardPayload["dailyRuns"]) {
+  return [...dailyRuns].reverse().map((d) => ({ ...d, label: d.run_date.slice(5) }));
+}
 
-  const scoreData = useMemo(() => {
-    const byPlatform = new Map<string, Record<string, number | string>>();
-    for (const row of data.scoresByPlatform) {
-      const entry = byPlatform.get(row.platform) ?? { platform: row.platform };
-      entry[row.score] = row.listing_count;
-      byPlatform.set(row.platform, entry);
-    }
-    return [...byPlatform.values()];
-  }, [data.scoresByPlatform]);
+/** Pivots long-format (platform, score, count) rows into one object per platform. */
+export function computeScoreData(scoresByPlatform: DashboardPayload["scoresByPlatform"]) {
+  const byPlatform = new Map<string, Record<string, number | string>>();
+  for (const row of scoresByPlatform) {
+    const entry = byPlatform.get(row.platform) ?? { platform: row.platform };
+    entry[row.score] = row.listing_count;
+    byPlatform.set(row.platform, entry);
+  }
+  return [...byPlatform.values()];
+}
+
+export function DashboardCharts({ data }: { data: DashboardPayload }) {
+  const dailyData = useMemo(() => computeDailyData(data.dailyRuns), [data.dailyRuns]);
+
+  const scoreData = useMemo(() => computeScoreData(data.scoresByPlatform), [data.scoresByPlatform]);
 
   return (
     <>
