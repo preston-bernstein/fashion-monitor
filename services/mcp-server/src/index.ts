@@ -5,10 +5,12 @@ import { z } from 'zod';
 import { IMPLEMENTED_PLATFORMS } from '@fm/shared/platforms.js';
 import { searchListings } from './tools/search-listings.js';
 import { getRecentAlerts } from './tools/get-recent-alerts.js';
-import { addMonitor } from './tools/add-monitor.js';
+import { createAddMonitor } from './tools/add-monitor.js';
 import { getTaste } from './tools/get-taste.js';
+import { db, config } from './context.js';
 
 const PORT = Number(process.env.MCP_PORT ?? 3102);
+const addMonitor = createAddMonitor(db, config.profile_id);
 
 // cast avoids TS2589 — McpServer accumulates deep generics per registered tool
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

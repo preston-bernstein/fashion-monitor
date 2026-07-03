@@ -2,8 +2,22 @@ import type { Config } from "../../core/config.js";
 import { DEFAULT_SEARCHES } from "../../config/searches.js";
 import type { Platform } from "../../core/types.js";
 import { PLATFORMS } from "../../core/types.js";
+import { MAX_MONITORS_PER_PROFILE } from "@fm/shared/limits.js";
 import type { Db } from "../db.js";
 import type { ScrapeQueryRow } from "./scrape-queries.js";
+
+/**
+ * Thrown when a profile would exceed `MAX_MONITORS_PER_PROFILE` by creating
+ * another Monitor (search group). Both the web API and the MCP server share
+ * this single enforcement point (`SearchGroupsRepo.assertMonitorCapNotExceeded`)
+ * so the cap can't drift between the two write paths.
+ */
+export class MonitorCapExceededError extends Error {
+  constructor(public readonly limit: number) {
+    super(`Profile has reached the maximum of ${limit} monitors`);
+    this.name = "MonitorCapExceededError";
+  }
+}
 
 export interface SearchGroupRow {
   id: string;
@@ -118,6 +132,26 @@ export class SearchGroupsRepo {
         updated_at: string;
       }>
     ).map(rowToGroup);
+  }
+
+  countGroups(): number {
+    const row = this.db
+      .prepare(`SELECT COUNT(*) AS count FROM search_groups WHERE profile_id = ?`)
+      .get(this.profileId) as { count: number };
+    return row.count;
+  }
+
+  /**
+   * Enforces `MAX_MONITORS_PER_PROFILE` at Monitor-create time. Call this
+   * before `createGroup` from any user-initiated create path (web API,
+   * MCP `add_monitor`); it is intentionally NOT baked into `createGroup`
+   * itself so that config-driven bootstrap seeding (`syncFromConfig`) is
+   * never blocked by it.
+   */
+  assertMonitorCapNotExceeded(): void {
+    if (this.countGroups() >= MAX_MONITORS_PER_PROFILE) {
+      throw new MonitorCapExceededError(MAX_MONITORS_PER_PROFILE);
+    }
   }
 
   getGroup(id: string): SearchGroupRow | undefined {

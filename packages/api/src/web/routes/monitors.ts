@@ -8,7 +8,11 @@ import {
   type SearchGroupDto,
 } from "@fm/shared/schemas/search-groups.js";
 import type { ScrapeQueryRow } from "@fm/core/storage/repos/scrape-queries.js";
-import { SearchGroupsRepo, type SearchGroupRow } from "@fm/core/storage/repos/search-groups.js";
+import {
+  MonitorCapExceededError,
+  SearchGroupsRepo,
+  type SearchGroupRow,
+} from "@fm/core/storage/repos/search-groups.js";
 import { ConfigRevisionsRepo } from "@fm/core/storage/repos/config-revisions.js";
 import type { WebContext } from "../context.js";
 import { auditFromRequest, requireCapability } from "../context.js";
@@ -125,6 +129,16 @@ export async function registerMonitorRoutes(app: FastifyInstance, ctx: WebContex
       if (groups.getGroup(data.id)) {
         reply.code(409);
         return { error: "duplicate", message: "Search group id already exists" };
+      }
+
+      try {
+        groups.assertMonitorCapNotExceeded();
+      } catch (err) {
+        if (err instanceof MonitorCapExceededError) {
+          reply.code(400);
+          return { error: "monitor_limit_reached", message: err.message };
+        }
+        throw err;
       }
 
       const platforms =

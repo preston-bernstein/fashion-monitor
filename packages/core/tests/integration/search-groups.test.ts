@@ -2,7 +2,12 @@ import { describe, expect, it, vi } from "vitest";
 import { runPipeline } from "../../src/pipeline/orchestrator.js";
 import { openDatabase } from "../../src/storage/db.js";
 import { ScrapeQueriesRepo } from "../../src/storage/repos/scrape-queries.js";
-import { SearchGroupsRepo, executionId } from "../../src/storage/repos/search-groups.js";
+import {
+  MonitorCapExceededError,
+  SearchGroupsRepo,
+  executionId,
+} from "../../src/storage/repos/search-groups.js";
+import { MAX_MONITORS_PER_PROFILE } from "@fm/shared/limits.js";
 import { mockScraper } from "../helpers/scrapers.js";
 import { yesBatchProvider } from "../helpers/mock-provider.js";
 import { minimalConfig, sampleListing } from "../helpers/fixtures.js";
@@ -210,6 +215,55 @@ describe("search groups", () => {
     expect(executions).toHaveLength(1);
     expect(executions[0].id).toBe(executionId("ebay-seed", "ebay"));
     expect(executions[0].group_id).toBe("ebay-seed");
+
+    db.close();
+  });
+
+  it("enforces max_monitors_per_profile at the shared repo layer", () => {
+    const db = openDatabase(":memory:");
+    const ts = "2026-06-08T12:00:00.000Z";
+    const groups = new SearchGroupsRepo(db, "default");
+
+    for (let i = 1; i <= MAX_MONITORS_PER_PROFILE - 1; i++) {
+      groups.assertMonitorCapNotExceeded();
+      groups.createGroup(
+        {
+          id: `monitor-${i}`,
+          query_text: `query ${i}`,
+          platforms: ["ebay"],
+          query_overrides: {},
+          enabled: true,
+          status: "active",
+          note: null,
+        },
+        ts,
+      );
+    }
+    expect(groups.countGroups()).toBe(MAX_MONITORS_PER_PROFILE - 1);
+
+    // Boundary: the MAX_MONITORS_PER_PROFILE-th monitor must be allowed.
+    expect(() => groups.assertMonitorCapNotExceeded()).not.toThrow();
+    groups.createGroup(
+      {
+        id: `monitor-${MAX_MONITORS_PER_PROFILE}`,
+        query_text: "boundary query",
+        platforms: ["ebay"],
+        query_overrides: {},
+        enabled: true,
+        status: "active",
+        note: null,
+      },
+      ts,
+    );
+    expect(groups.countGroups()).toBe(MAX_MONITORS_PER_PROFILE);
+
+    // Over the cap: must throw and must not have written a row.
+    expect(() => groups.assertMonitorCapNotExceeded()).toThrow(MonitorCapExceededError);
+    expect(groups.countGroups()).toBe(MAX_MONITORS_PER_PROFILE);
+
+    // A different profile is unaffected (cap is per-profile).
+    const otherProfileGroups = new SearchGroupsRepo(db, "other-profile");
+    expect(() => otherProfileGroups.assertMonitorCapNotExceeded()).not.toThrow();
 
     db.close();
   });

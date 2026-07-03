@@ -152,4 +152,51 @@ describe("monitors CRUD (JSON API)", () => {
     expect((await client.patch("/api/monitors/nope", { status: "paused" })).statusCode).toBe(404);
     expect((await client.del("/api/monitors/nope")).statusCode).toBe(404);
   });
+
+  it("enforces the max_monitors_per_profile cap at Monitor-create", async () => {
+    const groups = new SearchGroupsRepo(db, "default");
+    const ts = new Date().toISOString();
+
+    // Seed 24 monitors directly via the repo (fast) so the boundary (#25)
+    // and over-the-cap (#26) attempts go through the real API path.
+    for (let i = 1; i <= 24; i++) {
+      groups.createGroup(
+        {
+          id: `cap-monitor-${i}`,
+          query_text: `query ${i}`,
+          platforms: ["ebay"],
+          query_overrides: {},
+          enabled: true,
+          status: "active",
+          note: null,
+        },
+        ts,
+      );
+    }
+    expect(groups.listGroups()).toHaveLength(24);
+
+    // #25 is the boundary — must succeed.
+    const boundary = await client.post("/api/monitors", {
+      id: "cap-monitor-25",
+      query_text: "boundary query",
+      platforms: ["ebay"],
+      status: "active",
+      enabled: true,
+    });
+    expect(boundary.statusCode).toBe(201);
+    expect(groups.listGroups()).toHaveLength(25);
+
+    // #26 must be rejected with the documented status/error shape.
+    const overCap = await client.post("/api/monitors", {
+      id: "cap-monitor-26",
+      query_text: "over cap query",
+      platforms: ["ebay"],
+      status: "active",
+      enabled: true,
+    });
+    expect(overCap.statusCode).toBe(400);
+    expect((overCap.json() as { error: string }).error).toBe("monitor_limit_reached");
+    expect(groups.listGroups()).toHaveLength(25);
+    expect(groups.getGroup("cap-monitor-26")).toBeUndefined();
+  });
 });
