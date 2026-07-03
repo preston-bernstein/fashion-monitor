@@ -1,6 +1,6 @@
 # Listing images architecture
 
-**Status:** MVP implemented (migration 014). Auto-pick gallery and monitor gallery-management UI implemented 2026-07-03. Thumbnail cache deferred.
+**Status:** MVP implemented (migration 014). Auto-pick gallery, monitor gallery-management UI, and image loading/error states implemented 2026-07-03. Thumbnail cache (and the `srcset` support that depends on it) deferred.
 
 ---
 
@@ -162,9 +162,8 @@ Audit actions: `search_group.image.add`, `search_group.image.remove`.
 
 ## Deferred
 
-- Thumbnail cache module (`data/image-cache/`, LRU cap).
+- Thumbnail cache module (`data/image-cache/`, LRU cap) — also blocks `srcset` (no multi-resolution variants exist without it).
 - `upload` source for user-provided files.
-- `srcset` / blur placeholders.
 - Backfill migration from historical `listing_snapshot` JSON (optional one-off script).
 
 ---
@@ -180,4 +179,4 @@ Audit actions: `search_group.image.add`, `search_group.image.remove`.
 | Shared schemas | `packages/shared/src/schemas/images.ts` |
 | API routes | `packages/api/src/web/routes/images.ts` |
 | Web | `lazy-image.tsx`, `monitor-table.tsx`, `monitor-image-manager.tsx`, `dashboard-sections.tsx` |
-| Tests | `extract.test.ts`, `listing-images.test.ts`, `images.test.ts`, `monitor-image-manager.test.tsx` |
+| Tests | `extract.test.ts`, `listing-images.test.ts`, `images.test.ts`, `monitor-image-manager.test.tsx`, `lazy-image.test.tsx` |
