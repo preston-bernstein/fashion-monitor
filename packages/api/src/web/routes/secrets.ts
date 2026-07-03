@@ -14,13 +14,13 @@ export async function registerSecretsRoutes(app: FastifyInstance, ctx: WebContex
     { preHandler: requireCapability(ctx, "secrets:read") },
     async (req, reply) => {
       reply.header("Cache-Control", "no-store");
-      const repo = ctx.secretsRepo();
-      const health = new IntegrationHealthRepo(ctx.db, ctx.profileId);
+      const repo = ctx.secretsRepo(req.profileId!);
+      const health = new IntegrationHealthRepo(ctx.db, req.profileId!);
       const secrets = repo
         ? repo.list().map((m) => ({ key: m.key, updated_at: m.updated_at }))
         : [];
       const runRequestedAt =
-        new ProfileSettingsRepo(ctx.db, ctx.profileId).get<string>("run_requested_at") ?? null;
+        new ProfileSettingsRepo(ctx.db, req.profileId!).get<string>("run_requested_at") ?? null;
       return {
         storeEnabled: Boolean(repo),
         secrets,
@@ -38,7 +38,7 @@ export async function registerSecretsRoutes(app: FastifyInstance, ctx: WebContex
     "/api/secrets",
     { preHandler: [app.csrfProtection, requireCapability(ctx, "secrets:write")] },
     async (req, reply) => {
-      const repo = ctx.secretsRepo();
+      const repo = ctx.secretsRepo(req.profileId!);
       if (!repo) {
         reply.code(400);
         return { error: "store_disabled", message: "Secret store is disabled (no SECRETS_KEY)." };
@@ -60,7 +60,7 @@ export async function registerSecretsRoutes(app: FastifyInstance, ctx: WebContex
     { preHandler: [app.csrfProtection, requireCapability(ctx, "pipeline:trigger")] },
     async (req, _reply) => {
       const ts = ctx.now().toISOString();
-      new ProfileSettingsRepo(ctx.db, ctx.profileId).set("run_requested_at", ts, ts);
+      new ProfileSettingsRepo(ctx.db, req.profileId!).set("run_requested_at", ts, ts);
       auditFromRequest(ctx, req, "pipeline.trigger");
       return { ok: true, runRequestedAt: ts };
     },

@@ -89,6 +89,19 @@ export class MembershipsRepo {
       .get(userId, profileId) as MembershipRow | undefined;
   }
 
+  /**
+   * Every profile a user belongs to, most-recently-created first. Login uses
+   * this to resolve which profile to sign into: v1 invites give each user
+   * exactly one membership, so the common case is unambiguous. A user with
+   * more than one (no current UI path creates this, but the schema is M:N)
+   * signs into the most recent one — there's no profile-picker UI yet.
+   */
+  listForUser(userId: number): MembershipRow[] {
+    return this.db
+      .prepare(`SELECT * FROM memberships WHERE user_id = ? ORDER BY created_at DESC`)
+      .all(userId) as MembershipRow[];
+  }
+
   upsert(userId: number, profileId: string, role: Role, now: string): void {
     this.db
       .prepare(

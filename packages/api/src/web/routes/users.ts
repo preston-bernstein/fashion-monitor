@@ -19,10 +19,10 @@ export async function registerUserRoutes(app: FastifyInstance, ctx: WebContext):
   app.get(
     "/api/users",
     { preHandler: requireCapability(ctx, "users:manage") },
-    async (_req, reply) => {
+    async (req, reply) => {
       reply.header("Cache-Control", "no-store");
       return {
-        users: users().listForProfile(ctx.profileId),
+        users: users().listForProfile(req.profileId!),
         roles: ROLES.map((r) => ({ value: r, label: ROLE_LABELS[r] })),
       };
     },
@@ -41,7 +41,7 @@ export async function registerUserRoutes(app: FastifyInstance, ctx: WebContext):
         return { error: "duplicate", message: "A user with that email already exists" };
       }
       const userId = u.create(data.email, await hashPassword(data.password), ts);
-      memberships().upsert(userId, ctx.profileId, data.role as Role, ts);
+      memberships().upsert(userId, req.profileId!, data.role as Role, ts);
       auditFromRequest(ctx, req, "user.create", {
         target: data.email,
         detail: { role: data.role },
@@ -67,20 +67,20 @@ export async function registerUserRoutes(app: FastifyInstance, ctx: WebContext):
         reply.code(404);
         return { error: "not_found" };
       }
-      const membership = memberships().forUser(userId, ctx.profileId);
+      const membership = memberships().forUser(userId, req.profileId!);
       if (!membership) {
         reply.code(404);
         return { error: "not_found" };
       }
       if (membership.role === "owner" && data.role !== "owner") {
-        const owners = memberships().countOwners(ctx.profileId);
+        const owners = memberships().countOwners(req.profileId!);
         if (owners <= 1) {
           reply.code(400);
           return { error: "last_owner", message: "Cannot demote the last owner" };
         }
       }
       const ts = ctx.now().toISOString();
-      memberships().upsert(userId, ctx.profileId, data.role as Role, ts);
+      memberships().upsert(userId, req.profileId!, data.role as Role, ts);
       new SessionsRepo(ctx.db).destroyForUser(userId);
       auditFromRequest(ctx, req, "user.role", {
         target: user.email,

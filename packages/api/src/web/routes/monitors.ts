@@ -72,17 +72,17 @@ function toGroupDto(
   };
 }
 
-function enabledPlatformsFromConfig(ctx: WebContext): Platform[] {
-  const config = ctx.loadConfig();
+function enabledPlatformsFromConfig(ctx: WebContext, profileId: string): Platform[] {
+  const config = ctx.loadConfig(profileId);
   return PLATFORMS.filter((p) => config.platforms[p]);
 }
 
 export async function registerMonitorRoutes(app: FastifyInstance, ctx: WebContext): Promise<void> {
-  const groupsRepo = () => new SearchGroupsRepo(ctx.db, ctx.profileId);
+  const groupsRepo = (profileId: string) => new SearchGroupsRepo(ctx.db, profileId);
 
-  function snapshotConfig(userId: number | null): void {
-    const config = ctx.loadConfig();
-    new ConfigRevisionsRepo(ctx.db, ctx.profileId).maybeSnapshot(
+  function snapshotConfig(profileId: string, userId: number | null): void {
+    const config = ctx.loadConfig(profileId);
+    new ConfigRevisionsRepo(ctx.db, profileId).maybeSnapshot(
       config,
       null,
       ctx.now().toISOString(),
@@ -90,8 +90,8 @@ export async function registerMonitorRoutes(app: FastifyInstance, ctx: WebContex
     );
   }
 
-  function listGroupsWithExecutions(): SearchGroupDto[] {
-    const groups = groupsRepo();
+  function listGroupsWithExecutions(profileId: string): SearchGroupDto[] {
+    const groups = groupsRepo(profileId);
     const allGroups = groups.listGroups();
     const allExecutions = groups.listAllExecutions();
     const executionsByGroup = new Map<string, ScrapeQueryRow[]>();
@@ -110,7 +110,7 @@ export async function registerMonitorRoutes(app: FastifyInstance, ctx: WebContex
     async (req, reply) => {
       reply.header("Cache-Control", "no-store");
       return {
-        groups: listGroupsWithExecutions(),
+        groups: listGroupsWithExecutions(req.profileId!),
         platforms: [...PLATFORMS],
         statuses: [...MONITOR_STATUSES],
         canWrite: req.capabilities.has("monitors:write"),
@@ -125,7 +125,7 @@ export async function registerMonitorRoutes(app: FastifyInstance, ctx: WebContex
       const data = parseBody(SearchGroupCreateInputSchema, req.body, reply);
       if (!data) return reply;
       const ts = ctx.now().toISOString();
-      const groups = groupsRepo();
+      const groups = groupsRepo(req.profileId!);
       if (groups.getGroup(data.id)) {
         reply.code(409);
         return { error: "duplicate", message: "Search group id already exists" };
@@ -144,7 +144,7 @@ export async function registerMonitorRoutes(app: FastifyInstance, ctx: WebContex
       const platforms =
         data.platforms && data.platforms.length > 0
           ? data.platforms
-          : enabledPlatformsFromConfig(ctx);
+          : enabledPlatformsFromConfig(ctx, req.profileId!);
 
       groups.createGroup(
         {
@@ -164,7 +164,7 @@ export async function registerMonitorRoutes(app: FastifyInstance, ctx: WebContex
         target: data.id,
         detail: { after: groupSnapshot(created) },
       });
-      snapshotConfig(req.currentUser!.id);
+      snapshotConfig(req.profileId!, req.currentUser!.id);
       reply.code(201);
       const lastRuns = groups.fetchLastRunByExecution(
         groups.listExecutions(data.id).map((e) => e.id),
@@ -178,7 +178,7 @@ export async function registerMonitorRoutes(app: FastifyInstance, ctx: WebContex
     { preHandler: [app.csrfProtection, requireCapability(ctx, "monitors:write")] },
     async (req, reply) => {
       const { id } = req.params as { id: string };
-      const groups = groupsRepo();
+      const groups = groupsRepo(req.profileId!);
       const existingGroup = groups.getGroup(id);
       if (!existingGroup) {
         reply.code(404);
@@ -208,7 +208,7 @@ export async function registerMonitorRoutes(app: FastifyInstance, ctx: WebContex
         target: id,
         detail: groupDiff(existingGroup, updated),
       });
-      snapshotConfig(req.currentUser!.id);
+      snapshotConfig(req.profileId!, req.currentUser!.id);
       const lastRuns = groups.fetchLastRunByExecution(groups.listExecutions(id).map((e) => e.id));
       return { group: toGroupDto(updated, groups.listExecutions(id), lastRuns) };
     },
@@ -219,7 +219,7 @@ export async function registerMonitorRoutes(app: FastifyInstance, ctx: WebContex
     { preHandler: [app.csrfProtection, requireCapability(ctx, "monitors:write")] },
     async (req, reply) => {
       const { id } = req.params as { id: string };
-      const groups = groupsRepo();
+      const groups = groupsRepo(req.profileId!);
       const existingGroup = groups.getGroup(id);
       if (!existingGroup) {
         reply.code(404);
@@ -231,7 +231,7 @@ export async function registerMonitorRoutes(app: FastifyInstance, ctx: WebContex
         target: id,
         detail: { before: groupSnapshot(existingGroup) },
       });
-      snapshotConfig(req.currentUser!.id);
+      snapshotConfig(req.profileId!, req.currentUser!.id);
       return { ok: true };
     },
   );

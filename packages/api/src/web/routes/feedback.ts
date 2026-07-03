@@ -15,14 +15,14 @@ export async function registerFeedbackRoutes(app: FastifyInstance, ctx: WebConte
       const data = parseBody(FeedbackCreateInputSchema, req.body, reply);
       if (!data) return reply;
 
-      const alertLog = new AlertLogRepo(ctx.db, ctx.profileId);
+      const alertLog = new AlertLogRepo(ctx.db, req.profileId!);
       const row = buildFeedbackInsert(
         { platform: data.platform, listing_id: data.listing_id, signal: data.signal },
         alertLog,
       );
 
       const ts = ctx.now().toISOString();
-      new FeedbackRepo(ctx.db, ctx.profileId).insert(row, ts);
+      new FeedbackRepo(ctx.db, req.profileId!).insert(row, ts);
 
       auditFromRequest(ctx, req, "feedback.record", {
         target: `${data.platform}:${data.listing_id}`,

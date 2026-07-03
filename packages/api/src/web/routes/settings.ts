@@ -22,11 +22,11 @@ function changedKeys(before: Record<string, unknown>, after: Record<string, unkn
 }
 
 export async function registerSettingsRoutes(app: FastifyInstance, ctx: WebContext): Promise<void> {
-  const settings = () => new ProfileSettingsRepo(ctx.db, ctx.profileId);
+  const settings = (profileId: string) => new ProfileSettingsRepo(ctx.db, profileId);
 
-  function snapshot(userId: number): void {
-    new ConfigRevisionsRepo(ctx.db, ctx.profileId).maybeSnapshot(
-      ctx.loadConfig(),
+  function snapshot(profileId: string, userId: number): void {
+    new ConfigRevisionsRepo(ctx.db, profileId).maybeSnapshot(
+      ctx.loadConfig(profileId),
       null,
       ctx.now().toISOString(),
       userId,
@@ -38,7 +38,7 @@ export async function registerSettingsRoutes(app: FastifyInstance, ctx: WebConte
     { preHandler: requireCapability(ctx, "taste:read") },
     async (req, reply) => {
       reply.header("Cache-Control", "no-store");
-      const s = settings();
+      const s = settings(req.profileId!);
       return {
         taste: {
           aesthetic_prompt: s.get<string>("aesthetic_prompt") ?? "",
@@ -62,7 +62,7 @@ export async function registerSettingsRoutes(app: FastifyInstance, ctx: WebConte
       const data = parseBody(TasteInputSchema, req.body, reply);
       if (!data) return reply;
       const ts = ctx.now().toISOString();
-      const s = settings();
+      const s = settings(req.profileId!);
       const beforeTaste = {
         aesthetic_prompt: s.get<string>("aesthetic_prompt") ?? "",
         hard_no: s.get<string[]>("hard_no") ?? [],
@@ -89,7 +89,7 @@ export async function registerSettingsRoutes(app: FastifyInstance, ctx: WebConte
       auditFromRequest(ctx, req, "taste.update", {
         detail: { fields: changedKeys(beforeTaste, afterTaste) },
       });
-      snapshot(req.currentUser!.id);
+      snapshot(req.profileId!, req.currentUser!.id);
       return { ok: true };
     },
   );
@@ -99,7 +99,7 @@ export async function registerSettingsRoutes(app: FastifyInstance, ctx: WebConte
     { preHandler: requireCapability(ctx, "system:read") },
     async (req, reply) => {
       reply.header("Cache-Control", "no-store");
-      const s = settings();
+      const s = settings(req.profileId!);
       return {
         system: {
           platforms: (s.get<Record<string, boolean>>("platforms") ?? {}) as Record<string, boolean>,
@@ -130,7 +130,7 @@ export async function registerSettingsRoutes(app: FastifyInstance, ctx: WebConte
       const data = parseBody(SystemInputSchema, req.body, reply);
       if (!data) return reply;
       const ts = ctx.now().toISOString();
-      const s = settings();
+      const s = settings(req.profileId!);
 
       const beforeSystem = {
         platforms: (s.get<Record<string, boolean>>("platforms") ?? {}) as Record<string, boolean>,
@@ -161,7 +161,7 @@ export async function registerSettingsRoutes(app: FastifyInstance, ctx: WebConte
       auditFromRequest(ctx, req, "system.update", {
         detail: { fields: changedKeys(beforeSystem, afterSystem) },
       });
-      snapshot(req.currentUser!.id);
+      snapshot(req.profileId!, req.currentUser!.id);
       return { ok: true };
     },
   );

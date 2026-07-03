@@ -40,6 +40,8 @@ const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
 declare module "fastify" {
   interface FastifyRequest {
     currentUser?: AuthenticatedUser;
+    /** The current session's profile — resolved per-request, never fixed. */
+    profileId?: string;
     sessionId?: string;
     capabilities: Set<Capability>;
   }
@@ -47,7 +49,6 @@ declare module "fastify" {
 
 export interface WebAppOptions {
   db: Db;
-  profileId?: string;
   /** Bootstrap config (config.yaml) used as fallback for db-backed config + secrets. */
   fileConfig?: Config;
   databasePath?: string;
@@ -80,7 +81,6 @@ function indexHtml(): string {
 
 export async function buildApp(options: WebAppOptions): Promise<FastifyInstance> {
   const log = createLogger("web.app");
-  const profileId = options.profileId ?? options.fileConfig?.profile_id ?? "default";
   const now = options.now ?? (() => new Date());
   const sessionSecret =
     options.sessionSecret && options.sessionSecret.length >= 16
@@ -91,14 +91,13 @@ export async function buildApp(options: WebAppOptions): Promise<FastifyInstance>
 
   const ctx: WebContext = {
     db: options.db,
-    profileId,
     fileConfig: options.fileConfig,
     databasePath: options.databasePath,
     cipher,
     now,
-    secretsRepo: () => (cipher ? new ProfileSecretsRepo(options.db, profileId, cipher) : undefined),
-    audit: new AuditLogRepo(options.db, profileId),
-    loadConfig: () =>
+    secretsRepo: (profileId) =>
+      cipher ? new ProfileSecretsRepo(options.db, profileId, cipher) : undefined,
+    loadConfig: (profileId) =>
       loadProfileConfig(options.db, profileId, {
         fallback: options.fileConfig,
         databasePath: options.databasePath ?? options.fileConfig?.database.path,
@@ -191,9 +190,18 @@ export async function buildApp(options: WebAppOptions): Promise<FastifyInstance>
         const session = sessions.get(unsigned.value, now());
         if (session) {
           const user = users.findById(session.user_id);
-          const membership = memberships.forUser(session.user_id, profileId);
+          // The session's OWN profile_id, not a fixed server-wide value — one
+          // server instance serves every profile, and each session is scoped
+          // to the profile it was created for at login.
+          const membership = memberships.forUser(session.user_id, session.profile_id);
           if (user && user.status === "active" && membership) {
-            req.currentUser = { id: user.id, email: user.email, role: membership.role };
+            req.currentUser = {
+              id: user.id,
+              email: user.email,
+              role: membership.role,
+              profileId: session.profile_id,
+            };
+            req.profileId = session.profile_id;
             req.sessionId = unsigned.value;
             req.capabilities = capabilitiesForRole(membership.role);
           }
@@ -230,22 +238,32 @@ export async function buildApp(options: WebAppOptions): Promise<FastifyInstance>
       const body = (req.body ?? {}) as Record<string, unknown>;
       const email = typeof body.email === "string" ? body.email.trim() : "";
       const password = typeof body.password === "string" ? body.password : "";
-      const user = await authenticate(options.db, profileId, email, password);
+      const user = await authenticate(options.db, email, password);
       const ts = now().toISOString();
 
       if (!user) {
-        ctx.audit.recordFromRequest(
-          { userId: null, actorEmail: email || null },
-          "login.failed",
-          ts,
-          { detail: { requestId: req.id } },
-        );
+        // Attribute the failure to the targeted user's profile when we can
+        // identify one (wrong password, disabled account); an unknown email
+        // has no profile to attribute it to, so the row is skipped — the
+        // structured warn log below still records the attempt.
+        const targeted = users.findByEmail(email);
+        const targetedProfileId = targeted
+          ? memberships.listForUser(targeted.id)[0]?.profile_id
+          : undefined;
+        if (targetedProfileId) {
+          new AuditLogRepo(options.db, targetedProfileId).recordFromRequest(
+            { userId: null, actorEmail: email || null },
+            "login.failed",
+            ts,
+            { detail: { requestId: req.id } },
+          );
+        }
         log.warn(LogEvents.WebAuthLoginFailed, { requestId: req.id });
         reply.code(401);
         return { error: "invalid_credentials" };
       }
 
-      const sid = sessions.create(user.id, profileId, now(), SESSION_TTL_SECONDS);
+      const sid = sessions.create(user.id, user.profileId, now(), SESSION_TTL_SECONDS);
       reply.setCookie("sid", sid, {
         httpOnly: true,
         sameSite: "lax",
@@ -254,7 +272,7 @@ export async function buildApp(options: WebAppOptions): Promise<FastifyInstance>
         signed: true,
         maxAge: SESSION_TTL_SECONDS,
       });
-      ctx.audit.recordFromRequest(
+      new AuditLogRepo(options.db, user.profileId).recordFromRequest(
         { userId: user.id, actorEmail: user.email },
         "login.success",
         ts,
@@ -293,9 +311,9 @@ export async function buildApp(options: WebAppOptions): Promise<FastifyInstance>
     "/api/dashboard",
     { preHandler: requireCapability(ctx, "analytics:read") },
     async (req, reply) => {
-      const config = ctx.loadConfig();
+      const config = ctx.loadConfig(req.profileId!);
       reply.header("Cache-Control", "no-store");
-      const payload = fetchDashboardPayload(options.db, profileId, config);
+      const payload = fetchDashboardPayload(options.db, req.profileId!, config);
       // Integration health is ops-only; curators/viewers must not receive it.
       if (!req.capabilities.has("secrets:read")) {
         return { ...payload, integrationUptime: [], integrationFailures: [] };

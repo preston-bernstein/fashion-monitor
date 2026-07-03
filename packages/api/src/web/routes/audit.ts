@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import type { AuditCategory } from "@fm/shared/dto.js";
+import { AuditLogRepo } from "@fm/core/storage/repos/audit-log.js";
 import type { WebContext } from "../context.js";
 import { requireCapability } from "../context.js";
 
@@ -59,7 +60,7 @@ export async function registerAuditRoutes(app: FastifyInstance, ctx: WebContext)
       reply.header("Cache-Control", "no-store");
       try {
         const filters = parseAuditQuery((req.query ?? {}) as Record<string, unknown>);
-        const { entries, total } = ctx.audit.fetchFiltered(filters);
+        const { entries, total } = new AuditLogRepo(ctx.db, req.profileId!).fetchFiltered(filters);
         return {
           entries,
           total,

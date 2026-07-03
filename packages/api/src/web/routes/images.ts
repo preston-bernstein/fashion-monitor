@@ -48,23 +48,23 @@ function toSearchGroupImageDto(row: {
 }
 
 export async function registerImageRoutes(app: FastifyInstance, ctx: WebContext): Promise<void> {
-  const listingImages = () => new ListingImagesRepo(ctx.db, ctx.profileId);
-  const groupImages = () => new SearchGroupImagesRepo(ctx.db, ctx.profileId);
-  const groups = () => new SearchGroupsRepo(ctx.db, ctx.profileId);
+  const listingImages = (profileId: string) => new ListingImagesRepo(ctx.db, profileId);
+  const groupImages = (profileId: string) => new SearchGroupImagesRepo(ctx.db, profileId);
+  const groups = (profileId: string) => new SearchGroupsRepo(ctx.db, profileId);
 
   app.get(
     "/api/monitors/:id/images",
     { preHandler: requireCapability(ctx, "monitors:read") },
     async (req, reply) => {
       const { id } = req.params as { id: string };
-      if (!groups().getGroup(id)) {
+      if (!groups(req.profileId!).getGroup(id)) {
         reply.code(404);
         return { error: "not_found" };
       }
 
       reply.header("Cache-Control", "private, max-age=60");
-      const curated = groupImages().listForGroup(id);
-      const fallback = listingImages().findLatestForGroup(id, 5);
+      const curated = groupImages(req.profileId!).listForGroup(id);
+      const fallback = listingImages(req.profileId!).findLatestForGroup(id, 5);
       return {
         group_id: id,
         curated: curated.map(toSearchGroupImageDto),
@@ -78,7 +78,7 @@ export async function registerImageRoutes(app: FastifyInstance, ctx: WebContext)
     { preHandler: [app.csrfProtection, requireCapability(ctx, "monitors:write")] },
     async (req, reply) => {
       const { id } = req.params as { id: string };
-      if (!groups().getGroup(id)) {
+      if (!groups(req.profileId!).getGroup(id)) {
         reply.code(404);
         return { error: "not_found" };
       }
@@ -87,7 +87,7 @@ export async function registerImageRoutes(app: FastifyInstance, ctx: WebContext)
       if (!data) return reply;
 
       const ts = ctx.now().toISOString();
-      const repo = groupImages();
+      const repo = groupImages(req.profileId!);
 
       try {
         const image =
@@ -121,7 +121,7 @@ export async function registerImageRoutes(app: FastifyInstance, ctx: WebContext)
     { preHandler: [app.csrfProtection, requireCapability(ctx, "monitors:write")] },
     async (req, reply) => {
       const { id, imageId } = req.params as { id: string; imageId: string };
-      if (!groups().getGroup(id)) {
+      if (!groups(req.profileId!).getGroup(id)) {
         reply.code(404);
         return { error: "not_found" };
       }
@@ -132,13 +132,13 @@ export async function registerImageRoutes(app: FastifyInstance, ctx: WebContext)
         return { error: "invalid_input" };
       }
 
-      const existing = groupImages().getById(numericId);
+      const existing = groupImages(req.profileId!).getById(numericId);
       if (!existing || existing.group_id !== id) {
         reply.code(404);
         return { error: "not_found" };
       }
 
-      groupImages().remove(numericId);
+      groupImages(req.profileId!).remove(numericId);
       auditFromRequest(ctx, req, "search_group.image.remove", {
         target: id,
         detail: { image_id: numericId },
@@ -158,7 +158,7 @@ export async function registerImageRoutes(app: FastifyInstance, ctx: WebContext)
       }
 
       reply.header("Cache-Control", "private, max-age=300");
-      const images = listingImages().listForListing(platform as Platform, listingId);
+      const images = listingImages(req.profileId!).listForListing(platform as Platform, listingId);
       return {
         platform,
         listing_id: listingId,

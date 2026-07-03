@@ -16,7 +16,6 @@ export async function buildTestApp(
 ): Promise<FastifyInstance> {
   return buildApp({
     db,
-    profileId: "default",
     fileConfig: minimalConfig,
     databasePath: ":memory:",
     sessionSecret: TEST_SESSION_SECRET,

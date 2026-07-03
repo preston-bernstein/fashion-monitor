@@ -38,7 +38,6 @@ export async function createDashboardServer(
 
   const appOptions: WebAppOptions = {
     db,
-    profileId: config.profile_id,
     fileConfig: config,
     databasePath: config.database.path,
     sessionSecret: options.sessionSecret,

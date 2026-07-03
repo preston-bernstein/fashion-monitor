@@ -21,12 +21,14 @@ export interface AuthenticatedUser {
   id: number;
   email: string;
   role: Role;
+  profileId: string;
 }
 
 /**
- * Verify email + password against an active user with a membership in the profile.
- * Returns the user (with profile role) or null. Always runs an argon2 verify
- * against a real dummy hash when the user is missing to reduce timing leak.
+ * Verify email + password against an active user, then resolve which profile
+ * they sign into. Returns the user (with profile role) or null. Always runs
+ * an argon2 verify against a real dummy hash when the user is missing to
+ * reduce timing leak.
  */
 let dummyHashPromise: Promise<string> | undefined;
 function getDummyHash(): Promise<string> {
@@ -36,7 +38,6 @@ function getDummyHash(): Promise<string> {
 
 export async function authenticate(
   db: Db,
-  profileId: string,
   email: string,
   password: string,
 ): Promise<AuthenticatedUser | null> {
@@ -52,10 +53,16 @@ export async function authenticate(
   const ok = await verifyPassword(user.password_hash, password);
   if (!ok) return null;
 
-  const membership = memberships.forUser(user.id, profileId);
+  // Most-recently-created membership: see MembershipsRepo.listForUser.
+  const [membership] = memberships.listForUser(user.id);
   if (!membership) return null;
 
-  return { id: user.id, email: user.email, role: membership.role };
+  return {
+    id: user.id,
+    email: user.email,
+    role: membership.role,
+    profileId: membership.profile_id,
+  };
 }
 
 /**
