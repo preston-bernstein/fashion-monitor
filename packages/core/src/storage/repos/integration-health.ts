@@ -35,6 +35,12 @@ export interface IntegrationFailureRow {
   run_id: number | null;
 }
 
+export interface LatestEventRow {
+  status: IntegrationStatus;
+  error: string | null;
+  recorded_at: string;
+}
+
 export class IntegrationHealthRepo {
   constructor(
     private readonly db: Db,
@@ -91,5 +97,17 @@ export class IntegrationHealthRepo {
          LIMIT ?`,
       )
       .all(this.profileId, limit) as IntegrationFailureRow[];
+  }
+
+  /** Most recent event for one integration + operation (e.g. a Connection's last manual Test). */
+  latestEvent(integration: string, operation: string): LatestEventRow | undefined {
+    return this.db
+      .prepare(
+        `SELECT status, error, recorded_at FROM integration_events
+         WHERE profile_id = ? AND integration = ? AND operation = ?
+         ORDER BY recorded_at DESC, id DESC
+         LIMIT 1`,
+      )
+      .get(this.profileId, integration, operation) as LatestEventRow | undefined;
   }
 }

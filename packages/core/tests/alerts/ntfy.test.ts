@@ -97,6 +97,19 @@ describe("ntfy alerts", () => {
     expect(body.title).toContain("no matches");
   });
 
+  it("sends a Connections-page test notification", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const alerter = createNtfyAlerter(baseConfig);
+    const ok = await alerter.sendTestNotification();
+
+    expect(ok).toBe(true);
+    const body = JSON.parse(String(fetchMock.mock.calls[0][1].body));
+    expect(body.title).toContain("connected");
+    expect(body.topic).toBe("fashion-monitor-test");
+  });
+
   it("includes a bearer token header when ntfy_token is configured", async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true });
     vi.stubGlobal("fetch", fetchMock);

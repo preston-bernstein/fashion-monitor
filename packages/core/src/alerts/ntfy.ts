@@ -20,6 +20,7 @@ export interface AlertClient {
   sendAlert(scored: ScoredListing): Promise<boolean>;
   sendDigest(matches: ScoredListing[]): Promise<boolean>;
   sendEmptyRunNotice(): Promise<boolean>;
+  sendTestNotification(): Promise<boolean>;
 }
 
 interface NtfyPublishPayload {
@@ -105,6 +106,16 @@ export class NtfyAlerter implements AlertClient {
       title: "Fashion Monitor — no matches this run",
       message: "No new matches found.",
       priority: 2,
+    });
+  }
+
+  /** Connections page "Test" for the ntfy alert destination (ADR-0004). */
+  async sendTestNotification(): Promise<boolean> {
+    return this.publish({
+      title: "✅ Fashion Monitor connected",
+      message: "This ntfy topic is ready to receive alerts.",
+      priority: 3,
+      tags: ["white_check_mark"],
     });
   }
 }
