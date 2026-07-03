@@ -3,14 +3,17 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { z } from 'zod';
 import { IMPLEMENTED_PLATFORMS } from '@fm/shared/platforms.js';
-import { searchListings } from './tools/search-listings.js';
-import { getRecentAlerts } from './tools/get-recent-alerts.js';
+import { createSearchListings } from './tools/search-listings.js';
+import { createGetRecentAlerts } from './tools/get-recent-alerts.js';
 import { createAddMonitor } from './tools/add-monitor.js';
-import { getTaste } from './tools/get-taste.js';
+import { createGetTaste } from './tools/get-taste.js';
 import { db, config } from './context.js';
 
 const PORT = Number(process.env.MCP_PORT ?? 3102);
 const addMonitor = createAddMonitor(db, config.profile_id);
+const searchListings = createSearchListings(config);
+const getRecentAlerts = createGetRecentAlerts(db, config.profile_id);
+const getTaste = createGetTaste(config);
 
 // cast avoids TS2589 — McpServer accumulates deep generics per registered tool
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
