@@ -38,9 +38,18 @@ describe("GET /api/connections", () => {
     const body = res.json() as { connections: ConnectionDto[] };
     const byPlatform = Object.fromEntries(body.connections.map((c) => [c.platform, c]));
 
-    expect(byPlatform.ebay).toMatchObject({ type: "api-key", dormant: false, configured: false, status: "not_connected" });
+    expect(byPlatform.ebay).toMatchObject({
+      type: "api-key",
+      dormant: false,
+      configured: false,
+      status: "not_connected",
+    });
     expect(byPlatform.grailed).toMatchObject({ type: "none", automatic: true, status: "ok" });
-    expect(byPlatform.ntfy).toMatchObject({ type: "api-key", configured: true, status: "untested" });
+    expect(byPlatform.ntfy).toMatchObject({
+      type: "api-key",
+      configured: true,
+      status: "untested",
+    });
     expect(byPlatform.vestiaire).toMatchObject({ dormant: true, status: "not_connected" });
     expect(byPlatform.poshmark).toMatchObject({ dormant: true });
     expect(byPlatform.depop).toMatchObject({ dormant: true });
@@ -168,10 +177,7 @@ describe("POST /api/connections/:platform/test", () => {
       expect((res.json() as { ok: boolean }).ok).toBe(true);
 
       const [, tokenInit] = fetchMock.mock.calls[0];
-      const b64 = (tokenInit.headers as Record<string, string>).Authorization.replace(
-        "Basic ",
-        "",
-      );
+      const b64 = (tokenInit.headers as Record<string, string>).Authorization.replace("Basic ", "");
       const decoded = Buffer.from(b64, "base64").toString("utf8");
       expect(decoded).toBe("profiles-own-id:profiles-own-secret");
     } finally {

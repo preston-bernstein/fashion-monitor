@@ -61,10 +61,13 @@ describe("user management routes", () => {
       });
 
       const res = await owner.get("/api/users");
-      const body = res.json() as { users: Array<{ email: string; role: string }>; roles: unknown[] };
-      expect(body.users.some((u) => u.email === "curator@example.com" && u.role === "curator")).toBe(
-        true,
-      );
+      const body = res.json() as {
+        users: Array<{ email: string; role: string }>;
+        roles: unknown[];
+      };
+      expect(
+        body.users.some((u) => u.email === "curator@example.com" && u.role === "curator"),
+      ).toBe(true);
       expect(body.roles.length).toBeGreaterThan(0);
     });
   });
@@ -76,7 +79,13 @@ describe("user management routes", () => {
     });
 
     it("returns 404 for a user with no membership on this profile", async () => {
-      const otherProfileUserId = await createUser(db, "elsewhere@example.com", "pw-else-123", "owner", "p2");
+      const otherProfileUserId = await createUser(
+        db,
+        "elsewhere@example.com",
+        "pw-else-123",
+        "owner",
+        "p2",
+      );
       const res = await owner.patch(`/api/users/${otherProfileUserId}/role`, { role: "viewer" });
       expect(res.statusCode).toBe(404);
     });
@@ -132,9 +141,8 @@ describe("user management routes", () => {
       });
       const curatorClient = new TestClient(app);
       await curatorClient.login("curator@example.com", "curator-password-1");
-      const curatorId = (
-        (await curatorClient.get("/api/me")).json() as { user: { id: number } }
-      ).user.id;
+      const curatorId = ((await curatorClient.get("/api/me")).json() as { user: { id: number } })
+        .user.id;
 
       const patchRes = await owner.patch(`/api/users/${curatorId}/status`, { status: "disabled" });
       expect(patchRes.statusCode).toBe(200);

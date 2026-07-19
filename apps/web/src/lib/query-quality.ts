@@ -33,10 +33,7 @@ export function yesRateLevel(rate: number | null): QualityLevel {
 export function overallQueryQuality(row: ScorecardLike | SearchGroupScorecardRow): QualityLevel {
   const levels = [
     alertRateLevel(row.alert_rate),
-    feedbackRatioLevel(
-      row.feedback_ratio,
-      row.feedback_positive + row.feedback_negative,
-    ),
+    feedbackRatioLevel(row.feedback_ratio, row.feedback_positive + row.feedback_negative),
     yesRateLevel(row.yes_rate),
   ].filter((l) => l !== "unknown");
 

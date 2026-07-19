@@ -90,7 +90,12 @@ export function loadProfileConfig(
   const ntfyToken = resolveSecret("NTFY_TOKEN", "ntfy_token", opts, fb?.alert.ntfy_token);
   const fbCreds = fb?.platform_credentials;
   const platformCredentials = {
-    ebay_client_id: resolveSecret("EBAY_CLIENT_ID", "ebay_client_id", opts, fbCreds?.ebay_client_id),
+    ebay_client_id: resolveSecret(
+      "EBAY_CLIENT_ID",
+      "ebay_client_id",
+      opts,
+      fbCreds?.ebay_client_id,
+    ),
     ebay_client_secret: resolveSecret(
       "EBAY_CLIENT_SECRET",
       "ebay_client_secret",

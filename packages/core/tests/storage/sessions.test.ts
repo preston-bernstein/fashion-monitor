@@ -55,7 +55,11 @@ describe("SessionsRepo", () => {
 
   it("destroyForUser removes every session for that user but not others'", () => {
     const repo = new SessionsRepo(db);
-    const otherUserId = new UsersRepo(db).create("other@example.com", "hash", new Date().toISOString());
+    const otherUserId = new UsersRepo(db).create(
+      "other@example.com",
+      "hash",
+      new Date().toISOString(),
+    );
     const now = new Date();
 
     const id1 = repo.create(userId, "default", now, 3600);

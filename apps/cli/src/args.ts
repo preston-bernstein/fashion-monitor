@@ -53,7 +53,11 @@ export function parseEvalArgs(argv: string[]): {
   return { configPath, revisionId, provider, limit };
 }
 
-export function parseDashboardArgs(argv: string[]): { configPath: string; host: string; port: number } {
+export function parseDashboardArgs(argv: string[]): {
+  configPath: string;
+  host: string;
+  port: number;
+} {
   let configPath = "config.yaml";
   let host = process.env.DASHBOARD_HOST ?? "127.0.0.1";
   let port = parseInt(process.env.DASHBOARD_PORT ?? "3030", 10);

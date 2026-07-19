@@ -8,7 +8,12 @@ import {
   PasswordResetRedeemInputSchema,
 } from "@fm/shared/schemas/invites.js";
 import { hashPassword } from "../auth.js";
-import { generateInviteToken, hashInviteToken, slugFromEmail, INVITE_TTL_SECONDS } from "../invites.js";
+import {
+  generateInviteToken,
+  hashInviteToken,
+  slugFromEmail,
+  INVITE_TTL_SECONDS,
+} from "../invites.js";
 import type { WebContext } from "../context.js";
 import { auditFromRequest, requireCapability } from "../context.js";
 import { parseBody } from "../validation.js";

@@ -246,8 +246,10 @@ export async function runEvalHarness(options: EvalOptions): Promise<EvalReport> 
       falsePositive,
       falseNegative,
       trueNegative,
-      precision: truePositive + falsePositive > 0 ? truePositive / (truePositive + falsePositive) : null,
-      recall: truePositive + falseNegative > 0 ? truePositive / (truePositive + falseNegative) : null,
+      precision:
+        truePositive + falsePositive > 0 ? truePositive / (truePositive + falsePositive) : null,
+      recall:
+        truePositive + falseNegative > 0 ? truePositive / (truePositive + falseNegative) : null,
       n,
     },
     items,

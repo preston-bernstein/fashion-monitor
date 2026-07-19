@@ -3,7 +3,11 @@ import { CONNECTIONS, findConnection } from "../src/connections.js";
 
 describe("findConnection", () => {
   it("finds a known platform's connection metadata", () => {
-    expect(findConnection("ebay")).toMatchObject({ platform: "ebay", label: "eBay", type: "api-key" });
+    expect(findConnection("ebay")).toMatchObject({
+      platform: "ebay",
+      label: "eBay",
+      type: "api-key",
+    });
   });
 
   it("returns undefined for an unknown platform", () => {

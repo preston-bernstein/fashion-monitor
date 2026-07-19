@@ -7,7 +7,9 @@ import {
 vi.mock("playwright-extra", () => ({
   chromium: {
     use: vi.fn(),
-    launch: vi.fn().mockImplementation(() => Promise.resolve({ newContext: vi.fn(), close: vi.fn() })),
+    launch: vi
+      .fn()
+      .mockImplementation(() => Promise.resolve({ newContext: vi.fn(), close: vi.fn() })),
     launchPersistentContext: vi.fn().mockImplementation(() => Promise.resolve({ close: vi.fn() })),
   },
 }));
@@ -311,10 +313,8 @@ describe("shared playwright browser", () => {
 
     it("closeStealthPersistentContext closes and removes every driver's context for a profile path", async () => {
       const { chromium: extraChromium } = await import("playwright-extra");
-      const {
-        launchStealthPersistentContext,
-        closeStealthPersistentContext,
-      } = await import("../../src/platforms/playwright/browser.js");
+      const { launchStealthPersistentContext, closeStealthPersistentContext } =
+        await import("../../src/platforms/playwright/browser.js");
 
       const context = await launchStealthPersistentContext("/tmp/close-me-profile", "legacy");
       await closeStealthPersistentContext("/tmp/close-me-profile");
@@ -346,7 +346,9 @@ describe("shared playwright browser", () => {
         await import("../../src/platforms/playwright/browser.js");
 
       await launchStealthEphemeralBrowser("legacy");
-      expect(extraChromium.launch).toHaveBeenCalledWith(expect.objectContaining({ headless: true }));
+      expect(extraChromium.launch).toHaveBeenCalledWith(
+        expect.objectContaining({ headless: true }),
+      );
 
       await launchStealthEphemeralBrowser("patchright");
       expect(patchrightChromium.launch).toHaveBeenCalledWith(
