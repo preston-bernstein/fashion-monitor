@@ -4,7 +4,25 @@ import {
   buildDepopSearchUrl,
 } from "../../src/platforms/depop/parse-rsc.js";
 import { normalizeDepop, mapDepopProducts } from "../../src/platforms/depop/normalize.js";
-import depopFixture from "../fixtures/depop/search-response.json";
+
+// Legacy RSC-shaped product (no `pricing.final_price_key`) — this is what
+// distinguishes it from the new API shape in normalizeDepop's dispatch, so it
+// must be defined inline rather than reused from the shared JSON fixture
+// (which is now entirely the new API shape).
+function rscProduct(): Record<string, unknown> {
+  return {
+    id: 999,
+    slug: "vintage-corduroy-jacket",
+    description: "Vintage corduroy jacket",
+    brand_name: "Universal Works",
+    sizes: ["L"],
+    pricing: {
+      original_price: { price_breakdown: { price: { amount: "45.00" } } },
+      currency_name: "USD",
+    },
+    preview: { "640": "https://depop.example/640.jpg" },
+  };
+}
 
 describe("depop RSC parser", () => {
   it("builds search URL with male gender and sizes", () => {
@@ -15,7 +33,7 @@ describe("depop RSC parser", () => {
   });
 
   it("extracts products from embedded Next.js flight payload", () => {
-    const product = depopFixture.products[0];
+    const product = rscProduct();
     const html = `
       <script>
       self.__next_f.push([1,"\\"data\\":{\\"meta\\":{\\"result_count\\":1,\\"total_count\\":1},\\"products\\":[${JSON.stringify(product).replace(/"/g, '\\"')}]}}"]);
@@ -27,7 +45,7 @@ describe("depop RSC parser", () => {
   });
 
   it("maps product arrays via mapDepopProducts", () => {
-    const listing = mapDepopProducts(depopFixture.products ?? [])[0];
+    const listing = mapDepopProducts([rscProduct()])[0];
     expect(listing.title).toContain("corduroy");
     expect(listing.price).toBe(45);
   });

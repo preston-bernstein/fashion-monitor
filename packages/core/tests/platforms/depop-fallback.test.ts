@@ -21,13 +21,13 @@ describe("depop playwright fallback", () => {
   });
 
   it("parses intercepted API JSON", () => {
-    const listings = mapDepopProducts(depopFixture.products ?? []);
+    const listings = mapDepopProducts(depopFixture.objects ?? []);
     expect(listings[0].platform).toBe("depop");
   });
 
   it("falls back to playwright when impit HTTP fails", async () => {
     const scraper = new DepopScraper(minimalConfig);
-    const mockListing = mapDepopProducts(depopFixture.products ?? [])[0];
+    const mockListing = mapDepopProducts(depopFixture.objects ?? [])[0];
 
     vi.spyOn(scraper, "searchViaHttp").mockRejectedValue(new Error("missing payload"));
     vi.mocked(scrapeDepopViaPlaywright).mockResolvedValue([mockListing]);

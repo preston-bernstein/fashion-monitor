@@ -18,7 +18,7 @@ describe("platform fixture smoke", () => {
     const grailed = normalizeGrailed(grailedFixture.hits[0] as Record<string, unknown>);
     expect(grailed.platform).toBe("grailed");
 
-    const depop = mapDepopProducts(depopFixture.products ?? [])[0];
+    const depop = mapDepopProducts(depopFixture.objects ?? [])[0];
     expect(depop.platform).toBe("depop");
 
     const html = readFileSync(
