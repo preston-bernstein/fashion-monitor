@@ -239,8 +239,8 @@ importers:
         specifier: workspace:*
         version: link:../shared
       '@preston-bernstein/credential-crypto':
-        specifier: git+ssh://nas-agent/volume1/homes/agent/git/credential-crypto.git#main
-        version: git+ssh://nas-agent/volume1/homes/agent/git/credential-crypto.git#11fb7bd1dd0500aff2521a3fcf8f793d25c8c6f0
+        specifier: git+ssh://git@github.com/preston-bernstein/credential-crypto.git#main
+        version: git+https://git@github.com:preston-bernstein/credential-crypto.git#11fb7bd1dd0500aff2521a3fcf8f793d25c8c6f0
       argon2:
         specifier: ^0.44.0
         version: 0.44.0
@@ -291,8 +291,8 @@ importers:
         specifier: ^2.2.0
         version: 2.2.0
       '@preston-bernstein/credential-crypto':
-        specifier: git+ssh://nas-agent/volume1/homes/agent/git/credential-crypto.git#main
-        version: git+ssh://nas-agent/volume1/homes/agent/git/credential-crypto.git#11fb7bd1dd0500aff2521a3fcf8f793d25c8c6f0
+        specifier: git+ssh://git@github.com/preston-bernstein/credential-crypto.git#main
+        version: git+https://git@github.com:preston-bernstein/credential-crypto.git#11fb7bd1dd0500aff2521a3fcf8f793d25c8c6f0
       better-sqlite3:
         specifier: ^12.10.0
         version: 12.10.0
@@ -1157,8 +1157,8 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
-  '@preston-bernstein/credential-crypto@git+ssh://nas-agent/volume1/homes/agent/git/credential-crypto.git#11fb7bd1dd0500aff2521a3fcf8f793d25c8c6f0':
-    resolution: {commit: 11fb7bd1dd0500aff2521a3fcf8f793d25c8c6f0, repo: ssh://nas-agent/volume1/homes/agent/git/credential-crypto.git, type: git}
+  '@preston-bernstein/credential-crypto@git+https://git@github.com:preston-bernstein/credential-crypto.git#11fb7bd1dd0500aff2521a3fcf8f793d25c8c6f0':
+    resolution: {commit: 11fb7bd1dd0500aff2521a3fcf8f793d25c8c6f0, repo: git@github.com:preston-bernstein/credential-crypto.git, type: git}
     version: 0.1.0
 
   '@radix-ui/number@1.1.2':
@@ -4904,7 +4904,7 @@ snapshots:
     dependencies:
       playwright: 1.60.0
 
-  '@preston-bernstein/credential-crypto@git+ssh://nas-agent/volume1/homes/agent/git/credential-crypto.git#11fb7bd1dd0500aff2521a3fcf8f793d25c8c6f0':
+  '@preston-bernstein/credential-crypto@git+https://git@github.com:preston-bernstein/credential-crypto.git#11fb7bd1dd0500aff2521a3fcf8f793d25c8c6f0':
     dependencies:
       '@noble/ciphers': 2.2.0
       '@noble/hashes': 2.2.0

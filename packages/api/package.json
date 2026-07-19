@@ -16,7 +16,7 @@
   "dependencies": {
     "@fm/core": "workspace:*",
     "@fm/shared": "workspace:*",
-    "@preston-bernstein/credential-crypto": "git+ssh://nas-agent/volume1/homes/agent/git/credential-crypto.git#main",
+    "@preston-bernstein/credential-crypto": "git+ssh://git@github.com/preston-bernstein/credential-crypto.git#main",
     "@fastify/cookie": "^11.0.2",
     "@fastify/csrf-protection": "^7.1.0",
     "@fastify/helmet": "^13.0.2",

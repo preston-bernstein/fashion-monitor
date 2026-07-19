@@ -19,6 +19,11 @@ jobs:
           node-version: "24"
           cache: pnpm
 
+      - name: Load credential-crypto deploy key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.CREDENTIAL_CRYPTO_DEPLOY_KEY }}
+
       - run: pnpm install --frozen-lockfile
 
       - run: pnpm run format:check
