@@ -1,16 +1,150 @@
 {
-  "products": [
+  "meta": { "total_count": 28280 },
+  "page_info": { "has_more": true, "last": "MnwyNHwxNzg0NDg2NjM0.BOOSTED_EXHAUSTED.0" },
+  "objects": [
     {
-      "id": 555,
-      "slug": "dark-corduroy-shirt",
-      "description": "Vintage dark corduroy overshirt",
-      "brandName": "Universal Works",
-      "sizes": ["XL"],
-      "price": { "amountUsd": "45.00" },
-      "preview": [{ "url": "https://media.depop.com/sample.jpg" }],
-      "lastUpdated": "2025-06-01T10:00:00.000Z",
-      "condition": "used"
+      "id": 823805820,
+      "brand_id": 654,
+      "brand_name": "Fashion Nova",
+      "active_status": "active",
+      "status": "STATUS_ONSALE",
+      "category": 13,
+      "category_name": "Outerwear",
+      "categories": ["Womenswear", "Outerwear"],
+      "description": "Fashion Nova 'Can It Be Corduroy Jacket' with white sherpa lining #sherpa #outerwear",
+      "pictures": [
+        {
+          "id": 4199061637,
+          "formats": { "P0": { "height": 1280, "width": 1280, "url": "https://media-photos.depop.com/r1/423899990/4199061637_8931d4ea15cc40208342601aa7356fa7/P0.jpg" } },
+          "original_width": 960,
+          "original_height": 1280,
+          "is_square": false
+        }
+      ],
+      "location": "Oxnard, United States",
+      "country": "US",
+      "slug": "buono-fashion-nova-can-it-be-a567",
+      "variant_set_id": 38,
+      "variants_all": [{ "id": 17, "quantity": 1, "status": "STATUS_ONSALE", "variant": "M" }],
+      "listed_quantity": 1,
+      "attributes": {
+        "condition": "used_excellent",
+        "colour": ["navy", "black"],
+        "brand": "fashion-nova",
+        "gender": "female",
+        "is_kids": false,
+        "group": "coats-jackets",
+        "product_type": "jackets"
+      },
+      "shipping_method": { "shipping_id": "USPS", "parcel_size": "medium", "payer": "buyer", "ship_from": 45274460 },
+      "is_boosted": false,
+      "boosted_at": "2026-07-16T15:50:05.084979Z",
+      "sizes": [{ "name": "M", "id": 17, "quantity": 1, "status": "STATUS_ONSALE", "variant": "M" }],
+      "preview": {
+        "id": 4199061637,
+        "formats": { "P0": { "height": 1280, "width": 1280, "url": "https://media-photos.depop.com/r1/423899990/4199061637_8931d4ea15cc40208342601aa7356fa7/P0.jpg" } },
+        "original_width": 960,
+        "original_height": 1280,
+        "is_square": false
+      },
+      "like_count": 0,
+      "pricing": {
+        "currency": "USD",
+        "currency_name": "USD",
+        "current_price": {
+          "total_price": "13.00",
+          "price_breakdown": {
+            "price": { "amount": "13.00" },
+            "buyer_fee": { "amount": "0.00" },
+            "tax": { "amount": "0.00", "tax_type": "n/a" },
+            "shipping": { "amount": "3.99", "shipping_boundary": "NATIONAL", "shipping_id": "USPS" }
+          }
+        },
+        "original_price": {
+          "total_price": "13.00",
+          "price_breakdown": {
+            "price": { "amount": "13.00" },
+            "buyer_fee": { "amount": "0.00" },
+            "tax": { "amount": "0.00", "tax_type": "n/a" },
+            "shipping": { "amount": "3.99", "shipping_boundary": "NATIONAL", "shipping_id": "USPS" }
+          }
+        },
+        "total_price_components": { "buyer_fee": false, "shipping_price": false, "tax": false },
+        "is_reduced": false,
+        "final_price_key": "original_price"
+      }
+    },
+    {
+      "id": 742156891,
+      "brand_id": 421,
+      "brand_name": "Urban Outfitters",
+      "active_status": "active",
+      "status": "STATUS_ONSALE",
+      "category": 8,
+      "category_name": "T-Shirts",
+      "categories": ["Womenswear", "T-Shirts"],
+      "description": "Urban Outfitters Vintage Distressed Band Tee - Nirvana graphic print #vintage #band",
+      "pictures": [
+        {
+          "id": 3887250421,
+          "formats": { "P0": { "height": 1280, "width": 1024, "url": "https://media-photos.depop.com/r1/512340210/3887250421_a7f2c1bd42ee91340221bd5c/P0.jpg" } },
+          "original_width": 800,
+          "original_height": 1024,
+          "is_square": false
+        }
+      ],
+      "location": "Los Angeles, United States",
+      "country": "US",
+      "slug": "urban-outfitters-vintage-band-tee-b234",
+      "variant_set_id": 22,
+      "variants_all": [{ "id": 8, "quantity": 2, "status": "STATUS_ONSALE", "variant": "S" }],
+      "listed_quantity": 2,
+      "attributes": {
+        "condition": "used_good",
+        "colour": ["grey"],
+        "brand": "urban-outfitters",
+        "gender": "female",
+        "is_kids": false,
+        "group": "t-shirts-tops",
+        "product_type": "t-shirts"
+      },
+      "shipping_method": { "shipping_id": "USPS", "parcel_size": "small", "payer": "buyer", "ship_from": 34567890 },
+      "is_boosted": true,
+      "boosted_at": "2026-07-18T09:30:15.294567Z",
+      "sizes": [{ "name": "S", "id": 8, "quantity": 2, "status": "STATUS_ONSALE", "variant": "S" }],
+      "preview": {
+        "id": 3887250421,
+        "formats": { "P0": { "height": 1280, "width": 1024, "url": "https://media-photos.depop.com/r1/512340210/3887250421_a7f2c1bd42ee91340221bd5c/P0.jpg" } },
+        "original_width": 800,
+        "original_height": 1024,
+        "is_square": false
+      },
+      "like_count": 5,
+      "pricing": {
+        "currency": "USD",
+        "currency_name": "USD",
+        "current_price": {
+          "total_price": "29.99",
+          "price_breakdown": {
+            "price": { "amount": "29.99" },
+            "buyer_fee": { "amount": "0.00" },
+            "tax": { "amount": "0.00", "tax_type": "n/a" },
+            "shipping": { "amount": "2.99", "shipping_boundary": "NATIONAL", "shipping_id": "USPS" }
+          }
+        },
+        "original_price": {
+          "total_price": "45.00",
+          "price_breakdown": {
+            "price": { "amount": "45.00" },
+            "buyer_fee": { "amount": "0.00" },
+            "tax": { "amount": "0.00", "tax_type": "n/a" },
+            "shipping": { "amount": "2.99", "shipping_boundary": "NATIONAL", "shipping_id": "USPS" }
+          }
+        },
+        "total_price_components": { "buyer_fee": false, "shipping_price": false, "tax": false },
+        "is_reduced": true,
+        "final_price_key": "current_price"
+      }
     }
-  ],
-  "meta": { "end": true }
+  ]
 }

@@ -55,7 +55,7 @@ Set in `.env` or the process environment. Fastify shares the same root Pino inst
 
 ### Redaction
 
-`redactSecrets(obj)` redacts values whose keys match sensitive patterns (`password`, `token`, `secret`, `cookie`, `csrf`, `hash`, `api_key`, `authorization`, `encrypted`, `payload`). Use near auth and secrets routes; never log raw ntfy tokens, API keys, password hashes, or encrypted secret payloads.
+`redactSecrets(obj)` redacts values whose keys match sensitive patterns (`password`, `token`, `secret`, `cookie`, `csrf`, `hash`, `api_key`, `authorization`, `encrypted`, `payload`). Use near auth and secrets routes; never log raw ntfy tokens, API keys, password hashes, or encrypted secret payloads. Depop's ScrapFly-tier error responses and any harvested Cloudflare cookie values (`__cf_bm`, `_cfuvid`, etc.) must go through this redaction as well; the existing `cookie` and `api_key` patterns already cover these cases.
 
 ### Pipeline correlation
 

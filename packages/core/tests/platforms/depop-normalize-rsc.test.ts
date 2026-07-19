@@ -101,4 +101,9 @@ describe("normalizeDepop (RSC product shape)", () => {
     expect(listing.brand).toBeNull();
     expect(listing.listedAt).toBeNull();
   });
+
+  it("tags raw._normalizerSource as exactly 'rsc'", () => {
+    const listing = normalizeDepop(rscProduct());
+    expect((listing.raw as Record<string, unknown>)._normalizerSource).toBe("rsc");
+  });
 });

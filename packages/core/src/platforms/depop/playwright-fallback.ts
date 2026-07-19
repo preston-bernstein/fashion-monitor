@@ -1,6 +1,28 @@
 import type { Listing } from "../../core/types.js";
 import { launchStealthEphemeralBrowser } from "../playwright/browser.js";
-import { buildDepopSearchUrl, extractDepopListingsFromHtml } from "./parse-rsc.js";
+import { depopTileExtractScript, type DepopTileRaw } from "./extract.js";
+import { buildDepopSearchUrl } from "./parse-rsc.js";
+
+export function depopTileToListing(tile: DepopTileRaw): Listing | null {
+  const price = parseFloat(tile.price.replace(/^\$/, ""));
+  if (Number.isNaN(price)) return null;
+
+  return {
+    id: tile.id,
+    platform: "depop",
+    title: tile.title,
+    description: tile.title,
+    price,
+    currency: "USD",
+    size: tile.size,
+    brand: tile.brand,
+    url: tile.url,
+    imageUrl: tile.image,
+    listedAt: null,
+    condition: null,
+    raw: { ...tile, _normalizerSource: "dom-fallback" },
+  };
+}
 
 export async function scrapeDepopViaPlaywright(query: string): Promise<Listing[]> {
   const browser = await launchStealthEphemeralBrowser();
@@ -19,13 +41,14 @@ export async function scrapeDepopViaPlaywright(query: string): Promise<Listing[]
       await consent.click({ timeout: 5_000 }).catch(() => undefined);
     }
 
-    for (let i = 0; i < 15; i++) {
-      await page.waitForTimeout(2_000);
-      const listings = extractDepopListingsFromHtml(await page.content());
-      if (listings.length > 0) return listings;
+    let tiles: DepopTileRaw[] = [];
+    for (let i = 0; i < 3; i++) {
+      await page.waitForTimeout(i === 0 ? 4_000 : 2_000);
+      tiles = await page.evaluate(depopTileExtractScript);
+      if (tiles.length > 0) break;
     }
 
-    return [];
+    return tiles.map(depopTileToListing).filter((listing): listing is Listing => listing !== null);
   } finally {
     await page.close();
   }

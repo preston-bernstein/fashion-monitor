@@ -47,8 +47,8 @@ export const PLATFORM_LIVE_REQUIREMENTS: PlatformLiveRequirement[] = [
   {
     platform: "depop",
     required: [],
-    optional: [],
-    note: "No API keys — impit HTTP, Playwright fallback if blocked",
+    optional: ["SCRAPFLY_API_KEY"],
+    note: "Live-verified 2026-07-19: plain impit HTTP call succeeds unassisted (no cookie/header engineering needed); ScrapFly is optional, for the rare case Cloudflare blocks the primary tier; DOM-extraction fallback also works without it",
   },
   {
     platform: "vestiaire",

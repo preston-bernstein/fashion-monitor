@@ -11,6 +11,7 @@ export interface DepopSearchPayload {
   products: Record<string, unknown>[];
 }
 
+// Legacy: RSC-embedded-JSON parsing, retained since it maps a closely related backend schema — see docs/depop-scraper-fix/investigation-findings.md
 const SEARCH_MARKER = '"data":{"meta":{"result_count":';
 
 function decodeNextFlightChunk(raw: string): string | null {
@@ -84,6 +85,25 @@ export function buildDepopSearchUrl(query: string): string {
     sizes: "US-L,US-XL,US-XXL,US-2XL",
   });
   return `https://www.depop.com/search/?${params}`;
+}
+
+export interface DepopProductsApiResponse {
+  meta?: { total_count?: number };
+  page_info?: { has_more?: boolean; last?: string };
+  objects: Record<string, unknown>[];
+  [key: string]: unknown;
+}
+
+export function buildDepopProductsApiUrl(query: string): string {
+  const params = new URLSearchParams({
+    what: query,
+    limit: "24",
+    country: "us",
+    currency: "USD",
+    from: "in_country_search",
+    include_like_count: "true",
+  });
+  return `https://www.depop.com/presentation/api/v1/search/products/?${params}`;
 }
 
 export function extractDepopListingsFromHtml(html: string): Listing[] {
