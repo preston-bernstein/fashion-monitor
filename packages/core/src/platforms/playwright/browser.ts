@@ -83,7 +83,9 @@ export async function launchStealthPersistentContext(
   return context;
 }
 
-export async function launchStealthEphemeralBrowser(driverOverride?: StealthDriver): Promise<Browser> {
+export async function launchStealthEphemeralBrowser(
+  driverOverride?: StealthDriver,
+): Promise<Browser> {
   const driver = resolveStealthDriver(driverOverride);
 
   if (ephemeralBrowser && ephemeralBrowserDriver === driver) {
