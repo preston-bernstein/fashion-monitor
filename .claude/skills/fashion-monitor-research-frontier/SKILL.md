@@ -44,9 +44,9 @@ Status labels as of 2026-07-02. Every behavior change these imply routes through
 
 **Why common practice falls short:** scraper stealth changes are usually validated by anecdote ("it works today"). The stealth pilot doc itself demands regression checks before any driver swap.
 
-**Asset:** `scripts/verify-scrapers.ts` (live per-platform checks), DOM fixtures for parse regression, `integration_events` as a longitudinal outcome record per platform, and a pending, explicitly-scoped pilot (rebrowser/Patchright vs legacy `playwright-extra`+stealth — which must NOT be removed until the pilot passes live smoke).
+**Asset:** `scripts/verify-scrapers.ts` (live per-platform checks), DOM fixtures for parse regression, `integration_events` as a longitudinal outcome record per platform, and a pending, explicitly-scoped pilot (Patchright vs legacy `playwright-extra`+stealth — which must NOT be removed until the pilot passes live smoke).
 
-**First three steps:** (1) extend verify-scrapers with status-code + screenshot capture per platform per driver, as the pilot doc prescribes; (2) run the matrix (legacy vs rebrowser) on a schedule for a week, recording outcomes into integration_events with a driver tag; (3) publish pass-rate per platform per driver from `v_integration_daily`. Respect scrape-discipline: low volume, spread out (assumption A2).
+**First three steps:** (1) extend verify-scrapers with status-code + screenshot capture per platform per driver, as the pilot doc prescribes; (2) run the matrix (legacy vs patchright) on a schedule for a week, recording outcomes into integration_events with a driver tag; (3) publish pass-rate per platform per driver from `v_integration_daily`. Respect scrape-discipline: low volume, spread out (assumption A2).
 
 **You have a result when:** driver decisions are made from a pass-rate table, and the stealth-pilot gate ("passes live smoke on Depop/Poshmark") is a query, not a judgment call. **Falsified if:** pass rates are indistinguishable — then the CDP-leak concern is not yet material for these platforms and the legacy stack stays (also a useful result).
 
