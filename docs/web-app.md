@@ -98,7 +98,7 @@ Defined in `@fm/shared/rbac.ts`; enforced in `@fm/api` via `requireCapability`. 
 
 ## Docker
 
-`docker-compose.yml` runs `node apps/cli/dist/dashboard.js` inside the image built via `turbo prune` + pnpm. Caddy (`proxy` service) terminates TLS; **Caddyfile unchanged**.
+`docker-compose.yml` runs `node apps/cli/dist/dashboard.js` inside the image built via `turbo prune` + pnpm. Dashboard is exposed directly on its host port (no bundled TLS-terminating proxy); `COOKIE_SECURE` defaults to `false` accordingly.
 
 ## Search groups vs pipeline aggregation
 

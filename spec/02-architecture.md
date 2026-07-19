@@ -158,16 +158,14 @@ interface Listing {
 ### Where things run
 
 ```
-Synology NAS (always-on, x86_64 required — verify with: uname -m)
+Desktop deploy host (always-on-when-powered, x86_64 required — verify with: uname -m)
 ├── Docker: pipeline (cron) + feedback-bot (always-on) + api + web
-│   ├── Node.js 20, TypeScript (compiled), Playwright/Chromium, impit, cheerio
-│   ├── better-sqlite3: needs build deps in Docker — use node:lts-bookworm base image
-│   │   (no prebuilt arm64 binaries — arm64 NAS will compile from source, needs
-│   │    python3 + build-essential + libsqlite3-dev in Dockerfile)
-│   ├── Scheduled via Synology Task Scheduler (built-in) or container cron
-│   └── Reads/writes SQLite on NAS local volume mount
-└── /volume1/docker/fashion-monitor/
-    ├── data/fashion_monitor.db (SQLite, NAS local disk — NEVER over NFS)
+│   ├── Node.js 24, TypeScript (compiled), Playwright/Chromium, impit, cheerio
+│   ├── better-sqlite3: needs build deps in Docker — use node:24-bookworm base image
+│   ├── Scheduled via cron or a systemd timer on the deploy host (`docker compose run --rm scraper`/`poshmark`)
+│   └── Reads/writes SQLite on the deploy host's local volume mount
+└── $(DEPLOY_PATH)  (Makefile; local disk, not a network mount)
+    ├── data/fashion_monitor.db (SQLite — local disk only, NEVER over NFS)
     ├── config.yaml
     └── .env
 
@@ -177,6 +175,8 @@ Multimedia Machine (always-on, has GPU)
     └── llama3.2-vision:11b  — image scoring (pass 2)  [MODEL TBD ON VRAM]
     Endpoint: http://<multimedia-ip>:11434/v1/  (LAN, <1ms latency)
 ```
+
+Migrated from a Synology NAS deployment (`/volume1/docker/fashion-monitor/`) to the desktop deploy host on 2026-07-19, matching the rest of the home lab's NAS→desktop rebalancing (arr-stack, financial-pipeline, media-stack). The real deploy host address lives outside this public repo — see the untracked local `CLAUDE.md`, or `Makefile` `DEPLOY_HOST`/`DEPLOY_PATH`.
 
 ### Pre-flight checks (run before building)
 

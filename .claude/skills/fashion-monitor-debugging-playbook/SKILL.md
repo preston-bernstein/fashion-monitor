@@ -1,6 +1,6 @@
 ---
 name: fashion-monitor-debugging-playbook
-description: Symptom-to-triage runbook for fashion-monitor pipeline failures. Load when alerts stop arriving, listings are stuck PENDING, a platform scraper fails (eBay/Grailed/Vestiaire/Depop/Poshmark), runs show zero listings, SQLite errors appear, CI is red, or the Docker/NAS deploy misbehaves. Teaches the funnel query, log events, and discriminating experiments to isolate scrape vs prefilter vs scoring vs alert-dispatch failures. NOT for measurement how-tos (use fashion-monitor-diagnostics-and-tooling), past-incident history (fashion-monitor-failure-archaeology), or executing fixes to the ntfy/feedback migration (fashion-monitor-alerting-feedback-campaign).
+description: Symptom-to-triage runbook for fashion-monitor pipeline failures. Load when alerts stop arriving, listings are stuck PENDING, a platform scraper fails (eBay/Grailed/Vestiaire/Depop/Poshmark), runs show zero listings, SQLite errors appear, CI is red, or the Docker deploy on the desktop host misbehaves. Teaches the funnel query, log events, and discriminating experiments to isolate scrape vs prefilter vs scoring vs alert-dispatch failures. NOT for measurement how-tos (use fashion-monitor-diagnostics-and-tooling), past-incident history (fashion-monitor-failure-archaeology), or executing fixes to the ntfy/feedback migration (fashion-monitor-alerting-feedback-campaign).
 ---
 
 # Fashion Monitor debugging playbook
@@ -123,14 +123,14 @@ Access methods per ADR-0004 and `spec/platforms/*.md`. Errors below are the exac
 
 Known broken as written (verified 2026-07-02): `.github/workflows/ci.yml` and `live-smoke.yml` use `actions/setup-node` with `node-version: "20"`, `cache: npm`, and `npm ci` — but the repo is a pnpm@9.15 workspace (`packageManager` in root `package.json`), requires Node >= 24 (`engines`), and gitignores npm lockfiles, so `npm ci` cannot resolve. `docs/SMOKE.md` repeats the `npm` commands. **Local truth:** `pnpm install`, `pnpm test`, `pnpm run typecheck`, etc. Do not burn time "debugging" a red CI run that died in dependency install — it is this. Fixing the workflow is a real task (pnpm/action-setup + Node 24 + pnpm cache) but goes through change control (see fashion-monitor-change-control), not a drive-by.
 
-### Docker / NAS deploy
+### Docker deploy (desktop host, since the 2026-07-19 NAS→desktop migration)
 
 | Symptom | Check | Fix |
 |---|---|---|
-| Image won't run on NAS (`exec format error`) | Image arch | Build via `make build` (buildx `--platform linux/amd64`); a plain `docker build` on Apple Silicon produces arm64 |
-| Container can't reach Ollama | `docker compose exec scraper node -e "fetch(process.argv[1]+'/api/tags').then(r=>console.log(r.status)).catch(e=>console.log(e.message))" "$OLLAMA_HOST"` | `llm.ollama_host` must be reachable FROM the container: `localhost` points at the container itself. Use the LAN address of the Ollama host or `host.docker.internal` where supported |
-| Config/DB missing in container | Compose mounts `./data:/data`; command is `--config /data/config.yaml` | `config.yaml` and DB live under the NAS data dir (Makefile `NAS_PATH`), NOT baked into the image. `make sync` ships compose+config; it never ships `.env` or `data/` |
-| Poshmark works locally, fails on NAS | Profile volume | `data/poshmark-profile` must be on the persistent volume; a fresh container with an empty profile loses the logged-in state |
+| Image won't run on deploy host (`exec format error`) | Image arch | Build via `make build` (buildx `--platform linux/amd64`); a plain `docker build` on Apple Silicon produces arm64 |
+| Container can't reach Ollama | `docker compose exec scraper node -e "fetch(process.argv[1]+'/api/tags').then(r=>console.log(r.status)).catch(e=>console.log(e.message))" "$OLLAMA_HOST"` | Never point at raw `:11434` — always go through the ollama-resource-broker (`llm.ollama_host` must be the broker's LAN address, port 11435 for interactive use), per the global Ollama-broker convention. `localhost`/`127.0.0.1` inside the container points at the container itself, not the host, even though the deploy host now co-locates with the broker |
+| Config/DB missing in container | Compose mounts `./data:/data`; command is `--config /data/config.yaml` | `config.yaml` and DB live under the deploy host's data dir (Makefile `DEPLOY_PATH`), NOT baked into the image. `make sync` ships compose+config; it never ships `.env` or `data/` |
+| Poshmark works locally, fails on deploy host | Profile volume | `data/poshmark-profile` must be on the persistent volume; a fresh container with an empty profile loses the logged-in state |
 | feedback-bot container "does nothing" | Its logs say `Feedback bot is disabled` | Expected — see Trap 2 |
 
 ## Discriminating experiments

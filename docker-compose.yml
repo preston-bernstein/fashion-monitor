@@ -26,6 +26,19 @@ services:
       - .env
     restart: "no"
 
+  feedback-bot:
+    image: fashion-monitor/cli
+    build: .
+    profiles: ["feedback"]
+    command: ["node", "apps/cli/dist/feedback-bot.js", "--config", "/data/config.yaml"]
+    labels:
+      <<: *log-shipping-labels
+    volumes:
+      - ./data:/data
+    env_file:
+      - .env
+    restart: unless-stopped
+
   ntfy:
     image: binwiederhier/ntfy
     command: serve
@@ -56,36 +69,15 @@ services:
     labels:
       <<: *log-shipping-labels
     environment:
-      # Behind the Caddy reverse proxy, cookies are served over HTTPS.
-      COOKIE_SECURE: "true"
+      # No reverse proxy in front on this host — served plain HTTP on the LAN.
+      # Set to "true" if this is ever put behind a TLS-terminating proxy.
+      COOKIE_SECURE: "${COOKIE_SECURE:-false}"
     volumes:
       - ./data:/data
     env_file:
       - .env
-    # No host port: the proxy terminates TLS and forwards to this service.
-    # For local dev without a proxy, uncomment to expose directly:
-    # ports:
-    #   - "3030:3030"
-    expose:
-      - "3030"
-    restart: unless-stopped
-
-  # TLS-terminating reverse proxy. Caddy auto-provisions HTTPS certs via
-  # Let's Encrypt when WEB_DOMAIN is a public DNS name; otherwise it serves a
-  # local self-signed cert. Set WEB_DOMAIN in .env (e.g. monitor.example.com).
-  proxy:
-    image: caddy:2
-    depends_on:
-      - dashboard
-    environment:
-      WEB_DOMAIN: ${WEB_DOMAIN:-localhost}
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy-data:/data
-      - caddy-config:/config
     ports:
-      - "80:80"
-      - "443:443"
+      - "3030:3030"
     restart: unless-stopped
 
   mcp-server:
@@ -152,7 +144,5 @@ services:
 volumes:
   grafana-data:
   loki-data:
-  caddy-data:
-  caddy-config:
   ntfy-cache:
   ntfy-lib:

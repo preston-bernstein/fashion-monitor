@@ -1,6 +1,6 @@
 ---
 name: fashion-monitor-build-and-env
-description: Recreate the fashion-monitor dev environment from scratch and avoid its build traps — Node 24, pnpm 9.15 workspace, Turborepo build order, Playwright chromium install, better-sqlite3 native rebuilds, TypeScript NodeNext vs bundler modes, Docker turbo-prune images. Load when setting up a fresh clone, when `pnpm install`/`pnpm run build`/`pnpm test` fails, when typecheck breaks on stale dist, or when building the Docker images. Do NOT load for running the pipeline or deploying to the NAS (fashion-monitor-run-and-operate) or for config.yaml/.env semantics (fashion-monitor-config-and-flags).
+description: Recreate the fashion-monitor dev environment from scratch and avoid its build traps — Node 24, pnpm 9.15 workspace, Turborepo build order, Playwright chromium install, better-sqlite3 native rebuilds, TypeScript NodeNext vs bundler modes, Docker turbo-prune images. Load when setting up a fresh clone, when `pnpm install`/`pnpm run build`/`pnpm test` fails, when typecheck breaks on stale dist, or when building the Docker images. Do NOT load for running the pipeline or deploying to the desktop host (fashion-monitor-run-and-operate) or for config.yaml/.env semantics (fashion-monitor-config-and-flags).
 ---
 
 # Fashion Monitor — Build & Environment
@@ -93,7 +93,7 @@ Build side effects that must exist at runtime: `@fm/core` copies `src/storage/mi
 
 ## Docker images (two of them)
 
-The Makefile `build` target (verified) builds both images for `linux/amd64` (the Synology NAS arch) via buildx `--load`:
+The Makefile `build` target (verified) builds both images for `linux/amd64` (the deploy host's arch) via buildx `--load`:
 
 - `fashion-monitor/cli` from root `Dockerfile` (pipeline + entrypoints, includes chromium via `pnpm exec playwright install --with-deps chromium`)
 - `fashion-monitor/mcp-server` from `services/mcp-server/Dockerfile` (CMD `node services/mcp-server/dist/index.js`)
@@ -105,7 +105,7 @@ Both Dockerfiles follow the same verified pattern:
 3. **Builder stage quirk:** a `node -e` one-liner DELETES the `@fm/api#build` task override from the pruned `turbo.json`. Why: that override depends on `@fm/web#build`, but `@fm/web` is not a package.json dependency of `@fm/api`, so `turbo prune` excludes it from the pruned workspace and the dangling task reference would break the build. If you change turbo.json task names, update this surgery line in BOTH Dockerfiles.
 4. Runner stage copies `node_modules` + built packages; `VOLUME ["/data"]`.
 
-Build locally with `make build` (or the two `docker buildx build --platform linux/amd64 ...` commands inside it). Deploy/push/sync are fashion-monitor-run-and-operate territory. The NAS host/user/path are Makefile variables (`NAS_HOST`, `NAS_USER`, `NAS_PATH`) — do not hardcode them anywhere.
+Build locally with `make build` (or the two `docker buildx build --platform linux/amd64 ...` commands inside it). Deploy/push/sync are fashion-monitor-run-and-operate territory. The deploy host/user/path are Makefile variables (`DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_PATH`) — do not hardcode them anywhere.
 
 Known doc/tree drift (as of 2026-07-02): the Makefile `sync` target still echoes `TELEGRAM_*` env hints while the working tree is mid Telegram→ntfy migration (orchestrator already imports `createNtfyAlerter`), and `.env.example` still lists `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID`. See fashion-monitor-failure-archaeology and fashion-monitor-alerting-feedback-campaign before "fixing" either.
 
@@ -153,7 +153,7 @@ Live-network commands (`test:live`, `verify:scrapers`) and dev entrypoints (`dev
 
 ## When NOT to use this skill
 
-- Running the pipeline, dev servers, Docker deploy to the NAS, data/artifact paths → **fashion-monitor-run-and-operate**.
+- Running the pipeline, dev servers, Docker deploy to the desktop host, data/artifact paths → **fashion-monitor-run-and-operate**.
 - What goes in `config.yaml` / `.env` / DB-backed settings and their authority order → **fashion-monitor-config-and-flags**.
 - Test taxonomy, fixtures, evidence standards → **fashion-monitor-validation-and-qa**.
 - Whether a toolchain/dependency change is even allowed → **fashion-monitor-change-control**.

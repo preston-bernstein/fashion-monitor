@@ -14,7 +14,10 @@ RUN pnpm dlx turbo@2.5.4 prune @fm/mcp-server --docker
 FROM base AS builder
 COPY --from=pruner /app/out/json/ .
 COPY --from=pruner /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
-RUN pnpm install --frozen-lockfile
+# @preston-bernstein/credential-crypto is a private git+ssh dependency (packages/api,
+# packages/core) — needs the build's SSH agent forwarded in: `docker buildx build --ssh default`.
+RUN mkdir -p -m 0700 ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
+RUN --mount=type=ssh pnpm install --frozen-lockfile
 
 COPY --from=pruner /app/out/full/ .
 COPY --from=pruner /app/tsconfig.base.json ./tsconfig.base.json
