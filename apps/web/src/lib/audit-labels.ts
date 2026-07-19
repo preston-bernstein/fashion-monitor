@@ -1,7 +1,7 @@
 const ACTION_LABELS: Record<string, string> = {
   "login.failed": "Login failed",
   "login.success": "Login succeeded",
-  "logout": "Logout",
+  logout: "Logout",
   "auth.forbidden": "Access forbidden",
   "auth.csrf.failed": "CSRF check failed",
   "system.bootstrap.admin": "Bootstrap admin created",
@@ -28,9 +28,7 @@ export function auditActionSeverity(action: string): "danger" | "default" {
 }
 
 export function isMonitorTarget(action: string, target: string | null): boolean {
-  return Boolean(
-    target && action.startsWith("search_group."),
-  );
+  return Boolean(target && action.startsWith("search_group."));
 }
 
 export function isUserTarget(action: string, target: string | null): boolean {

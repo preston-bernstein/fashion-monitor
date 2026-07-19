@@ -2,6 +2,8 @@
 
 Personal resale monitoring: scrape eBay, Grailed, Vestiaire, Depop, and Poshmark; score listings with a local LLM against your aesthetic; alert via ntfy.
 
+[![CI](https://github.com/preston-bernstein/fashion-monitor/actions/workflows/ci.yml/badge.svg)](https://github.com/preston-bernstein/fashion-monitor/actions/workflows/ci.yml)  [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-3178c6)](tsconfig.base.json)  [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 Agent policy: [.cursor/rules/no-agent-attribution.mdc](.cursor/rules/no-agent-attribution.mdc) (no AI attribution in commits or code).
 
 ## Monorepo layout
@@ -128,3 +130,11 @@ Structured logging and optional Loki: [docs/logging-and-audit.md](docs/logging-a
 ## Spec
 
 Design docs: [spec/README.md](spec/README.md)
+
+## Architecture decisions
+
+7 ADRs in [`docs/adr/`](docs/adr/) covering MCP as the primary interface, encrypted-at-rest secrets, invite-only self-service profiles, tiered connections, multi-profile serial pipeline execution, shared-GPU inference broker, and ntfy over Telegram for push alerts.
+
+## License
+
+MIT — see [LICENSE](LICENSE).

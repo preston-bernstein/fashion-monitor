@@ -54,7 +54,9 @@ export class InvitesRepo {
   /** Marks an invite consumed. `profileId` records the profile created at redemption (signup only). */
   consume(id: number, profileId: string | null, now: string): void {
     this.db
-      .prepare(`UPDATE invites SET consumed_at = ?, profile_id = COALESCE(?, profile_id) WHERE id = ?`)
+      .prepare(
+        `UPDATE invites SET consumed_at = ?, profile_id = COALESCE(?, profile_id) WHERE id = ?`,
+      )
       .run(now, profileId, id);
   }
 }

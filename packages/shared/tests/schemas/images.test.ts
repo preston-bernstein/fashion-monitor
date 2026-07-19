@@ -33,7 +33,10 @@ describe("SearchGroupImageAddInputSchema", () => {
   });
 
   it("rejects an unrecognized source discriminator", () => {
-    const result = SearchGroupImageAddInputSchema.safeParse({ source: "upload", url: "https://x.com" });
+    const result = SearchGroupImageAddInputSchema.safeParse({
+      source: "upload",
+      url: "https://x.com",
+    });
     expect(result.success).toBe(false);
   });
 

@@ -20,7 +20,9 @@ describe("ebay credential resolution", () => {
     delete process.env.EBAY_CLIENT_ID;
     delete process.env.EBAY_CLIENT_SECRET;
     const scraper = createEbayScraper(minimalConfig);
-    const result = await scraper.search([{ queryId: "q1@ebay", text: "jacket", sourceQueryId: "q1" }]);
+    const result = await scraper.search([
+      { queryId: "q1@ebay", text: "jacket", sourceQueryId: "q1" },
+    ]);
     expect(result.ok).toBe(false);
     expect(result.error).toContain("EBAY_CLIENT_ID and EBAY_CLIENT_SECRET required");
   });

@@ -69,7 +69,13 @@ describe("overallQueryQuality", () => {
   it("is good only when every known signal is good", () => {
     expect(
       overallQueryQuality(
-        row({ alert_rate: 0.1, yes_rate: 0.2, feedback_ratio: 0.8, feedback_positive: 4, feedback_negative: 1 }),
+        row({
+          alert_rate: 0.1,
+          yes_rate: 0.2,
+          feedback_ratio: 0.8,
+          feedback_positive: 4,
+          feedback_negative: 1,
+        }),
       ),
     ).toBe("good");
   });
@@ -77,7 +83,13 @@ describe("overallQueryQuality", () => {
   it("is poor if any known signal is poor, even if others are good", () => {
     expect(
       overallQueryQuality(
-        row({ alert_rate: 0.001, yes_rate: 0.2, feedback_ratio: 0.8, feedback_positive: 4, feedback_negative: 1 }),
+        row({
+          alert_rate: 0.001,
+          yes_rate: 0.2,
+          feedback_ratio: 0.8,
+          feedback_positive: 4,
+          feedback_negative: 1,
+        }),
       ),
     ).toBe("poor");
   });

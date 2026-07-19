@@ -165,9 +165,7 @@ describe("password reset via invite machinery", () => {
 
     // Old password no longer works; new one does.
     const oldLogin = new TestClient(app);
-    expect((await oldLogin.login("curator1@example.com", "old-password-123")).statusCode).toBe(
-      401,
-    );
+    expect((await oldLogin.login("curator1@example.com", "old-password-123")).statusCode).toBe(401);
     const newLogin = new TestClient(app);
     expect(
       (await newLogin.login("curator1@example.com", "brand-new-password-456")).statusCode,

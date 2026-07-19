@@ -16,7 +16,13 @@ const validTaste = {
 
 const validSystem = {
   platforms: { ebay: true, grailed: true },
-  llm: { provider: "mock", batch_size: 15, ollama_text_model: "qwen2.5:7b", claude_model: "claude-haiku-4-5", vision_backend: "ollama" },
+  llm: {
+    provider: "mock",
+    batch_size: 15,
+    ollama_text_model: "qwen2.5:7b",
+    claude_model: "claude-haiku-4-5",
+    vision_backend: "ollama",
+  },
   alert_options: { mode: "immediate", notify_empty: false },
   scraper: { poshmark_profile_path: "data/poshmark-profile" },
 };

@@ -148,7 +148,10 @@ describe("ntfy alerts", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const alerter = createNtfyAlerter(baseConfig);
-    await alerter.sendAlert({ ...scoredListing(), listing: { ...sampleListing(), imageUrl: null } });
+    await alerter.sendAlert({
+      ...scoredListing(),
+      listing: { ...sampleListing(), imageUrl: null },
+    });
 
     const body = JSON.parse(String(fetchMock.mock.calls[0][1].body));
     expect(body.attach).toBeUndefined();

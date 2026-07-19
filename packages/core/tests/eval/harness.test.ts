@@ -62,7 +62,14 @@ describe("eval harness", () => {
     insertSeenListing(db, liked.id, liked.platform, serializeListing(liked));
     insertSeenListing(db, disliked.id, disliked.platform, serializeListing(disliked));
     insertFeedback(db, liked.platform, liked.id, "positive", "2026-06-02T00:00:00.000Z", "q1");
-    insertFeedback(db, disliked.platform, disliked.id, "negative", "2026-06-02T00:00:01.000Z", "q2");
+    insertFeedback(
+      db,
+      disliked.platform,
+      disliked.id,
+      "negative",
+      "2026-06-02T00:00:01.000Z",
+      "q2",
+    );
 
     const verdicts: Record<string, ScoringResult["score"]> = {
       [`${liked.platform}:${liked.id}`]: "YES",

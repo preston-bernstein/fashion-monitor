@@ -22,9 +22,9 @@ describe("OllamaProvider", () => {
   });
 
   it("throws without ollama_host", () => {
-    expect(
-      () => new OllamaProvider({ ...minimalConfig.llm, ollama_host: undefined }),
-    ).toThrow(ProviderError);
+    expect(() => new OllamaProvider({ ...minimalConfig.llm, ollama_host: undefined })).toThrow(
+      ProviderError,
+    );
   });
 
   it("healthCheck returns true when the client can list models, false on error", async () => {
