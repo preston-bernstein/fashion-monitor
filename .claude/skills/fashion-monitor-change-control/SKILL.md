@@ -97,7 +97,7 @@ Do NOT enable, remove, or "clean up" these without satisfying their gate:
 | Fenced thing | Current state | Gate to change it | Source of the fence |
 |---|---|---|---|
 | Login-based platform Connections (Poshmark/Depop/Vestiaire sessions) | Ship DORMANT: off by default, per-platform risk acknowledgment required | (1) per-platform ToS research producing honest risk copy AND (2) measured anonymous-vs-logged-in result lift | `docs/adr/0004-tiered-connections-login-dormant.md`; Spikes section of `docs/plans/self-service-onboarding.md` |
-| `playwright-extra` + `puppeteer-extra-plugin-stealth` | In use (`packages/core/src/platforms/playwright/browser.ts`) | A rebrowser/Patchright pilot passes live smoke on Depop/Poshmark | `docs/playwright-stealth-pilot.md` § "Do not remove yet" |
+| `playwright-extra` + `puppeteer-extra-plugin-stealth` | In use (`packages/core/src/platforms/playwright/browser.ts`) | Patchright passes live smoke on Depop/Poshmark | `docs/playwright-stealth-pilot.md` § "Do not remove yet" |
 | Vinted platform | Disabled (`vinted: false` in `config.example.yaml`; no `packages/core/src/platforms/vinted/` implementation) | v1 stable + other 5 platforms working; then its own enablement work (Datadome anti-bot) | ADR-006 in `spec/06-decisions.md` |
 
 ### 6. Migrations are append-only AND re-run every boot
