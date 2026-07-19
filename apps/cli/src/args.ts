@@ -16,6 +16,20 @@ export function parseRunArgs(argv: string[]): { configPath: string; platforms?: 
   return { configPath, platforms };
 }
 
+export const parseScrapeArgs = parseRunArgs;
+
+export function parseScoreArgs(argv: string[]): { configPath: string } {
+  let configPath = "config.yaml";
+
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === "--config" && argv[i + 1]) {
+      configPath = argv[++i];
+    }
+  }
+
+  return { configPath };
+}
+
 export function parseReportArgs(argv: string[]): { configPath: string; days: number } {
   let configPath = "config.yaml";
   let days = 14;

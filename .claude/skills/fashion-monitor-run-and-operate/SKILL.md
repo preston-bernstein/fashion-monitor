@@ -11,7 +11,9 @@ Verified 2026-07-02 against the uncommitted working tree (compose already reflec
 
 | Command | What it does | Flags / env |
 |---|---|---|
-| `pnpm run dev:run` | One pipeline run (tsx, no build) | `-- --config config.yaml --platforms poshmark,depop` (comma list; from `apps/cli/src/args.ts`) |
+| `pnpm run dev:run` | One combined scrape+score pipeline run (tsx, no build) | `-- --config config.yaml --platforms poshmark,depop` (comma list; from `apps/cli/src/args.ts`) |
+| `pnpm run dev:scrape` | Scrape-only phase (`runScrapePhase`) — no LLM call, marks results PENDING | same `--config`/`--platforms` flags as `dev:run` |
+| `pnpm run dev:score` | Score-only phase (`runScorePhase`) — scores whatever is PENDING, dispatches alerts | `-- --config config.yaml` (no `--platforms`, it doesn't scrape) |
 | `pnpm run dev:dashboard` | Fastify API + SPA on :3030 | `-- --config config.yaml --host 0.0.0.0 --port 3030`; env `DASHBOARD_HOST`/`DASHBOARD_PORT`; set `ADMIN_EMAIL`/`ADMIN_PASSWORD` to bootstrap the first owner |
 | `pnpm run dev:web` | Vite SPA on :5173, proxies `/api` → :3030 | run alongside dev:dashboard |
 | `pnpm run dev:report` | CLI analytics report | `-- --config config.yaml --days 14` |
@@ -25,8 +27,9 @@ MCP server: `services/mcp-server`, SSE on `MCP_PORT` (default 3102); container e
 
 | Service | Image | Runs | Notes |
 |---|---|---|---|
-| `scraper` | fashion-monitor/cli | `run.js --config /data/config.yaml` | `restart: "no"` — cron-triggered, one-shot |
-| `poshmark` | fashion-monitor/cli | `run.js --platforms poshmark` | separate slower cadence |
+| `scraper` | fashion-monitor/cli | `scrape.js --config /data/config.yaml` | `restart: "no"` — cron-triggered, one-shot. Scrape-ONLY (no LLM), `network_mode: container:gluetun-scraper` — attaches to home-infra's scraper-egress VPN tunnel (2026-07-19); that container must already be running (separate compose project, `depends_on` can't reach it) |
+| `poshmark` | fashion-monitor/cli | `scrape.js --platforms poshmark` | separate slower cadence; same VPN-tunnel attachment as `scraper` |
+| `score` | fashion-monitor/cli | `score.js --config /data/config.yaml` | `restart: "no"` — reads whatever `scraper`/`poshmark` left PENDING in `seen_listings`, does LLM scoring + alert dispatch. Deliberately NOT on the VPN tunnel — needs the LAN Ollama broker, which the tunnel firewalls off |
 | `feedback-bot` | fashion-monitor/cli | `feedback-bot.js` | behind compose profile `feedback` — does NOT start by default; currently a disabled stub anyway |
 | `ntfy` | binwiederhier/ntfy | alert push server | host port `${NTFY_PORT:-8282}`→80; cache+auth volumes |
 | `dashboard` | fashion-monitor/cli | `dashboard.js --host 0.0.0.0 --port 3030` | host port `3030:3030`, plain HTTP (no bundled proxy); `COOKIE_SECURE` defaults `false` |
@@ -50,7 +53,7 @@ Variables: `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_PATH` (defaults in Makefile; ov
 
 Pre-flight: deploy host must be x86_64 (`uname -m`) for Playwright Chromium; Ollama must be reachable **from inside the container** (`curl` the `llm.ollama_host` URL from a container, not the host).
 
-Scheduling (moved off Synology Task Scheduler with the 2026-07-19 NAS→desktop migration): use cron or a systemd timer on the deploy host running `docker compose run --rm scraper` every 60 min and `docker compose run --rm poshmark` every 3 h; dashboard+grafana always-on (`restart: unless-stopped`); feedback-bot always-on under profile `feedback` (currently moot — stub, see fashion-monitor-alerting-feedback-campaign).
+Scheduling (moved off Synology Task Scheduler with the 2026-07-19 NAS→desktop migration): use cron or a systemd timer on the deploy host running `docker compose run --rm scraper` every 60 min, `docker compose run --rm poshmark` every 3 h, and `docker compose run --rm score` on its own cadence (must run after scrape ticks for PENDING listings to actually get scored — nothing scores them otherwise now that scrape/score are split); dashboard+grafana always-on (`restart: unless-stopped`); feedback-bot always-on under profile `feedback` (currently moot — stub, see fashion-monitor-alerting-feedback-campaign). **Not yet actually installed as a cron/timer** — deliberately left for the operator to wire up rather than silently turning on a recurring live scraper.
 
 ## Data and artifact conventions
 

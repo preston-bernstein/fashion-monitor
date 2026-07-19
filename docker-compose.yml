@@ -2,12 +2,23 @@ x-log-shipping-labels: &log-shipping-labels
   fm.logging: "true"
 
 services:
+  # scraper/poshmark are scrape-ONLY (never call the LLM — see apps/cli/src/scrape.ts):
+  # they attach to home-infra's scraper-egress VPN tunnel per its consumer
+  # contract (home-infra/compose/desktop/scraper-egress/consumer-contract.md),
+  # so all marketplace egress routes through ProtonVPN. `network_mode:
+  # container:gluetun-scraper` requires that container already running —
+  # it lives in a separate compose project (scraper-egress), so `depends_on`
+  # can't reach it; start scraper-egress first. Real values (mem_limit/cpus)
+  # are required by the consumer contract, not optional tuning.
   scraper:
     image: fashion-monitor/cli
     build: .
-    command: ["node", "apps/cli/dist/run.js", "--config", "/data/config.yaml"]
+    command: ["node", "apps/cli/dist/scrape.js", "--config", "/data/config.yaml"]
     labels:
       <<: *log-shipping-labels
+    network_mode: "container:gluetun-scraper"
+    mem_limit: "512m"
+    cpus: "1.0"
     volumes:
       - ./data:/data
     env_file:
@@ -17,7 +28,34 @@ services:
   poshmark:
     image: fashion-monitor/cli
     build: .
-    command: ["node", "apps/cli/dist/run.js", "--config", "/data/config.yaml", "--platforms", "poshmark"]
+    command:
+      [
+        "node",
+        "apps/cli/dist/scrape.js",
+        "--config",
+        "/data/config.yaml",
+        "--platforms",
+        "poshmark",
+      ]
+    labels:
+      <<: *log-shipping-labels
+    network_mode: "container:gluetun-scraper"
+    mem_limit: "512m"
+    cpus: "1.0"
+    volumes:
+      - ./data:/data
+    env_file:
+      - .env
+    restart: "no"
+
+  # score is the LLM-scoring half (apps/cli/src/score.ts) — reads whatever
+  # scraper/poshmark left PENDING and scores+alerts it. Deliberately NOT on
+  # the VPN tunnel: it needs the LAN-side Ollama broker, which the tunnel's
+  # firewall (no LAN egress exception) would otherwise block.
+  score:
+    image: fashion-monitor/cli
+    build: .
+    command: ["node", "apps/cli/dist/score.js", "--config", "/data/config.yaml"]
     labels:
       <<: *log-shipping-labels
     volumes:

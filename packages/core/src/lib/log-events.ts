@@ -8,6 +8,7 @@ export const LogEvents = {
   PipelinePrefilterRejected: "pipeline.prefilter.rejected",
   PipelineLlmUnavailable: "pipeline.llm.unavailable",
   PipelinePendingBacklog: "pipeline.pending.backlog",
+  PipelineScrapePhaseComplete: "pipeline.scrape_phase.complete",
   PipelineScorerBatchStart: "pipeline.scorer.batch.start",
   PipelineScorerVisionStart: "pipeline.scorer.vision.start",
   PipelineScorerVisionFlip: "pipeline.scorer.vision.flip",

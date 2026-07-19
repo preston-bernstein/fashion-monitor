@@ -146,12 +146,21 @@ interface Listing {
 - **Pass 2** (vision, MAYBE only): configurable backend (Ollama vision or Claude) re-scores MAYBE items that have `image_url`
 - MAYBE without `image_url` stays MAYBE and alerts
 - Post-vision MAYBE still alerts (signals lower confidence, not disqualification)
-- PENDING is a pipeline-internal state for when the LLM is unreachable — never surfaced to users
+- PENDING is a pipeline-internal state — originally just for when the LLM is unreachable,
+  now (2026-07-19) also the standard hand-off between the scrape-only and score-only
+  process invocations (see below) — never surfaced to users
 
 ### 4. Alert Phase
 - One Telegram message per YES/MAYBE listing
 - Digest mode optional: bundle all matches into one message per run
 - Alert includes: image, title, brand, price, platform, LLM reason, scoring dimensions (aesthetic/quality/value), link
+
+**Process-level split (2026-07-19):** phases 1-2 (scrape+dedupe+prefilter) and phases 3-4
+(score+alert) now run as two separate CLI entrypoints/containers — `apps/cli/src/scrape.ts`
+(`runScrapePhase`) and `apps/cli/src/score.ts` (`runScorePhase`) — rather than one combined
+`run.ts` invocation, so the scrape half can run inside a network-isolated VPN tunnel without
+also needing LAN access to the Ollama broker for scoring. `run.ts`/`runPipeline` still exists
+unchanged, combining both halves in one process, for local dev and non-split deployments.
 
 ## Execution Environment
 

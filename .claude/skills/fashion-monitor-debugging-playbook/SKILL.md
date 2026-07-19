@@ -132,6 +132,8 @@ Known broken as written (verified 2026-07-02): `.github/workflows/ci.yml` and `l
 | Config/DB missing in container | Compose mounts `./data:/data`; command is `--config /data/config.yaml` | `config.yaml` and DB live under the deploy host's data dir (Makefile `DEPLOY_PATH`), NOT baked into the image. `make sync` ships compose+config; it never ships `.env` or `data/` |
 | Poshmark works locally, fails on deploy host | Profile volume | `data/poshmark-profile` must be on the persistent volume; a fresh container with an empty profile loses the logged-in state |
 | feedback-bot container "does nothing" | Its logs say `Feedback bot is disabled` | Expected — see Trap 2 |
+| `scraper`/`poshmark` container fails immediately, "no such container: gluetun-scraper" | `network_mode: container:gluetun-scraper` (2026-07-19 scraper-egress VPN attachment) | `gluetun-scraper` lives in a separate compose project (home-infra's `scraper-egress`) — start it first (`docker compose up -d` in that project's directory); `depends_on` can't reach a foreign-project container |
+| PENDING listings pile up forever, never scored | `score` service never ran | Scrape and score are separate one-shot services now — nothing scores a scrape's output until `docker compose run --rm score` actually runs; confirm it's on a real cron/timer, not just deployed |
 
 ## Discriminating experiments
 
