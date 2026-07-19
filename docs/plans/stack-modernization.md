@@ -161,13 +161,13 @@ So the work is mostly **pulling the backend up to where the frontend already is*
 **Findings (web-verified):**
 
 - Playwright is the active default for scraping in 2026 (latest in the **1.5x** line; repo is on 1.49, several minors behind). Puppeteer's cadence has slowed.
-- The **`puppeteer-extra-plugin-stealth` approach is now considered last-resort / brittle.** Modern anti-bot (Cloudflare, DataDome) detects the **`Runtime.enable` CDP leak** that plain Playwright/Puppeteer emit. Current mitigations: **`rebrowser-patches`** / **Patchright** (patch the CDP leak), Camoufox (anti-detect Firefox), or driverless approaches. Sources: rebrowser/rebrowser-patches; rebrowser.net Runtime.Enable writeup; decodo/browserless/bug0 scraping guides.
+- The **`puppeteer-extra-plugin-stealth` approach is now considered last-resort / brittle.** Modern anti-bot (Cloudflare, DataDome) detects the **`Runtime.enable` CDP leak** that plain Playwright/Puppeteer emit. Current mitigation: **Patchright** (patches the CDP leak; `rebrowser-patches` was also considered but dropped after a 2026-07-18 benchmark showed it now ties unpatched vanilla Playwright), Camoufox (anti-detect Firefox), or driverless approaches. Sources: rebrowser/rebrowser-patches; rebrowser.net Runtime.Enable writeup; decodo/browserless/bug0 scraping guides.
 - Best-practice pattern in 2026: **use a headless browser only to pass the initial JS/challenge, harvest the cookie, then switch to a lightweight HTTP client** (which is exactly what `impit` + the HTTP scrapers already do), and lean on a **managed unblocker (ScrapFly)** as the fallback — both already in the architecture.
 
 **Recommendation:**
 
 - **Bump Playwright to the current 1.5x** (keep `@playwright/test` in lockstep) and re-pin the Chromium install in the Dockerfile/`postinstall`.
-- **Re-evaluate the stealth layer.** Treat `playwright-extra` + `puppeteer-extra-plugin-stealth` as on the way out; pilot **`rebrowser-patches`/Patchright** for the Playwright browser path to address the `Runtime.enable` leak. Keep coherent fingerprints (UA/client-hints/viewport/timezone aligned) and human-like pacing — much of `src/lib/user-agent.ts` / `src/platforms/playwright` already gestures at this.
+- **Re-evaluate the stealth layer.** Treat `playwright-extra` + `puppeteer-extra-plugin-stealth` as on the way out; pilot **Patchright** for the Playwright browser path to address the `Runtime.enable` leak (`rebrowser-patches` dropped from consideration, see `docs/playwright-stealth-pilot.md`). Keep coherent fingerprints (UA/client-hints/viewport/timezone aligned) and human-like pacing — much of `src/lib/user-agent.ts` / `src/platforms/playwright` already gestures at this.
 - Keep the **ScrapFly fallback** and the cookie-harvest-then-HTTP pattern; they match current guidance. Expect a permanent "anti-bot drift" maintenance cost — add screenshot/status-code regression checks (the repo already has `scripts/verify-scrapers.ts` and a live smoke test to build on).
 
 **Risk:** Medium (scraper reliability is adversarial and changes break silently). **Effort:** Medium. **Priority:** Medium. This is best treated as its own workstream rather than a version bump.
@@ -223,7 +223,7 @@ Each step should land green (typecheck + tests + lint) before the next. Steps 1�
 3. **Vitest 4 + ESLint 10 on the backend** — bring backend in line with frontend; fix any flat-config/test-API deltas. _(Medium)_
 4. **Zod 3 → 4 on the backend** — codemod + manual audit + tests. Unblocks shared schemas. _(High)_
 5. **Dependency bumps** — `better-sqlite3` 12, `ollama` 0.6, `@anthropic-ai/sdk` ~0.102 (behind the provider abstraction), Fastify lockfile `>= 5.8.5`. _(Med/Low)_
-6. **Playwright current + anti-bot rework** — bump Playwright; pilot `rebrowser-patches`/Patchright; keep ScrapFly + cookie-harvest pattern; add regression checks. _(Medium, own workstream)_
+6. **Playwright current + anti-bot rework** — bump Playwright; pilot `Patchright`; keep ScrapFly + cookie-harvest pattern; add regression checks. _(Medium, own workstream)_
 7. **Optional/native-execution** — evaluate `erasableSyntaxOnly` and dropping `tsx` from production; evaluate `rolldown-vite`. _(Low)_
 8. **Switch to pnpm** — single workspace install, replace `npm --prefix web`. This is the hand-off point to the monorepo plan. _(Medium)_
 
