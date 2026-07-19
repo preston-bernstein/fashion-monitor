@@ -2,7 +2,7 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import type { Db } from "@fm/core/storage/db.js";
 import type { Config } from "@fm/core/core/config.js";
 import type { Capability } from "@fm/shared/rbac.js";
-import type { SecretsCipher } from "@fm/core/lib/secrets-crypto.js";
+import type { SecretsCipher } from "@preston-bernstein/credential-crypto";
 import type { ProfileSecretsRepo } from "@fm/core/storage/repos/profile-secrets.js";
 import { AuditLogRepo } from "@fm/core/storage/repos/audit-log.js";
 

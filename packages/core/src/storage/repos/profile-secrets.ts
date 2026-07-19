@@ -1,5 +1,5 @@
 import type { Db } from "../db.js";
-import type { SecretsCipher } from "../../lib/secrets-crypto.js";
+import type { SecretsCipher } from "@preston-bernstein/credential-crypto";
 
 export interface SecretMeta {
   key: string;
