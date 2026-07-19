@@ -5,7 +5,7 @@ import { loadProfileConfig } from "../../src/core/profile-config.js";
 import { SearchGroupsRepo, executionId } from "../../src/storage/repos/search-groups.js";
 import { ProfileSettingsRepo } from "../../src/storage/repos/profile-settings.js";
 import { ProfileSecretsRepo } from "../../src/storage/repos/profile-secrets.js";
-import { SecretsCipher } from "../../src/lib/secrets-crypto.js";
+import { SecretsCipher } from "@preston-bernstein/credential-crypto";
 import { ProfilesRepo } from "../../src/storage/repos/users.js";
 import { minimalConfig } from "../helpers/fixtures.js";
 

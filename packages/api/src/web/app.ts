@@ -15,7 +15,7 @@ import { fetchDashboardPayload } from "@fm/core/analytics/queries.js";
 import { createLogger } from "@fm/core/lib/logging.js";
 import { LogEvents } from "@fm/core/lib/log-events.js";
 import type { Capability } from "@fm/shared/rbac.js";
-import { SecretsCipher } from "@fm/core/lib/secrets-crypto.js";
+import { SecretsCipher } from "@preston-bernstein/credential-crypto";
 import { ProfileSecretsRepo } from "@fm/core/storage/repos/profile-secrets.js";
 import { SessionsRepo } from "@fm/core/storage/repos/sessions.js";
 import { UsersRepo, MembershipsRepo } from "@fm/core/storage/repos/users.js";

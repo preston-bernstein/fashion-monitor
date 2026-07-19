@@ -14,10 +14,11 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:live": "VITEST_LIVE=1 vitest run tests/platforms/live-smoke.test.ts -t @live",
-    "postinstall": "playwright install chromium || true"
+    "postinstall": "tsc -p node_modules/@preston-bernstein/credential-crypto/tsconfig.json && (playwright install chromium || true)"
   },
   "dependencies": {
     "@fm/shared": "workspace:*",
+    "@preston-bernstein/credential-crypto": "git+ssh://nas-agent/volume1/homes/agent/git/credential-crypto.git#main",
     "@anthropic-ai/sdk": "^0.102.0",
     "@noble/ciphers": "^2.2.0",
     "@noble/hashes": "^2.2.0",
