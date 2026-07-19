@@ -25,6 +25,7 @@
     "test:coverage": "pnpm --filter @fm/core test:coverage",
     "test:live": "pnpm --filter @fm/core test:live",
     "verify:scrapers": "pnpm --filter @fm/core exec tsx ../../scripts/verify-scrapers.ts",
+    "export:resale-inventory": "pnpm --filter @fm/core exec node scripts/export-to-resale-inventory.mjs",
     "test:e2e": "playwright test",
     "test:mutation": "pnpm --filter @fm/core exec stryker run --configFile stryker.conf.json"
   },

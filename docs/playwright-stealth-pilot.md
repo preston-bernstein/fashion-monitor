@@ -8,34 +8,28 @@
 
 ## Why change
 
-Modern anti-bot detects the **Runtime.enable CDP leak** in stock Playwright/Puppeteer. Mitigations:
+Modern anti-bot detects the **Runtime.enable CDP leak** in stock Playwright/Puppeteer. Mitigation:
 
-- [rebrowser-patches](https://github.com/rebrowser/rebrowser-patches) / Patchright
-- Camoufox (anti-detect Firefox)
+- **Patchright**: patches the Playwright build to hide the leak (alternative to rebrowser-patches, which is now superceded).
+- Camoufox (anti-detect Firefox, out-of-scope for this pilot).
 
-## Recommended pilot (not yet wired)
+### Benchmark evidence (2026-07-18)
 
-1. Add optional env `PLAYWRIGHT_STEALTH_DRIVER=rebrowser|legacy` (default `legacy`).
-2. When `rebrowser`, install `patchright` or apply rebrowser-patches to the Playwright build in Docker.
-3. Keep ScrapFly + cookie harvest as primary resilience; stealth browser only for initial challenge.
-4. **Done (2026-07-03):** `scripts/verify-scrapers.ts` now captures status-code + screenshot
-   posture per platform per driver. It reads `PLAYWRIGHT_STEALTH_DRIVER` and tags captures
-   with the driver name, but **warns and falls back to `legacy`** if `rebrowser` is
-   requested — step 1 above (the actual driver swap) still isn't wired, so honoring the
-   env var without warning would silently mislabel captures. Screenshots + status codes
-   land in `test-results/verify-scrapers/` (gitignored), one PNG per platform per run,
-   independent of whether the platform's own scraper call succeeded — this is what makes
-   it a posture measurement rather than a scrape-success proxy: a platform can return
-   HTTP 200 with a normal-looking page while the production scraper still fails to
-   extract listings (parsing/selector drift), and vice versa. eBay and Grailed are
-   JSON APIs with no anti-bot surface, so they get status-code-only capture (parsed from
-   the scrape error's `HTTP {status}` / `failed: {status}` text) — no screenshot,
-   no separate probe. Depop, Vestiaire, and Poshmark get a real independent Playwright
-   navigation to a representative search URL, screenshotted regardless of scrape
-   readiness (so Vestiaire's posture is visible even without `SCRAPFLY_API_KEY` set).
-   Next: steps 2–3 (scheduled matrix run + `v_integration_daily` pass-rate reporting) are
-   still open — see fashion-monitor-research-frontier F4.
+Independent sweep of 31 Cloudflare-protected targets (651 total verdicts, published 2026-05-13, updated 2026-07-12) found:
+- Patchright: 25/29 OK
+- rebrowser-patches (now retired): 24/29 OK (tied with unpatched vanilla Playwright)
+
+This motivates Patchright as the pilot candidate, though the benchmark is general-purpose (not Depop/Poshmark-specific—see the gate below). Source: [ianlpaterson.com/blog/anti-detect-browser-benchmark-patchright-nodriver-curl-cffi/](https://ianlpaterson.com/blog/anti-detect-browser-benchmark-patchright-nodriver-curl-cffi/)
+
+## Driver swap: wired (2026-07-18)
+
+The Patchright pilot is now live:
+
+- **Env var:** `PLAYWRIGHT_STEALTH_DRIVER=patchright|legacy` (default `legacy`). Resolved by `resolveStealthDriver()` in `packages/core/src/platforms/playwright/browser.ts`.
+- **Browser launch:** Both `launchStealthEphemeralBrowser()` and `launchStealthPersistentContext()` branch between Patchright (dynamically imported) and the existing `playwright-extra` + stealth-plugin path.
+- **Posture matrix:** `scripts/verify-scrapers.ts` runs a `["legacy", "patchright"]` matrix for Depop and Poshmark specifically, capturing status code + screenshot per platform per driver (4 rows total). Depop's row is labeled `"n/a"` when impit-first HTTP succeeds without a browser invocation. eBay, Grailed, and Vestiaire run once each, unmatrixed. All captures land in `test-results/verify-scrapers/` (gitignored), independent of scraper success—this separates posture (does the site render?) from scrape correctness (does the parser extract?).
+- **Next:** Scheduled matrix run + automated `v_integration_daily` pass-rate reporting still open—see fashion-monitor-research-frontier F4.
 
 ## Do not remove yet
 
-`playwright-extra` + stealth plugin stays until a rebrowser pilot passes live smoke on Depop/Poshmark.
+`playwright-extra` + stealth plugin stays until **Patchright** passes live smoke on both Depop and Poshmark. This is a hard requirement—no removal until production proof.
