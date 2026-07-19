@@ -6,7 +6,5 @@ export function monitorImagesQueryKey(groupId: string) {
 }
 
 export async function fetchMonitorImages(groupId: string): Promise<SearchGroupImagesResponse> {
-  return apiGet<SearchGroupImagesResponse>(
-    `/api/monitors/${encodeURIComponent(groupId)}/images`,
-  );
+  return apiGet<SearchGroupImagesResponse>(`/api/monitors/${encodeURIComponent(groupId)}/images`);
 }

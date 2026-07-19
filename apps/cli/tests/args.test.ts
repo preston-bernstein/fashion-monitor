@@ -1,10 +1,5 @@
 import { describe, expect, it, afterEach } from "vitest";
-import {
-  parseRunArgs,
-  parseReportArgs,
-  parseEvalArgs,
-  parseDashboardArgs,
-} from "../src/args.js";
+import { parseRunArgs, parseReportArgs, parseEvalArgs, parseDashboardArgs } from "../src/args.js";
 
 describe("parseRunArgs", () => {
   it("defaults to config.yaml with no platform filter", () => {
@@ -54,9 +49,7 @@ describe("parseEvalArgs", () => {
   });
 
   it("parses --revision, --provider, and --limit", () => {
-    expect(
-      parseEvalArgs(["--revision", "7", "--provider", "claude", "--limit", "50"]),
-    ).toEqual({
+    expect(parseEvalArgs(["--revision", "7", "--provider", "claude", "--limit", "50"])).toEqual({
       configPath: "config.yaml",
       revisionId: 7,
       provider: "claude",

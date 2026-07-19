@@ -21,7 +21,12 @@ describe("InvitesRepo", () => {
     const repo = new InvitesRepo(db);
     const now = "2026-01-01T00:00:00.000Z";
     const id = repo.create(
-      { tokenHash: "hash-1", purpose: "signup", createdBy: ownerId, expiresAt: "2026-01-08T00:00:00.000Z" },
+      {
+        tokenHash: "hash-1",
+        purpose: "signup",
+        createdBy: ownerId,
+        expiresAt: "2026-01-08T00:00:00.000Z",
+      },
       now,
     );
 
@@ -35,7 +40,12 @@ describe("InvitesRepo", () => {
   it("does not find an expired invite", () => {
     const repo = new InvitesRepo(db);
     repo.create(
-      { tokenHash: "hash-2", purpose: "signup", createdBy: ownerId, expiresAt: "2026-01-01T00:00:00.000Z" },
+      {
+        tokenHash: "hash-2",
+        purpose: "signup",
+        createdBy: ownerId,
+        expiresAt: "2026-01-01T00:00:00.000Z",
+      },
       "2025-12-25T00:00:00.000Z",
     );
 
@@ -46,7 +56,12 @@ describe("InvitesRepo", () => {
     const repo = new InvitesRepo(db);
     const now = "2026-01-01T00:00:00.000Z";
     const id = repo.create(
-      { tokenHash: "hash-3", purpose: "signup", createdBy: ownerId, expiresAt: "2026-01-08T00:00:00.000Z" },
+      {
+        tokenHash: "hash-3",
+        purpose: "signup",
+        createdBy: ownerId,
+        expiresAt: "2026-01-08T00:00:00.000Z",
+      },
       now,
     );
 
@@ -58,7 +73,12 @@ describe("InvitesRepo", () => {
     const repo = new InvitesRepo(db);
     const now = "2026-01-01T00:00:00.000Z";
     const id = repo.create(
-      { tokenHash: "hash-4", purpose: "signup", createdBy: ownerId, expiresAt: "2026-01-08T00:00:00.000Z" },
+      {
+        tokenHash: "hash-4",
+        purpose: "signup",
+        createdBy: ownerId,
+        expiresAt: "2026-01-08T00:00:00.000Z",
+      },
       now,
     );
     repo.consume(id, "spouse-profile", now);
@@ -111,7 +131,15 @@ describe("InvitesRepo", () => {
     const found = repo.findValidByTokenHash("hash-6", now);
     expect(found?.target_user_id).toBe(ownerId);
 
-    repo.create({ tokenHash: "hash-7", purpose: "signup", createdBy: ownerId, expiresAt: "2026-01-08T00:00:00.000Z" }, now);
+    repo.create(
+      {
+        tokenHash: "hash-7",
+        purpose: "signup",
+        createdBy: ownerId,
+        expiresAt: "2026-01-08T00:00:00.000Z",
+      },
+      now,
+    );
     expect(repo.findValidByTokenHash("hash-7", now)?.target_user_id).toBeNull();
   });
 });

@@ -122,13 +122,23 @@ describe("deleteProfileCascade", () => {
     const ownerId = users.create("owner@example.com", "hash", now);
 
     const consumedId = invites.create(
-      { tokenHash: "consumed", purpose: "signup", createdBy: ownerId, expiresAt: "2026-02-01T00:00:00.000Z" },
+      {
+        tokenHash: "consumed",
+        purpose: "signup",
+        createdBy: ownerId,
+        expiresAt: "2026-02-01T00:00:00.000Z",
+      },
       now,
     );
     invites.consume(consumedId, "p1", now);
 
     invites.create(
-      { tokenHash: "pending", purpose: "signup", createdBy: ownerId, expiresAt: "2026-02-01T00:00:00.000Z" },
+      {
+        tokenHash: "pending",
+        purpose: "signup",
+        createdBy: ownerId,
+        expiresAt: "2026-02-01T00:00:00.000Z",
+      },
       now,
     );
 

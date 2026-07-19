@@ -7,7 +7,8 @@ import type { SearchRequest } from "../../src/config/searches.js";
 const fetchVestiaireHtml = vi.fn();
 
 vi.mock("../../src/platforms/vestiaire/fetch-page.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../src/platforms/vestiaire/fetch-page.js")>();
+  const actual =
+    await importOriginal<typeof import("../../src/platforms/vestiaire/fetch-page.js")>();
   return { ...actual, fetchVestiaireHtml };
 });
 

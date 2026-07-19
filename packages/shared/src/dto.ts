@@ -285,13 +285,26 @@ export interface DashboardPayload {
   queryRunHistory: QueryRunHistoryRow[];
   integrationUptime: IntegrationUptime[];
   integrationFailures: IntegrationFailure[];
-  configRevisions: { id: number; recorded_at: string; content_hash: string; run_id: number | null }[];
+  configRevisions: {
+    id: number;
+    recorded_at: string;
+    content_hash: string;
+    run_id: number | null;
+  }[];
   promptDiet: {
     aesthetic_prompt: string;
     hard_no: string[];
     positive_signals: { strong: string[]; weak: string[] };
-    positive_examples: { listing_id: string; title: string | null; source_query_id?: string | null }[];
-    negative_examples: { listing_id: string; title: string | null; source_query_id?: string | null }[];
+    positive_examples: {
+      listing_id: string;
+      title: string | null;
+      source_query_id?: string | null;
+    }[];
+    negative_examples: {
+      listing_id: string;
+      title: string | null;
+      source_query_id?: string | null;
+    }[];
   };
   generatedAt: string;
 }

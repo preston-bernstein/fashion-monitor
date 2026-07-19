@@ -30,7 +30,10 @@ describe("createProviderFromConfig", () => {
   });
 
   it("falls back to the mock provider for an unrecognized provider name", () => {
-    const config = { ...minimalConfig.llm, provider: "nonsense" } as unknown as typeof minimalConfig.llm;
+    const config = {
+      ...minimalConfig.llm,
+      provider: "nonsense",
+    } as unknown as typeof minimalConfig.llm;
     expect(createProviderFromConfig(config)).toEqual({ kind: "mock" });
   });
 });

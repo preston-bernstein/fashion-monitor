@@ -34,9 +34,12 @@ function formatReport(report: EvalReport): string {
 
 async function main(): Promise<void> {
   log.info(LogEvents.CliStartup, { command: "eval" });
-  const { configPath, revisionId, provider: providerOverride, limit } = parseEvalArgs(
-    process.argv.slice(2),
-  );
+  const {
+    configPath,
+    revisionId,
+    provider: providerOverride,
+    limit,
+  } = parseEvalArgs(process.argv.slice(2));
   const config = loadCliConfig(configPath);
   const db = openDatabase(config.database.path);
 

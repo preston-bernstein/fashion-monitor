@@ -22,7 +22,10 @@ export const SearchGroupCreateInputSchema = z.object({
 export const SearchGroupUpdateInputSchema = z.object({
   query_text: z.string().trim().min(1).max(500).optional(),
   platforms: z.array(z.enum(PLATFORMS)).optional(),
-  query_overrides: z.record(z.enum(PLATFORMS), z.string().trim().min(1).max(500)).nullable().optional(),
+  query_overrides: z
+    .record(z.enum(PLATFORMS), z.string().trim().min(1).max(500))
+    .nullable()
+    .optional(),
   status: z.enum(MONITOR_STATUSES).optional(),
   enabled: z.boolean().optional(),
   note: z.string().trim().max(500).nullable().optional(),
