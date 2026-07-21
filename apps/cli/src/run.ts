@@ -1,18 +1,14 @@
 #!/usr/bin/env node
-import { loadCliConfig } from "./config.js";
 import type { Config } from "@fm/core/core/config.js";
 import type { Platform } from "@fm/core/core/types.js";
-import { openDatabase } from "@fm/core/storage/db.js";
 import type { Db } from "@fm/core/storage/db.js";
-import { seedProfileFromConfig } from "@fm/core/storage/seed.js";
 import { runPipeline } from "@fm/core/pipeline/orchestrator.js";
 import type { PlatformScraper } from "@fm/core/platforms/types.js";
 import type { LLMProvider } from "@fm/core/llm/provider.js";
-import { closePoshmarkContext } from "@fm/core/platforms/poshmark/scraper.js";
-import { closeAllStealthBrowsers } from "@fm/core/platforms/playwright/browser.js";
 import { LogEvents } from "@fm/core/lib/log-events.js";
 import { createLogger } from "@fm/core/lib/logging.js";
 import { parseRunArgs } from "./args.js";
+import { reportCliFailure, withCliDb } from "./cli-bootstrap.js";
 import { forEachProfileSerially, type ProfilesTickResult } from "./profiles-serial.js";
 
 const log = createLogger("cli.run");
@@ -48,34 +44,20 @@ export async function runProfilesSerially(
 async function main(): Promise<void> {
   log.info(LogEvents.CliStartup, { command: "run" });
   const { configPath, platforms } = parseRunArgs(process.argv.slice(2));
-  const fileConfig = loadCliConfig(configPath);
-  const db = openDatabase(fileConfig.database.path);
 
-  const now = new Date().toISOString();
-  seedProfileFromConfig(db, fileConfig, now);
-
-  try {
-    const { profileCount, failures } = await runProfilesSerially(db, fileConfig, platforms);
-    // A tick where every profile errored is worth surfacing to the scheduler;
-    // partial degradation (some profiles ok) stays a zero exit per-profile
-    // fault isolation.
-    if (profileCount > 0 && failures === profileCount) {
-      process.exitCode = 1;
-    }
-  } finally {
-    await closePoshmarkContext().catch(() => undefined);
-    await closeAllStealthBrowsers().catch(() => undefined);
-    db.close();
+  const { profileCount, failures } = await withCliDb(configPath, (db, fileConfig) =>
+    runProfilesSerially(db, fileConfig, platforms),
+  );
+  // A tick where every profile errored is worth surfacing to the scheduler;
+  // partial degradation (some profiles ok) stays a zero exit per-profile
+  // fault isolation.
+  if (profileCount > 0 && failures === profileCount) {
+    process.exitCode = 1;
   }
 }
 
 // Guard so importing runProfilesSerially for tests doesn't also invoke the
 // CLI entrypoint (which reads real config off disk and calls process.exit).
 if (import.meta.main) {
-  main().catch((err) => {
-    log.error(LogEvents.CliRunFailed, {
-      error: err instanceof Error ? err.message : "unknown",
-    });
-    process.exit(1);
-  });
+  main().catch((err) => reportCliFailure(log, err));
 }

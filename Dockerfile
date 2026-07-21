@@ -27,9 +27,6 @@ COPY --from=pruner /app/tsconfig.base.json ./tsconfig.base.json
 RUN node -e "const fs=require('fs'),t=JSON.parse(fs.readFileSync('turbo.json'));delete t.tasks['@fm/api#build'];fs.writeFileSync('turbo.json',JSON.stringify(t,null,2));"
 RUN pnpm turbo run build --filter=@fm/cli
 
-# Playwright browsers for Poshmark / Depop fallback
-RUN pnpm exec playwright install --with-deps chromium
-
 FROM base AS runner
 ENV NODE_ENV=production
 WORKDIR /app
