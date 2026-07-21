@@ -284,6 +284,9 @@ importers:
       '@fm/shared':
         specifier: workspace:*
         version: link:../shared
+      '@noble/ciphers':
+        specifier: ^2.2.0
+        version: 2.2.0
       '@noble/hashes':
         specifier: ^2.2.0
         version: 2.2.0
