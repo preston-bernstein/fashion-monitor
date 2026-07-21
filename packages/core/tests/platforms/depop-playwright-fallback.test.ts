@@ -1,5 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { depopTileToListing, scrapeDepopViaPlaywright } from "../../src/platforms/depop/playwright-fallback.js";
+import {
+  depopTileToListing,
+  scrapeDepopViaPlaywright,
+} from "../../src/platforms/depop/playwright-fallback.js";
 import { buildDepopSearchUrl } from "../../src/platforms/depop/parse-rsc.js";
 import type { DepopTileRaw } from "../../src/platforms/depop/extract.js";
 

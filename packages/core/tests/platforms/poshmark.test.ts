@@ -23,13 +23,23 @@ vi.mock("../../src/platforms/stealth-sidecar/session.js", () => ({
   pollContent: vi.fn(),
 }));
 
-import { createPage, navigate, getContent, closePage } from "../../src/platforms/stealth-sidecar/client.js";
+import {
+  createPage,
+  navigate,
+  getContent,
+  closePage,
+} from "../../src/platforms/stealth-sidecar/client.js";
 import {
   getOrCreatePersistentContext,
   closeAllPersistentContexts,
   pollContent,
 } from "../../src/platforms/stealth-sidecar/session.js";
-import { getPoshmarkContext, scrapePoshmarkQuery, closePoshmarkContext, PoshmarkScraper } from "../../src/platforms/poshmark/scraper.js";
+import {
+  getPoshmarkContext,
+  scrapePoshmarkQuery,
+  closePoshmarkContext,
+  PoshmarkScraper,
+} from "../../src/platforms/poshmark/scraper.js";
 
 const TILE_HTML = `
   <a class="tile-grid-redesign__covershot" data-et-prop-listing_id="pm-111">
@@ -214,7 +224,9 @@ describe("PoshmarkScraper", () => {
     await vi.runAllTimersAsync();
     await resultPromise;
 
-    expect(getOrCreatePersistentContext).toHaveBeenCalledWith(minimalConfig.scraper.poshmark_profile_path);
+    expect(getOrCreatePersistentContext).toHaveBeenCalledWith(
+      minimalConfig.scraper.poshmark_profile_path,
+    );
   });
 
   it("returns ok: true with tagged listings when the query succeeds", async () => {

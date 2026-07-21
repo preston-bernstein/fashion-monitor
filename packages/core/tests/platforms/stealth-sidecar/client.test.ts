@@ -1,6 +1,9 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import * as client from "../../../src/platforms/stealth-sidecar/client.js";
-import { SidecarResponseError, SidecarUnreachableError } from "../../../src/platforms/stealth-sidecar/errors.js";
+import {
+  SidecarResponseError,
+  SidecarUnreachableError,
+} from "../../../src/platforms/stealth-sidecar/errors.js";
 
 /**
  * Mirrors the client's own internal constants (client.ts is not expected to
@@ -76,7 +79,10 @@ describe("stealth-sidecar client", () => {
       expect(fetchMock).toHaveBeenCalledTimes(1);
       const [url, init] = fetchMock.mock.calls[0];
       expect(url).toBe(`${BASE_URL}/v1/contexts`);
-      expect(init).toMatchObject({ method: "POST", headers: { "Content-Type": "application/json" } });
+      expect(init).toMatchObject({
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
       expect(JSON.parse(init.body)).toEqual({ user_data_dir: "/tmp/profile" });
     });
 

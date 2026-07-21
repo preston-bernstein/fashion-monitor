@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { extractPoshmarkTilesFromHtml, parsePoshmarkMetaText } from "../../src/platforms/poshmark/extract.js";
+import {
+  extractPoshmarkTilesFromHtml,
+  parsePoshmarkMetaText,
+} from "../../src/platforms/poshmark/extract.js";
 
 describe("parsePoshmarkMetaText edge cases", () => {
   it("returns an empty price and size when there's no dollar amount at all", () => {
@@ -38,13 +41,15 @@ describe("parsePoshmarkMetaText edge cases", () => {
 describe("extractPoshmarkTilesFromHtml", () => {
   const BASE_URL = "https://poshmark.com/search?query=corduroy";
 
-  function tileHtml(opts: {
-    id?: string;
-    href?: string;
-    imgSrc?: string;
-    text?: string;
-    covershotClass?: "tile-grid-redesign__covershot" | "tile__covershot";
-  } = {}) {
+  function tileHtml(
+    opts: {
+      id?: string;
+      href?: string;
+      imgSrc?: string;
+      text?: string;
+      covershotClass?: "tile-grid-redesign__covershot" | "tile__covershot";
+    } = {},
+  ) {
     const {
       id = "pm-111",
       href = "/listing/pm-111",

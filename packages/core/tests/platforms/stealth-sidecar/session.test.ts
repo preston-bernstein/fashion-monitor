@@ -8,7 +8,13 @@ vi.mock("../../../src/platforms/stealth-sidecar/client.js", () => ({
   getContent: vi.fn(),
 }));
 
-import { closeContext, closePage, createContext, createPage, getContent } from "../../../src/platforms/stealth-sidecar/client.js";
+import {
+  closeContext,
+  closePage,
+  createContext,
+  createPage,
+  getContent,
+} from "../../../src/platforms/stealth-sidecar/client.js";
 import {
   closeAllPersistentContexts,
   getOrCreatePersistentContext,
@@ -149,7 +155,9 @@ describe("getOrCreatePersistentContext", () => {
   });
 
   it("rejects a profilePath containing a path-traversal segment without calling createContext", async () => {
-    await expect(getOrCreatePersistentContext("/tmp/../etc/passwd")).rejects.toThrow(/path-traversal/);
+    await expect(getOrCreatePersistentContext("/tmp/../etc/passwd")).rejects.toThrow(
+      /path-traversal/,
+    );
     expect(createContext).not.toHaveBeenCalled();
   });
 });

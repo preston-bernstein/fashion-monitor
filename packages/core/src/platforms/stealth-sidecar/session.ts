@@ -21,9 +21,7 @@ function sleep(ms: number): Promise<void> {
  * both down afterward — even if `callback` throws. Used by Depop's per-run
  * ephemeral flow, which has no reason to persist a context across runs.
  */
-export async function withEphemeralPage<T>(
-  callback: (pageId: string) => Promise<T>,
-): Promise<T> {
+export async function withEphemeralPage<T>(callback: (pageId: string) => Promise<T>): Promise<T> {
   const { contextId } = await createContext();
   const { pageId } = await createPage(contextId);
   try {
@@ -71,9 +69,7 @@ export async function getOrCreatePersistentContext(profilePath: string): Promise
     );
   }
 
-  const contextIdPromise = createContext({ userDataDir: profilePath }).then(
-    (ctx) => ctx.contextId,
-  );
+  const contextIdPromise = createContext({ userDataDir: profilePath }).then((ctx) => ctx.contextId);
   persistentContexts.set(profilePath, contextIdPromise);
   // If context creation fails (e.g. the sidecar is mid-restart, per the
   // migration plan's Risk area #4), don't leave the rejected promise cached

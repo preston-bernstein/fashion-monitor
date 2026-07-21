@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { extractDepopTilesFromHtml, parseDepopTileText } from "../../src/platforms/depop/extract.js";
+import {
+  extractDepopTilesFromHtml,
+  parseDepopTileText,
+} from "../../src/platforms/depop/extract.js";
 
 describe("parseDepopTileText", () => {
   it("extracts a price from the middle of the text and strips it from the title", () => {

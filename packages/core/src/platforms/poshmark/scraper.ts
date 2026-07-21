@@ -5,7 +5,11 @@ import { LogEvents } from "../../lib/log-events.js";
 import { createLogger, logError } from "../../lib/logging.js";
 import { scrapeQueries } from "../scrape-utils.js";
 import { closePage, createPage, getContent, navigate } from "../stealth-sidecar/client.js";
-import { closeAllPersistentContexts, getOrCreatePersistentContext, pollContent } from "../stealth-sidecar/session.js";
+import {
+  closeAllPersistentContexts,
+  getOrCreatePersistentContext,
+  pollContent,
+} from "../stealth-sidecar/session.js";
 import type { PlatformScraper, ScrapeOutcome } from "../types.js";
 import { extractPoshmarkTilesFromHtml } from "./extract.js";
 import { parsePoshmarkTiles } from "./normalize.js";
@@ -20,10 +24,7 @@ export async function getPoshmarkContext(profilePath: string): Promise<string> {
   return getOrCreatePersistentContext(profilePath);
 }
 
-export async function scrapePoshmarkQuery(
-  contextId: string,
-  query: string,
-): Promise<Listing[]> {
+export async function scrapePoshmarkQuery(contextId: string, query: string): Promise<Listing[]> {
   const params = new URLSearchParams({
     query,
     department: "Men",
@@ -39,11 +40,10 @@ export async function scrapePoshmarkQuery(
   try {
     await navigate(pageId, url);
 
-    await pollContent(
-      pageId,
-      (content) => extractPoshmarkTilesFromHtml(content, url).length > 0,
-      { timeoutMs: 30_000, intervalMs: 2_000 },
-    );
+    await pollContent(pageId, (content) => extractPoshmarkTilesFromHtml(content, url).length > 0, {
+      timeoutMs: 30_000,
+      intervalMs: 2_000,
+    });
 
     // Fixed settle delay, matching the old page.waitForTimeout(2_000) — taken
     // after tiles are confirmed present, before the final content read below,
@@ -66,7 +66,9 @@ export class PoshmarkScraper implements PlatformScraper {
   async search(queries: SearchRequest[]): Promise<ScrapeOutcome> {
     try {
       const contextId = await getPoshmarkContext(this.config.scraper.poshmark_profile_path);
-      return await scrapeQueries("poshmark", queries, (text) => scrapePoshmarkQuery(contextId, text));
+      return await scrapeQueries("poshmark", queries, (text) =>
+        scrapePoshmarkQuery(contextId, text),
+      );
     } catch (err) {
       logError(log, LogEvents.PlatformScrapeFailed, err);
       const message = err instanceof Error ? err.message : "Poshmark scrape failed";

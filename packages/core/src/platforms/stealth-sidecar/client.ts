@@ -70,7 +70,11 @@ function sleep(ms: number): Promise<void> {
  * in-flight worker slot, and retrying blindly could double-navigate or
  * leak a context.
  */
-async function fetchWithRetry(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+async function fetchWithRetry(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<Response> {
   try {
     return await fetchWithTimeout(url, { ...init, timeoutMs });
   } catch (err) {
