@@ -14,7 +14,7 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:live": "VITEST_LIVE=1 vitest run tests/platforms/live-smoke.test.ts -t @live",
-    "postinstall": "tsc -p node_modules/@preston-bernstein/credential-crypto/tsconfig.json && (playwright install chromium || true)"
+    "postinstall": "tsc -p node_modules/@preston-bernstein/credential-crypto/tsconfig.json"
   },
   "dependencies": {
     "@fm/shared": "workspace:*",
@@ -26,12 +26,7 @@
     "cheerio": "^1.0.0",
     "impit": "^0.5.0",
     "ollama": "^0.6.3",
-    "patchright": "^1.61.1",
     "pino": "^10.3.1",
-    "patchright": "^1.61.1",
-    "playwright": "^1.52.0",
-    "playwright-extra": "^4.3.6",
-    "puppeteer-extra-plugin-stealth": "^2.11.2",
     "scrapfly-sdk": "^0.10.6",
     "yaml": "^2.7.0",
     "zod": "catalog:"

@@ -10,6 +10,9 @@ services:
   # it lives in a separate compose project (scraper-egress), so `depends_on`
   # can't reach it; start scraper-egress first. Real values (mem_limit/cpus)
   # are required by the consumer contract, not optional tuning.
+  # STEALTH_SIDECAR_URL (where the stealth-sidecar HTTP client points) is read
+  # via env_file from .env, same as the other app-level vars below — there is
+  # no containerized stealth-sidecar service in this compose file yet.
   scraper:
     image: fashion-monitor/cli
     build: .

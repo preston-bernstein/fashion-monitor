@@ -1,25 +1,30 @@
-import type { BrowserContext } from "playwright";
 import type { Config } from "../../core/config.js";
 import type { Listing } from "../../core/types.js";
 import type { SearchRequest } from "../../config/searches.js";
 import { LogEvents } from "../../lib/log-events.js";
 import { createLogger, logError } from "../../lib/logging.js";
-import { closeAllStealthBrowsers, launchStealthPersistentContext } from "../playwright/browser.js";
 import { scrapeQueries } from "../scrape-utils.js";
+import { closePage, createPage, getContent, navigate } from "../stealth-sidecar/client.js";
+import {
+  closeAllPersistentContexts,
+  getOrCreatePersistentContext,
+  pollContent,
+} from "../stealth-sidecar/session.js";
 import type { PlatformScraper, ScrapeOutcome } from "../types.js";
-import { poshmarkTileExtractScript } from "./extract.js";
+import { extractPoshmarkTilesFromHtml } from "./extract.js";
 import { parsePoshmarkTiles } from "./normalize.js";
 
 const log = createLogger("platform.poshmark", { platform: "poshmark" });
 
-export async function getPoshmarkContext(profilePath: string): Promise<BrowserContext> {
-  return launchStealthPersistentContext(profilePath);
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export async function scrapePoshmarkQuery(
-  context: BrowserContext,
-  query: string,
-): Promise<Listing[]> {
+export async function getPoshmarkContext(profilePath: string): Promise<string> {
+  return getOrCreatePersistentContext(profilePath);
+}
+
+export async function scrapePoshmarkQuery(contextId: string, query: string): Promise<Listing[]> {
   const params = new URLSearchParams({
     query,
     department: "Men",
@@ -29,19 +34,27 @@ export async function scrapePoshmarkQuery(
   params.append("size[]", "XXL");
   params.append("size[]", "2XL");
 
-  const page = await context.newPage();
-  try {
-    await page.goto(`https://poshmark.com/search?${params}`, {
-      waitUntil: "domcontentloaded",
-      timeout: 60_000,
-    });
-    await page.waitForSelector('a[data-et-prop-location="listing_tile"]', { timeout: 30_000 });
-    await page.waitForTimeout(2_000);
+  const url = `https://poshmark.com/search?${params}`;
 
-    const raw = await page.evaluate(poshmarkTileExtractScript);
+  const { pageId } = await createPage(contextId);
+  try {
+    await navigate(pageId, url);
+
+    await pollContent(pageId, (content) => extractPoshmarkTilesFromHtml(content, url).length > 0, {
+      timeoutMs: 30_000,
+      intervalMs: 2_000,
+    });
+
+    // Fixed settle delay, matching the old page.waitForTimeout(2_000) — taken
+    // after tiles are confirmed present, before the final content read below,
+    // to give any still-in-flight lazy content a chance to finish rendering.
+    await sleep(2_000);
+
+    const html = await getContent(pageId);
+    const raw = extractPoshmarkTilesFromHtml(html, url);
     return parsePoshmarkTiles(raw);
   } finally {
-    await page.close();
+    await closePage(pageId);
   }
 }
 
@@ -51,9 +64,11 @@ export class PoshmarkScraper implements PlatformScraper {
   constructor(private readonly config: Config) {}
 
   async search(queries: SearchRequest[]): Promise<ScrapeOutcome> {
-    const context = await getPoshmarkContext(this.config.scraper.poshmark_profile_path);
     try {
-      return await scrapeQueries("poshmark", queries, (text) => scrapePoshmarkQuery(context, text));
+      const contextId = await getPoshmarkContext(this.config.scraper.poshmark_profile_path);
+      return await scrapeQueries("poshmark", queries, (text) =>
+        scrapePoshmarkQuery(contextId, text),
+      );
     } catch (err) {
       logError(log, LogEvents.PlatformScrapeFailed, err);
       const message = err instanceof Error ? err.message : "Poshmark scrape failed";
@@ -67,5 +82,5 @@ export function createPoshmarkScraper(config: Config): PlatformScraper {
 }
 
 export async function closePoshmarkContext(): Promise<void> {
-  await closeAllStealthBrowsers();
+  await closeAllPersistentContexts();
 }

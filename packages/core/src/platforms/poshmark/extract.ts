@@ -1,3 +1,5 @@
+import * as cheerio from "cheerio";
+
 export interface PoshmarkTileRaw {
   id: string;
   title: string;
@@ -37,43 +39,37 @@ export function parsePoshmarkMetaText(text: string): {
 }
 
 /**
- * Runs in the browser via page.evaluate — must stay self-contained (no imports).
- * Keep meta parsing aligned with parsePoshmarkMetaText().
+ * Parses Poshmark search-results HTML (via cheerio) into tile data — replaces
+ * the old page.evaluate()-based extraction now that the sidecar migration
+ * means there's no live browser page to evaluate against. href/src attributes
+ * are raw (possibly relative) in the static markup, unlike a live browser DOM
+ * which auto-resolves them, so url/image are explicitly resolved against
+ * baseUrl.
  */
-export function poshmarkTileExtractScript(): PoshmarkTileRaw[] {
+export function extractPoshmarkTilesFromHtml(html: string, baseUrl: string): PoshmarkTileRaw[] {
+  const $ = cheerio.load(html);
   const seen = new Set<string>();
   const results: PoshmarkTileRaw[] = [];
 
-  for (const meta of Array.from(
-    document.querySelectorAll("a.tile-grid-redesign__meta-link[data-et-prop-listing_id]"),
-  )) {
-    const link = meta as HTMLAnchorElement;
-    const id = link.dataset.etPropListing_id;
-    if (!id || seen.has(id)) continue;
+  $("a.tile-grid-redesign__meta-link[data-et-prop-listing_id]").each((_, el) => {
+    const link = $(el);
+    const id = link.attr("data-et-prop-listing_id");
+    if (!id || seen.has(id)) return;
     seen.add(id);
 
-    const imageLink = document.querySelector(
+    const imageEl = $(
       `a.tile-grid-redesign__covershot[data-et-prop-listing_id="${id}"] img, a.tile__covershot[data-et-prop-listing_id="${id}"] img`,
-    ) as HTMLImageElement | null;
+    ).first();
 
-    const text = link.textContent?.replace(/\s+/g, " ").trim() ?? "";
-    const priceMatch = text.match(/\$(\d+(?:\.\d{2})?)/);
-    const price = priceMatch ? `$${priceMatch[1]}` : "";
-    let title = text;
-    let size = "";
-    let brand: string | null = null;
+    const text = link.text().replace(/\s+/g, " ").trim();
+    const { title, price, size, brand } = parsePoshmarkMetaText(text);
 
-    if (priceMatch) {
-      title = text.slice(0, priceMatch.index).trim();
-      const afterPrice = text.slice(priceMatch.index! + priceMatch[0].length).trim();
-      size = afterPrice.split(" ").pop() ?? "";
-    }
+    const href = link.attr("href");
+    if (!href) return;
+    const url = new URL(href, baseUrl).toString();
 
-    const brandMatch = title.match(/^(.+?\sMen[''']?s)\s+(.+)$/i);
-    if (brandMatch) {
-      brand = brandMatch[1].trim();
-      title = brandMatch[2].trim();
-    }
+    const src = imageEl.attr("src");
+    const image = src ? new URL(src, baseUrl).toString() : null;
 
     results.push({
       id,
@@ -81,10 +77,10 @@ export function poshmarkTileExtractScript(): PoshmarkTileRaw[] {
       price,
       brand,
       size,
-      url: link.href,
-      image: imageLink?.src ?? null,
+      url,
+      image,
     });
-  }
+  });
 
   return results;
 }

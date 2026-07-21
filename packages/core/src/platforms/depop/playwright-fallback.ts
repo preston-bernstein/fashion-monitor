@@ -1,6 +1,7 @@
 import type { Listing } from "../../core/types.js";
-import { launchStealthEphemeralBrowser } from "../playwright/browser.js";
-import { depopTileExtractScript, type DepopTileRaw } from "./extract.js";
+import { checkHealth, navigate } from "../stealth-sidecar/client.js";
+import { pollContent, withEphemeralPage } from "../stealth-sidecar/session.js";
+import { extractDepopTilesFromHtml, type DepopTileRaw } from "./extract.js";
 import { buildDepopSearchUrl } from "./parse-rsc.js";
 
 export function depopTileToListing(tile: DepopTileRaw): Listing | null {
@@ -25,31 +26,28 @@ export function depopTileToListing(tile: DepopTileRaw): Listing | null {
 }
 
 export async function scrapeDepopViaPlaywright(query: string): Promise<Listing[]> {
-  const browser = await launchStealthEphemeralBrowser();
-  const page = await browser.newPage();
+  // FR12: fail fast if the sidecar is unreachable/unhealthy, before any
+  // context/page gets created for this run.
+  await checkHealth();
 
-  try {
-    await page.goto(buildDepopSearchUrl(query), {
-      waitUntil: "domcontentloaded",
-      timeout: 60_000,
-    });
+  return withEphemeralPage(async (pageId) => {
+    const url = buildDepopSearchUrl(query);
+    await navigate(pageId, url);
 
-    const consent = page
-      .locator('#onetrust-accept-btn-handler, button:has-text("Accept all")')
-      .first();
-    if (await consent.count()) {
-      await consent.click({ timeout: 5_000 }).catch(() => undefined);
-    }
+    // Approximates the old page.waitForTimeout retry loop's 4s/2s/2s cadence
+    // (an initial longer wait for first render, then shorter re-checks) —
+    // pollContent's fixed (timeoutMs, intervalMs) polling shape doesn't map
+    // 1:1 onto "3 discrete attempts with a longer first wait", so this uses
+    // the same total ~8s wait budget with a 2s poll interval, stopping as
+    // soon as at least one tile is found. Never throws on timeout — like the
+    // old loop, it just returns whatever HTML/tiles the last poll saw.
+    const html = await pollContent(
+      pageId,
+      (content) => extractDepopTilesFromHtml(content, url).length > 0,
+      { timeoutMs: 8_000, intervalMs: 2_000 },
+    );
 
-    let tiles: DepopTileRaw[] = [];
-    for (let i = 0; i < 3; i++) {
-      await page.waitForTimeout(i === 0 ? 4_000 : 2_000);
-      tiles = await page.evaluate(depopTileExtractScript);
-      if (tiles.length > 0) break;
-    }
-
+    const tiles: DepopTileRaw[] = extractDepopTilesFromHtml(html, url);
     return tiles.map(depopTileToListing).filter((listing): listing is Listing => listing !== null);
-  } finally {
-    await page.close();
-  }
+  });
 }
