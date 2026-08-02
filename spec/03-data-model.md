@@ -1,15 +1,17 @@
 # 03 — Data Model
 
+This document defines Fashion Monitor's SQLite (a lightweight, file-based SQL database) schema: every table, its columns, and how the pieces fit together.
+
 ## Storage: SQLite
 
-Single database file: `data/fashion_monitor.db`
+Fashion Monitor stores everything in a single database file: `data/fashion_monitor.db`.
 
 ---
 
 ## Tables
 
 ### `seen_listings`
-Deduplication table. Prevents re-alerting on same listing.
+This table exists to stop Fashion Monitor from alerting twice on the same listing — it's the deduplication (dedupe, short for "de-duplicate") table.
 
 ```sql
 CREATE TABLE seen_listings (
@@ -26,12 +28,12 @@ CREATE TABLE seen_listings (
 ```
 
 **Score values:**
-- `null` — seen but not yet queued for scoring (legacy; prefer PENDING for new rows)
-- `PENDING` — pipeline-internal: scraped while LLM was unreachable; score on next healthy run. **Never surfaced to users** — users only see YES, MAYBE, or NO as outcomes.
-- `YES` | `MAYBE` | `NO` — final verdict; never re-score (verdict caching)
+- `null` — seen but not yet queued for scoring. This is a legacy state; new rows should use `PENDING` instead.
+- `PENDING` — pipeline-internal only: the listing was scraped while the LLM was unreachable, and it will be scored on the next healthy run. **Never surfaced to users** — users only ever see YES, MAYBE, or NO.
+- `YES` | `MAYBE` | `NO` — the final verdict. Once set, it's never re-scored (the verdict is cached).
 
 ### `alert_log`
-Record of every alert sent. Useful for reviewing what got surfaced.
+This table records every alert Fashion Monitor has sent, so you can review what got surfaced.
 
 ```sql
 CREATE TABLE alert_log (
@@ -52,7 +54,7 @@ CREATE TABLE alert_log (
 ```
 
 ### `feedback`
-User preference signals collected via Telegram replies. Powers few-shot learning in LLM prompt.
+This table stores the user's preference signals, collected from Telegram replies. It powers few-shot learning (giving the LLM a handful of labeled examples in its prompt, instead of retraining it) in the scoring prompt.
 
 ```sql
 CREATE TABLE feedback (
@@ -78,10 +80,10 @@ CREATE TABLE feedback (
 CREATE INDEX idx_feedback_signal ON feedback(profile_id, signal, recorded_at DESC);
 ```
 
-Used by the system prompt builder to inject the most recent 15 positive + 15 negative examples before each scoring run. Scoped to `profile_id` — each person's feedback teaches only their own scoring. See 04-llm-scoring.md § Few-Shot Injection.
+The system prompt builder uses this table to inject the most recent 15 positive and 15 negative examples into the prompt before each scoring run. Feedback is scoped to `profile_id`, so each person's feedback only teaches that person's own scoring. See 04-llm-scoring.md § Few-Shot Injection.
 
 ### `runs`
-Run history for debugging and monitoring health.
+This table stores run history, for debugging and for monitoring pipeline health.
 
 ```sql
 CREATE TABLE runs (
@@ -105,7 +107,7 @@ CREATE TABLE runs (
 ## Identity Tables
 
 ### `profiles`
-A Profile owns a Taste, a set of Monitors, and an alert destination. All DB rows are scoped via `profile_id`. Can exist without a web User (CLI-only use).
+A Profile is the owner of a Taste (the aesthetic profile — the prompt, rules, and preferences the LLM scores against), a set of Monitors (a Monitor is a saved search that watches one or more platforms), and an alert destination. Every table's rows are scoped to a profile via the `profile_id` column. A Profile can exist without a web User — for example, CLI-only use.
 
 ```sql
 CREATE TABLE profiles (
@@ -116,7 +118,7 @@ CREATE TABLE profiles (
 ```
 
 ### `users`
-An authenticated account that can log into the web app. Holds a Role on one or more Profiles.
+A User is an authenticated account that can log into the web app. Each User holds a Role on one or more Profiles.
 
 ```sql
 CREATE TABLE users (
@@ -131,7 +133,7 @@ CREATE UNIQUE INDEX idx_users_email ON users(lower(email));
 ```
 
 ### `memberships`
-Joins Users to Profiles with a Role. One User can have different Roles on different Profiles.
+The memberships table joins Users to Profiles, each with a Role. One User can hold a different Role on each Profile they belong to.
 
 ```sql
 CREATE TABLE memberships (
@@ -146,6 +148,8 @@ CREATE UNIQUE INDEX idx_memberships_user_profile ON memberships(user_id, profile
 
 **Roles and capabilities:**
 
+Each Role grants a different set of capabilities, enforced through RBAC (role-based access control — a permissions system where what you're allowed to do depends on your assigned role):
+
 | Role | Capabilities |
 |------|-------------|
 | Owner | Full access, including ownership transfer |
@@ -157,7 +161,7 @@ CREATE UNIQUE INDEX idx_memberships_user_profile ON memberships(user_id, profile
 See `packages/shared/src/rbac.ts` for the 11 granular capabilities.
 
 ### `sessions`
-Server-side session store for web app authentication.
+This table stores server-side sessions used to authenticate the web app.
 
 ```sql
 CREATE TABLE sessions (
@@ -174,7 +178,7 @@ CREATE TABLE sessions (
 ## Configuration Tables
 
 ### `profile_settings`
-Per-profile Taste and system settings stored as key/JSON rows. Writable via web UI (Curator or Operator depending on key) and MCP server. Supersedes YAML config for per-profile values.
+This table stores per-profile Taste and system settings as key/JSON rows. The web UI (Curator or Operator role, depending on the key) and the MCP server can both write to it. Values here take priority over (supersede) the YAML config file for anything scoped to a profile.
 
 ```sql
 CREATE TABLE profile_settings (
@@ -189,7 +193,7 @@ CREATE TABLE profile_settings (
 Example keys: `aesthetic_prompt`, `hard_no`, `positive_signals`, `price_ceiling`, `measurements`, `llm`.
 
 ### `profile_secrets`
-Per-profile credentials (Telegram tokens, platform API keys) stored encrypted at rest. XChaCha20-Poly1305 via `@noble/ciphers`. Plaintext never persists; only the encryption key lives in `.env`. See `docs/adr/0002-secrets-encrypted-in-db.md`.
+This table stores per-profile credentials — Telegram tokens, platform API keys — encrypted at rest using XChaCha20-Poly1305 (an encryption algorithm) via the `@noble/ciphers` library. Plaintext credentials are never stored; only the encryption key lives in `.env`. See `docs/adr/0002-secrets-encrypted-in-db.md`.
 
 ```sql
 CREATE TABLE profile_secrets (
@@ -203,7 +207,7 @@ CREATE TABLE profile_secrets (
 ```
 
 ### `audit_log`
-Security-relevant events: secret writes, role changes, config mutations.
+This table logs security-relevant events: secret writes, role changes, config mutations.
 
 ```sql
 CREATE TABLE audit_log (
@@ -219,7 +223,7 @@ CREATE TABLE audit_log (
 ```
 
 ### `config_revisions`
-Snapshot of the full profile config (hash + JSON) when aesthetic or rule wording changes. Enables timeline view in analytics.
+This table snapshots the full profile config — a hash plus the JSON — every time the aesthetic or rule wording changes. It enables the timeline view in analytics.
 
 ```sql
 CREATE TABLE config_revisions (
@@ -256,7 +260,7 @@ CREATE TABLE search_groups (
 ```
 
 ### `scrape_queries`
-Per-platform execution rows. One Monitor fans out into N scrape_queries (one per platform). These are the rows that actually run against each platform's search API.
+Each row here is a per-platform execution unit: one Monitor fans out into N `scrape_queries` rows, one per platform it covers. These are the rows that actually run against each platform's search API.
 
 ```sql
 CREATE TABLE scrape_queries (
@@ -274,7 +278,7 @@ CREATE TABLE scrape_queries (
 ```
 
 ### `scrape_query_runs`
-Per-run stats per scrape_query. Join against `runs` for full pipeline context.
+This table records per-run stats for each `scrape_query`. Join it against `runs` for the full pipeline context of a given run.
 
 ```sql
 CREATE TABLE scrape_query_runs (
@@ -301,7 +305,7 @@ CREATE TABLE scrape_query_runs (
 ## Integration & Image Tables
 
 ### `integration_events`
-Connectivity and uptime events for scrapers, LLM, Telegram. Used by the analytics dashboard.
+This table logs connectivity and uptime events for the scrapers, the LLM, and Telegram. The analytics dashboard uses it.
 
 ```sql
 CREATE TABLE integration_events (
@@ -318,7 +322,7 @@ CREATE TABLE integration_events (
 ```
 
 ### `listing_images`
-Image URL registry for listings (reference only — not downloaded). Enables deduplication of image URLs across runs.
+This table is a registry of image URLs for listings — it stores the URLs only, and never downloads the images. It lets Fashion Monitor deduplicate image URLs across runs.
 
 ```sql
 CREATE TABLE listing_images (
@@ -337,7 +341,7 @@ CREATE TABLE listing_images (
 ```
 
 ### `search_group_images`
-Curated image gallery per Monitor — for reference images attached to a Monitor's browsable entry in the web UI.
+This table is a curated image gallery per Monitor: reference images attached to that Monitor's entry in the web UI, so you can browse examples of what it's looking for.
 
 ```sql
 CREATE TABLE search_group_images (
@@ -361,16 +365,16 @@ CREATE TABLE search_group_images (
 ## Views
 
 ### `v_query_scorecard`
-Per-scrape_query rollup: total runs, found/new/scored/alerted, alert_rate, feedback_positive/negative, last_alert_at.
+A per-`scrape_query` rollup: total runs, found/new/scored/alerted, alert_rate, feedback_positive/negative, last_alert_at.
 
 ### `v_search_group_scorecard`
-Per-Monitor rollup aggregating all child scrape_query_runs. Used by the Curator scorecard in the web UI.
+A per-Monitor rollup, aggregating all of that Monitor's child `scrape_query_runs`. The Curator scorecard in the web UI uses this view.
 
 ---
 
 ## Normalized Listing Object (in-memory)
 
-Not persisted as a full row — only ID + score go to SQLite. Everything else lives in memory during a run.
+This object is never persisted as a full database row. Only its ID and score go to SQLite — everything else lives only in memory, for the duration of a run.
 
 ```typescript
 interface Listing {
@@ -395,17 +399,17 @@ interface Listing {
 
 ## Pruning
 
-- `seen_listings` rows older than 90 days can be deleted safely
-- `alert_log` kept indefinitely (small table)
-- `runs` kept for 30 days
+- `seen_listings` rows older than 90 days can be safely deleted
+- `alert_log` is kept indefinitely (small table)
+- `runs` is kept for 30 days
 
-Pruning runs automatically at start of each run, before scraping.
+Pruning runs automatically at the start of each run, before scraping.
 
 ---
 
 ## Price ceiling category heuristic
 
-Pre-filter applies per-category ceilings from `price_ceiling` in config. Category is inferred from listing title (no LLM):
+The pre-filter applies per-category price ceilings from `price_ceiling` in config. It infers the category from the listing title alone (no LLM involved):
 
 ```typescript
 type PriceCategory = "tops" | "pants" | "outerwear" | "default";
@@ -421,15 +425,15 @@ function classifyPriceCategory(title: string): PriceCategory {
 }
 ```
 
-If `price > price_ceiling[category]` (or `default`), reject before LLM.
+If `price > price_ceiling[category]` (or `default`), the pre-filter rejects the listing before it reaches the LLM.
 
 ---
 
 ## Config
 
-System-level config (`config.yaml`) covers platforms, LLM backend selection, scraper settings. Editable without code changes.
+System-level config (`config.yaml`) covers platforms, LLM backend selection, and scraper settings. You can edit it without changing any code.
 
-Per-profile Taste (aesthetic_prompt, hard_no, positive_signals, price_ceiling, measurements) lives in the `profile_settings` table and is managed through the web UI (Curator role) or MCP server. The `config.yaml` provides bootstrap defaults that are loaded into `profile_settings` on first run.
+Per-profile Taste (aesthetic_prompt, hard_no, positive_signals, price_ceiling, measurements) lives in the `profile_settings` table instead, managed through the web UI (Curator role) or the MCP server. The `config.yaml` file provides bootstrap defaults that get loaded into `profile_settings` on first run.
 
 ```yaml
 # config.yaml — system-level (not per-profile Taste)
@@ -504,4 +508,4 @@ alert:
   notify_empty: false
 ```
 
-Telegram credentials are stored in `profile_secrets` (encrypted in DB), not in `config.yaml` or `.env`.
+Telegram credentials are stored in `profile_secrets` (encrypted in the database), not in `config.yaml` or `.env`.

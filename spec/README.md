@@ -1,6 +1,6 @@
 # Fashion Monitor — Spec Index
 
-Personal resale monitoring tool. Watches eBay, Grailed, Vestiaire Collective, Vinted, Depop, and Poshmark for clothing matching a defined aesthetic. Uses LLM scoring to replace hardcoded brand/keyword lists — describe the vibe once, get alerted when something matches.
+Fashion Monitor is a personal tool that watches resale clothing sites for items matching a defined look, called an aesthetic. It checks eBay, Grailed, Vestiaire Collective, Vinted, Depop, and Poshmark. Instead of relying on a fixed list of brands or keywords, it scores each listing with an LLM (large language model — an AI model that can judge things like style, not just match exact words). Describe the aesthetic once. Get alerted whenever something matches it.
 
 ## Specs
 
@@ -33,4 +33,4 @@ Personal resale monitoring tool. Watches eBay, Grailed, Vestiaire Collective, Vi
 
 ## Code layout
 
-Implementation lives under `src/` — see root [README.md](../README.md) for module map and build instructions.
+The implementation code lives under `src/`. See the root [README.md](../README.md) for the module map and build instructions.

@@ -2,17 +2,19 @@
 
 ## Status: Ready — Algolia reverse-engineered
 
+Grailed is a menswear resale marketplace. It has no official API, so this scraper reaches its search by calling Algolia directly — a hosted search service that many sites use instead of building their own search backend.
+
 ## Access Method
 
-Grailed uses Algolia for search. Credentials are embedded in the page source. No official API. No auth token required beyond Algolia app credentials.
+Grailed's search runs on Algolia. The credentials needed to call it are embedded in Grailed's page source. No auth token is required beyond the Algolia app credentials described below.
 
 ## Finding Credentials (one-time)
 
-Load grailed.com in browser → F12 → Network tab → search for "algolia" → find XHR requests to `algolia.net` → extract:
+To find the credentials by hand: load grailed.com in a browser, open developer tools (F12), open the Network tab, and search for "algolia". Find the XHR (background data-fetch) requests to `algolia.net` and extract:
 - `x-algolia-application-id` (10-char string)
 - `x-algolia-api-key` (32-char string)
 
-Or extract programmatically from page HTML:
+Or extract them programmatically from the page HTML:
 ```typescript
 const response = await fetch("https://www.grailed.com");
 const html = await response.text();
@@ -26,9 +28,9 @@ const [, appId] = appIdMatch;
 const [, apiKey] = apiKeyMatch;
 ```
 
-Store in `.env` — these are public read-only keys, low risk but good practice.
+Store the keys in `.env` (the project's environment-variable file). These are public, read-only keys, so the risk is low, but keeping them out of source code is still good practice.
 
-**Note:** Keys may rotate. If search stops working, re-extract. Validate on startup.
+**Note:** Grailed can rotate these keys. If search stops working, re-extract them, and validate them on startup.
 
 ## Endpoint
 
@@ -70,11 +72,11 @@ const hits: unknown[] = data.hits ?? [];
 
 ## Multiple Queries
 
-Run 2 queries:
+Run 2 queries per session:
 - General texture/aesthetic tops: `"corduroy waffle knit wool dark textured overshirt"`
 - Known brand terms: `"john varvatos helmut lang engineered garments theory"`
 
-Pants-specific terms (separate query if budget allows):
+Add pants-specific terms as a separate query if the request budget allows:
 - `"relaxed trouser dark olive charcoal pleated"` — surfaces academic-cut trousers
 - Avoid "chino", "cargo", "workwear" — wrong aesthetic; use "trouser", "fatigue", "wide leg"
 
@@ -106,10 +108,10 @@ function normalizeGrailed(hit: Record<string, unknown>): Listing {
 
 ## Rate Limits
 
-Algolia is generous for read-only search. Add 500ms between queries as courtesy. No issues expected at personal volume.
+Algolia allows generous limits for read-only search. Add a 500ms delay between queries as a courtesy. No rate-limit issues are expected at personal volume.
 
 ## Notes
 
-- Grailed skews menswear/streetwear — good inventory for Cave-adjacent and BJM aesthetic
-- `Post_production` is the live listings index — verify index name hasn't changed if queries return empty
-- Sold listings on a different index — not needed for monitoring
+- Grailed skews menswear and streetwear, with good inventory for the Cave-adjacent and BJM aesthetic.
+- `Post_production` is the live-listings index. If queries return empty, check whether the index name has changed.
+- Sold listings live on a separate index. This scraper doesn't need it for monitoring.

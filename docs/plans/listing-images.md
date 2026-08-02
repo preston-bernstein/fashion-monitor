@@ -1,6 +1,8 @@
 # Listing images architecture
 
-**Status:** MVP implemented (migration 014). Auto-pick gallery, monitor gallery-management UI, and image loading/error states implemented 2026-07-03. Thumbnail cache (and the `srcset` support that depends on it) deferred.
+This document describes how fashion-monitor stores and serves the images that come with each scraped marketplace listing.
+
+**Status:** The MVP (minimum viable product — the first working version) is implemented, in migration 014. The auto-pick gallery, the monitor gallery-management UI, and image loading/error states were implemented on 2026-07-03. A thumbnail cache, and the `srcset` support that depends on it (the HTML attribute that lets a browser pick the right image resolution for its screen), are deferred.
 
 ---
 
@@ -8,7 +10,7 @@
 
 ### In-memory `Listing` type
 
-Every implemented platform normalizer sets a single primary `imageUrl`:
+Every implemented platform normalizer (the code that converts a marketplace's raw API response into fashion-monitor's internal `Listing` shape) sets one primary `imageUrl`:
 
 | Platform | Source field | Normalizer |
 | --- | --- | --- |
@@ -18,24 +20,24 @@ Every implemented platform normalizer sets a single primary `imageUrl`:
 | Poshmark | tile `img.src` | `packages/core/src/platforms/poshmark/extract.ts` → `normalize.ts` |
 | Vestiaire | `pictures[0].url` | `packages/core/src/platforms/vestiaire/normalize.ts` |
 
-Gallery URLs exist in raw API payloads but were **not** persisted before this work:
+Gallery URLs (the rest of a listing's photos, beyond the one cover image) exist in the raw API payloads, but were not persisted before this work:
 
 | Platform | Raw gallery fields |
 | --- | --- |
 | eBay | `additionalImages[].imageUrl` |
-| Grailed | `photos[].url` (cover also in `cover_photo`) |
-| Depop | `preview[]`, RSC `preview` size map, `pictures[].formats.P0` |
+| Grailed | `photos[].url` (the cover photo is also available at `cover_photo`) |
+| Depop | `preview[]`, the RSC (React Server Component) size map, `pictures[].formats.P0` |
 | Vestiaire | `pictures[].url` |
-| Poshmark | single tile image only |
+| Poshmark | single tile image only — no gallery data available |
 
 ### Existing persistence
 
-- `seen_listings.listing_snapshot` — full listing JSON (including `imageUrl`) while score is `PENDING`; cleared after scoring.
-- `feedback.image_url` — primary URL copied at feedback time.
-- ntfy alerts — `sendAlert` attaches `listing.imageUrl` via ntfy's JSON publish `attach` field (closes the gap vs. the old Telegram `sendPhoto` alerter). `sendDigest` still does not attach an image — ntfy only supports one attachment per message and a digest covers multiple listings.
-- LLM vision — `prepareForLLM()` passes `image_url` from primary only.
+- `seen_listings.listing_snapshot` — the full listing JSON, including `imageUrl`, while the score is `PENDING`. Cleared once scoring finishes.
+- `feedback.image_url` — the primary image URL, copied at the time feedback is given.
+- ntfy alerts — `sendAlert` attaches `listing.imageUrl` using ntfy's JSON publish `attach` field. This closes a gap that existed under the old Telegram alerter, whose `sendPhoto` call did the same thing. `sendDigest` still does not attach an image, because ntfy only supports one attachment per message, and a digest covers multiple listings.
+- LLM (large language model) vision — `prepareForLLM()` passes only the primary image's `image_url` to the model.
 
-No dedicated image table existed prior to migration 014.
+No dedicated image table existed before migration 014.
 
 ---
 
@@ -43,7 +45,7 @@ No dedicated image table existed prior to migration 014.
 
 ### `listing_images` (per listing, reference URLs)
 
-Stores source URLs scraped from marketplaces. No blobs in SQLite.
+Stores the source URLs scraped from marketplaces. No image files (blobs) are stored in SQLite.
 
 ```sql
 listing_images (
@@ -53,14 +55,14 @@ listing_images (
 )
 ```
 
-- **Dedup:** `url_hash = SHA-256(normalized URL)` per `(profile_id, platform, listing_id, url_hash)`.
-- **Cross-listing dedup:** index on `(profile_id, url_hash)` for future cache/proxy reuse.
-- **Population:** `ListingImagesRepo.upsertFromListing()` called from `SeenListingsRepo` on every seen/pending/scored insert or update.
-- **Extraction:** `extractListingImages()` reads `imageUrl` + platform-specific `raw` gallery fields; filters via host allowlist.
+- **Dedup:** `url_hash` is `SHA-256(normalized URL)`, deduplicated per `(profile_id, platform, listing_id, url_hash)`.
+- **Cross-listing dedup:** an index on `(profile_id, url_hash)` supports future cache or proxy reuse.
+- **Population:** `ListingImagesRepo.upsertFromListing()` runs from `SeenListingsRepo` on every seen, pending, or scored insert or update.
+- **Extraction:** `extractListingImages()` reads `imageUrl` plus each platform's own gallery fields from the raw payload, and filters the results through a host allowlist (see Security, below).
 
 ### `search_group_images` (curated per-monitor gallery)
 
-User-selected representative images for a search group (monitor).
+Images a user picks to represent a search group — what the UI calls a Monitor.
 
 ```sql
 search_group_images (
@@ -73,9 +75,9 @@ search_group_images (
 )
 ```
 
-- FK to `search_groups` with `ON DELETE CASCADE`.
-- **Curated** rows are explicit user/API picks.
-- **Auto-pick** from recent high-score listings: implemented 2026-07-03. `ListingImagesRepo.findAutoPickForGroup()` returns the `fallback` array — YES/MAYBE-scored listings only (NO/PENDING/unscored excluded), YES ranked ahead of MAYBE, then by recency. Used only when a Monitor has zero curated (`search_group_images`) rows.
+- Has a foreign key (FK — a column that must match a row in another table) to `search_groups`, with `ON DELETE CASCADE` so its rows are removed automatically when the parent monitor is deleted.
+- **Curated** rows are explicit picks made by a user or through the API.
+- **Auto-pick** from recent high-score listings was implemented on 2026-07-03. `ListingImagesRepo.findAutoPickForGroup()` returns the `fallback` array: only YES- and MAYBE-scored listings (NO, PENDING, and unscored listings are excluded), with YES ranked ahead of MAYBE, then by recency. This is used only when a Monitor has zero curated (`search_group_images`) rows.
 
 ---
 
@@ -83,15 +85,15 @@ search_group_images (
 
 | Tier | Behavior | Status |
 | --- | --- | --- |
-| Default | Reference URLs only in SQLite | **Implemented** |
-| Thumbnail cache | `data/image-cache/`, keyed by URL hash, LRU/max-bytes | **Deferred** |
-| Full-res local | Never in SQLite | Policy |
+| Default | Reference URLs only, in SQLite | **Implemented** |
+| Thumbnail cache | `data/image-cache/`, keyed by URL hash, with an LRU (least-recently-used) eviction policy and a max-bytes cap | **Deferred** |
+| Full-res local | Never stored in SQLite | Policy |
 
 Principles:
 
-- Scrape pipeline never blocks on image download.
-- Curated gallery stores URLs only; browser loads from marketplace CDN.
-- Optional disk cache is a separate module (not wired in MVP).
+- The scrape pipeline never blocks on an image download.
+- The curated gallery stores URLs only; the browser loads images directly from the marketplace's CDN (content delivery network).
+- An optional disk cache would be a separate module. It is not wired into the MVP.
 
 ---
 
@@ -99,19 +101,19 @@ Principles:
 
 ### UI
 
-- `loading="lazy"` + `decoding="async"` on `<img>` (`LazyImage` component).
-- Monitor gallery fetched on row expand (`GET /api/monitors/:id/images`), not on full list load.
-- Thumbnail strip capped at 6 images per expanded row.
+- `<img>` tags use `loading="lazy"` and `decoding="async"` (the `LazyImage` component), so images load only as they scroll into view.
+- A monitor's gallery is fetched when its row is expanded (`GET /api/monitors/:id/images`), not when the full monitor list loads.
+- The thumbnail strip is capped at 6 images per expanded row.
 
 ### API
 
-- Paginated image lists: not required at current scale; listing endpoint returns ordered array.
-- Cache headers: `private, max-age=60` (monitor gallery), `max-age=300` (listing images).
-- Dashboard alerts join primary `listing_images` row (subquery, no N+1 in app code).
+- Paginated image lists are not required at the app's current scale; the listing endpoint returns a single ordered array.
+- Cache headers: `private, max-age=60` for the monitor gallery, `max-age=300` for listing images.
+- Dashboard alerts join the primary `listing_images` row through a subquery, avoiding an N+1 query pattern (one query per row instead of one query total) in the application code.
 
 ### Scrape
 
-- Image URL extraction is synchronous from in-memory `raw`; no HTTP fetch during pipeline.
+- Image URL extraction reads the in-memory `raw` payload synchronously. It makes no HTTP fetch during the pipeline run.
 
 ---
 
@@ -119,24 +121,24 @@ Principles:
 
 ### Host allowlist (`packages/core/src/images/allowlist.ts`)
 
-Per-platform regex patterns, e.g.:
+Each platform has its own regex pattern restricting which image hosts are accepted, for example:
 
 - eBay: `*.ebayimg.com`
 - Grailed: `*.grailed.com`, `media-assets.grailed.com`
 - Depop: `*.depop.com`
-- Poshmark: `*.poshmark.com`, CloudFront tile CDN
+- Poshmark: `*.poshmark.com`, plus its CloudFront tile CDN
 - Vestiaire: `*.vestiairecollective.com`
 
-Curated URL adds accept any known marketplace image host.
+A curated URL add accepts any known marketplace image host.
 
-### SSRF
+### SSRF (server-side request forgery — tricking a server into fetching an attacker-controlled URL)
 
-- No server-side image proxy in MVP — browsers load CDN URLs directly.
-- Future download/proxy must validate URL hostname against the listing's platform allowlist before fetch.
+- The MVP has no server-side image proxy; browsers load CDN URLs directly, so there is no server-side fetch to abuse yet.
+- Any future download or proxy feature must validate the URL's hostname against the listing's platform allowlist before fetching it.
 
 ### CSP
 
-- Web app `img-src` already allows `https:` (`packages/api/src/web/app.ts`).
+- The web app's Content Security Policy already allows `img-src https:` (`packages/api/src/web/app.ts`).
 
 ---
 
@@ -149,22 +151,22 @@ Curated URL adds accept any known marketplace image host.
 | DELETE | `/api/monitors/:id/images/:imageId` | `monitors:write` |
 | GET | `/api/listings/:platform/:listingId/images` | `monitors:read` |
 
-POST body (discriminated union):
+The POST body is a discriminated union (a JSON shape whose fields depend on a `source` tag):
 
 ```json
 { "source": "listing", "platform": "ebay", "listing_id": "123" }
 { "source": "url", "url": "https://i.ebayimg.com/...", "caption": "optional" }
 ```
 
-Audit actions: `search_group.image.add`, `search_group.image.remove`.
+Audit actions logged: `search_group.image.add`, `search_group.image.remove`.
 
 ---
 
 ## Deferred
 
-- Thumbnail cache module (`data/image-cache/`, LRU cap) — also blocks `srcset` (no multi-resolution variants exist without it).
-- `upload` source for user-provided files.
-- Backfill migration from historical `listing_snapshot` JSON (optional one-off script).
+- The thumbnail cache module (`data/image-cache/`, with an LRU cap). This also blocks `srcset` support, since no multi-resolution image variants exist without it.
+- An `upload` source for user-provided image files.
+- A backfill migration that would recover older images from historical `listing_snapshot` JSON. This is an optional one-off script, not committed to.
 
 ---
 

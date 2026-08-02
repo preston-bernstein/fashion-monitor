@@ -2,9 +2,11 @@
 
 ## Status: Ready — Playwright headless browser
 
+Poshmark is a secondhand-clothing marketplace app. It has no public API and blocks plain HTTP requests, so this scraper drives a real browser instead, using Playwright (a library that automates Chromium, Firefox, and other browsers).
+
 ## Access Method
 
-Poshmark has no public API and blocks simple HTTP requests. Requires headless browser automation. Playwright with Chromium works reliably at personal volume.
+Poshmark blocks plain HTTP requests, so the scraper needs headless browser automation: a real browser running without a visible window. Playwright with Chromium works reliably at personal volume.
 
 ## Dependencies
 
@@ -63,7 +65,7 @@ async function scrapePoshmark(query: string): Promise<Listing[]> {
 }
 ```
 
-**Note:** Poshmark's DOM selectors change periodically. If scraper breaks, inspect current DOM and update selectors. This is the main maintenance burden for this platform.
+**Note:** Poshmark's DOM selectors (the CSS patterns the scraper uses to find each listing tile in the page's DOM — the browser's in-memory tree of HTML elements) change periodically. If the scraper breaks, inspect the current DOM in a browser and update the selectors. This is the main maintenance burden for this platform.
 
 ## Response Normalization
 
@@ -94,7 +96,7 @@ function normalizePoshmark(item: {
 
 ## Persistent Browser Context
 
-Reuse a browser profile across runs to maintain cookies and avoid re-fingerprinting:
+The scraper reuses one browser profile across runs, so it keeps the same cookies and doesn't look like a brand-new visitor every time:
 
 ```typescript
 import { chromium, BrowserContext } from "playwright";
@@ -122,7 +124,7 @@ async function getPersistentContext(): Promise<BrowserContext> {
 
 ## Anti-Detection
 
-On a static home IP (unlike rotating GitHub Actions IPs), Poshmark can fingerprint over time.
+This scraper runs from a static home IP address, not a rotating IP like GitHub Actions uses. That means Poshmark can build up a fingerprint (a profile of this traffic's patterns) over time.
 
 - Use `playwright-extra` + `puppeteer-extra-plugin-stealth` to reduce headless signals:
   ```typescript
@@ -130,12 +132,12 @@ On a static home IP (unlike rotating GitHub Actions IPs), Poshmark can fingerpri
   import StealthPlugin from "puppeteer-extra-plugin-stealth";
   chromium.use(StealthPlugin());
   ```
-- Run Poshmark every 3h, not every 60 min — lower request rate, less exposure
-- Rotate user-agent string per session
+- Run Poshmark every 3 hours instead of every 60 minutes, to keep the request rate low and reduce exposure.
+- Rotate the user-agent string every session.
 
 ## Docker Deployment (Synology NAS)
 
-Use the official Playwright Docker image — Chromium is pre-installed:
+This deploys on a Synology NAS (a network-attached storage box) via Docker. Use the official Playwright Docker image, which comes with Chromium pre-installed:
 
 ```dockerfile
 FROM mcr.microsoft.com/playwright:v1.44.0-jammy
@@ -149,17 +151,17 @@ RUN npm run build
 CMD ["node", "dist/main.js", "--platforms", "poshmark"]
 ```
 
-**Critical flags** already included in `getPersistentContext()` above:
+The `getPersistentContext()` function above already includes two flags Docker requires:
 - `--no-sandbox` — required in Docker (no kernel namespace)
 - `--disable-dev-shm-usage` — container `/dev/shm` is 64MB by default, Chromium needs more
 
 ## Schedule
 
-Run Poshmark container on 3h cycle via Synology Task Scheduler. Other platforms (eBay, Grailed, Vestiaire, Depop) run every 60 min in main container. Same DB, different trigger schedules.
+The Poshmark container runs on a 3-hour cycle, triggered by Synology's Task Scheduler. The other platforms (eBay, Grailed, Vestiaire, Depop) run every 60 minutes in the main container. All platforms write to the same database, just on different trigger schedules.
 
 ## Notes
 
-- Poshmark has strong US inventory — good for finding eBay-type deals
-- Brand data often missing or user-entered — inconsistent quality
-- Description not available at search level — LLM scores on title + brand only; higher MAYBE rate expected
-- Consider fetching individual listing pages for MAYBE items to get full description before alerting
+- Poshmark has strong US inventory, good for finding eBay-type deals.
+- Brand data is often missing, or entered by the seller by hand, so quality is inconsistent.
+- Listing descriptions aren't available at the search level. The LLM (the scoring model that rates each listing) scores on title and brand only, so expect a higher MAYBE rate (the fallback score when it can't decide clearly).
+- Consider fetching the full page for individual MAYBE-scored items, to get the real description before sending an alert.

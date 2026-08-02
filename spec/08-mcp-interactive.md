@@ -2,13 +2,11 @@
 
 ## Concept
 
-The autonomous monitor (v1) is a push system: it runs on a schedule, scores
-listings in the background, and alerts via Telegram. The MCP interactive mode
-is a pull system: an LLM client (Claude Desktop, Ollama frontend, etc.) calls
-search tools on demand and scores results in-context during an active
-conversation.
+MCP (Model Context Protocol) is a standard that lets an LLM client — a chat app or tool such as Claude Desktop — call tools exposed by another program, in this case Fashion Monitor. This document specifies the interactive search mode built on MCP: v2 of Fashion Monitor's search capability.
 
-The two modes are complementary, not competing:
+The autonomous monitor (v1) is a push system. It runs on a schedule, scores listings in the background, and alerts you through Telegram. MCP interactive mode is a pull system: an LLM client (Claude Desktop, an Ollama frontend, or similar) calls search tools on demand and scores results directly inside an active conversation.
+
+The two modes serve different purposes and can run independently:
 
 | Mode | Trigger | Scoring | Output |
 |------|---------|---------|--------|
@@ -19,9 +17,7 @@ The two modes are complementary, not competing:
 
 ## Reference implementation
 
-`~/dev/financial-pipeline` is a working example of this exact architecture —
-same SDK, same SSE transport, same tool-per-file pattern, same monorepo layout.
-Read it before building. Key paths:
+`~/dev/financial-pipeline` is a separate repo with a working example of this exact architecture: the same SDK (software development kit — MCP's official library), the same SSE transport (Server-Sent Events, a way to stream data from server to client over plain HTTP), the same one-file-per-tool pattern, and the same monorepo layout (several related packages kept in one repo). Read it before you build this. Key paths:
 
 - `services/mcp-server/src/index.ts` — server setup, SSE transport, tool registration
 - `services/mcp-server/src/tools/` — one file per tool
@@ -33,7 +29,7 @@ Read it before building. Key paths:
 
 ## Monorepo structure
 
-Adopt the same `packages/` + `services/` split:
+Adopt the same split between `packages/` and `services/`:
 
 ```
 fashion-monitor/
@@ -54,8 +50,7 @@ fashion-monitor/
 
 ### `services/mcp-server/src/index.ts`
 
-Copied directly from financial-pipeline's pattern. SSE transport — Claude
-Desktop connects via `http://NAS_IP:3102/sse`.
+This file is copied directly from financial-pipeline's pattern. It uses SSE transport; Claude Desktop connects to it at `http://NAS_IP:3102/sse`.
 
 ```typescript
 import 'dotenv/config';
@@ -134,7 +129,7 @@ httpServer.listen(PORT, () => log.info({ port: PORT }, 'mcp-server listening'));
 
 ### Tool file pattern
 
-One file per tool. Zod schema defined inside the file. Handler returns
+Each tool gets its own file, with its Zod (a schema-validation library) schema defined inside that file. Each handler returns
 `{ content: [{ type: 'text', text: JSON.stringify(...) }] }`.
 
 ```typescript
@@ -171,8 +166,7 @@ export async function searchListings(args: z.infer<typeof schema>) {
 }
 ```
 
-`Promise.allSettled` not `Promise.all` — one platform failing should not block
-the rest. Same resilience pattern as `getFinancialSnapshot` in financial-pipeline.
+Use `Promise.allSettled`, not `Promise.all` — one platform failing should not block the rest. This is the same resilience pattern financial-pipeline uses in `getFinancialSnapshot`.
 
 ### `services/mcp-server/package.json`
 
@@ -206,7 +200,7 @@ the rest. Same resilience pattern as `getFinancialSnapshot` in financial-pipelin
 
 ## Shared package: `scraper-utils`
 
-Mirrors financial-pipeline's `adapter-utils`. Exports:
+This package mirrors financial-pipeline's `adapter-utils` package. It exports:
 
 ```typescript
 // packages/scraper-utils/src/index.ts
@@ -220,16 +214,13 @@ export { searchVestiaire } from './platforms/vestiaire.js';
 export type { Listing, Platform } from './types.js';
 ```
 
-Platform search functions must be pure — input → normalized `Listing[]`, no
-DB writes, no side effects. The autonomous monitor writes to `seen_listings`;
-MCP interactive searches must not. Same data, two entry points.
+Platform search functions must be pure: given an input, they return a normalized `Listing[]` array, with no database writes and no side effects. The autonomous monitor writes to `seen_listings`; MCP interactive searches must not. Both entry points work off the same data, through two different paths.
 
 ---
 
 ## Config: switch YAML → TOML
 
-Financial-pipeline uses `smol-toml` for domain config. Switch the fashion
-monitor config from `config.yaml` to `config.toml` for consistency:
+financial-pipeline uses `smol-toml` (a TOML parser) for its domain config. Switch Fashion Monitor's config from `config.yaml` to `config.toml` (TOML, a config file format) to stay consistent with it:
 
 ```toml
 # config.toml
@@ -325,9 +316,7 @@ mcp-server:
   env_file: .env
 ```
 
-Config mounted read-only. DB volume shared with the autonomous monitor service
-— MCP server reads `alert_log` and `seen_listings` but never writes
-`seen_listings` (see constraint below).
+The config file is mounted read-only. The database volume is shared with the autonomous monitor service. The MCP server reads `alert_log` and `seen_listings`, but never writes to `seen_listings` — see the constraint below.
 
 ---
 
@@ -347,25 +336,17 @@ Config mounted read-only. DB volume shared with the autonomous monitor service
 
 ## Key constraint: MCP searches must not write `seen_listings`
 
-The autonomous monitor uses `seen_listings` for deduplication — if an
-interactive search marks a listing as seen, the monitor will never alert on it
-even if it's a genuine match.
+The autonomous monitor uses `seen_listings` for deduplication. If an interactive search marked a listing as seen, the monitor would never alert on it, even if it's a genuine match.
 
-Platform adapter functions must be pure. The monitor pipeline calls them and
-then writes to `seen_listings`. The MCP server calls them and does nothing
-else. Enforce this at the type level — search functions return `Listing[]`,
-deduplication is a separate step in the monitor pipeline only.
+Platform adapter functions must be pure. The monitor pipeline calls them and then writes to `seen_listings` itself. The MCP server calls the same functions and does nothing further. Enforce this at the type level: search functions return `Listing[]` only, and deduplication happens as a separate step, in the monitor pipeline alone.
 
 ---
 
 ## Scoring in interactive mode
 
-The MCP server returns raw listings. The LLM in the conversation scores them
-using the aesthetic prompt from `config.toml`. No separate LLM API call
-needed — the model already has the context.
+The MCP server returns raw listings only. The LLM already active in the conversation scores them, using the aesthetic prompt from `config.toml`. No separate LLM API call is needed, since the model already has the context.
 
-Expose the aesthetic prompt as an MCP resource so the client loads it at
-session start:
+Expose the aesthetic prompt as an MCP resource (a piece of data an MCP server can hand to a client) so the client loads it automatically at the start of a session:
 
 ```typescript
 server.resource(
@@ -392,14 +373,12 @@ server.resource(
 
 ## Implementation order
 
-1. Refactor platform adapters into pure `search(query, options) → Listing[]`
-   functions with no DB writes — prerequisite for everything else
-2. Create `packages/scraper-utils` with lifted `withRunRecord` and `createLogger`
-   from financial-pipeline
-3. Migrate `config.yaml` → `config.toml` with `smol-toml`
-4. Scaffold `services/mcp-server` from financial-pipeline's mcp-server structure
-5. Implement `search_listings` tool with `Promise.allSettled` across platforms
-6. Implement `get_recent_alerts` reading from `alert_log`
-7. Implement `add_search_query` writing to `config.toml`
-8. Expose aesthetic prompt as MCP resource
-9. Wire into Docker Compose, test with Claude Desktop
+1. Refactor platform adapters into pure `search(query, options) → Listing[]` functions with no database writes. This is a prerequisite for everything else.
+2. Create `packages/scraper-utils`, carrying over `withRunRecord` and `createLogger` from financial-pipeline.
+3. Migrate `config.yaml` to `config.toml` using `smol-toml`.
+4. Scaffold `services/mcp-server` from financial-pipeline's mcp-server structure.
+5. Implement the `search_listings` tool, using `Promise.allSettled` across platforms.
+6. Implement `get_recent_alerts`, reading from `alert_log`.
+7. Implement `add_search_query`, writing to `config.toml`.
+8. Expose the aesthetic prompt as an MCP resource.
+9. Wire it into Docker Compose and test with Claude Desktop.

@@ -2,27 +2,20 @@
 
 ## Status: Ready — plain HTTP primary, ScrapFly-gated Cloudflare bypass, DOM-extraction fallback
 
+Depop is a secondhand-clothing marketplace app. This file specs how the scraper pulls listings from it: which endpoint it calls, how it gets past Cloudflare (a service many sites put in front of their servers to detect and block bot traffic) when needed, and how the response maps to this project's internal `Listing` format.
+
 ## Access Method
 
-Depop's search page ("presentation" frontend) no longer embeds product data server-side —
-the old `webapi.depop.com/api/v1/search/products/` endpoint and the Next.js RSC-embedded-JSON
-approach are both retired/dead as primary paths (confirmed via live investigation, 2026-07-19).
-The current, real data source is:
+Depop's search page (the "presentation" frontend) no longer embeds product data on the server side. Two older approaches are dead as primary paths, confirmed by live testing on 2026-07-19. One is the `webapi.depop.com/api/v1/search/products/` endpoint. The other is parsing JSON embedded via React Server Components (RSC, a Next.js feature that renders page data into the initial HTML). The current, real data source is:
 
 ```
 GET https://www.depop.com/presentation/api/v1/search/products/
     ?what=<query>&limit=24&country=us&currency=USD&from=in_country_search&include_like_count=true
 ```
 
-This endpoint is genuinely Cloudflare-fronted (`server: cloudflare`, `cf-ray` header present on
-every response, including successful ones) — but a **plain HTTP GET via `impit`** (no cookie
-warm-up, no custom headers) succeeded on the very first live-tested attempt. No cookie-harvest
-or generated tracking-header machinery is built, since there is no evidence it's needed; if a
-future run shows the plain call reliably blocked, that complexity can be added then.
+This endpoint sits behind Cloudflare. Every response, including successful ones, carries a `server: cloudflare` header and a `cf-ray` header. Even so, a plain HTTP GET through `impit` (an HTTP client library that mimics a real browser's TLS fingerprint — the pattern in an encryption handshake that sites use to tell bots from browsers) succeeded on the first live-tested attempt. No cookie warm-up and no custom headers were needed. The scraper does not build any cookie-harvesting or tracking-header machinery, because nothing so far shows it's needed. If a future run shows the plain call getting blocked reliably, add that complexity then, not before.
 
-**Note on durability**: the endpoint's `v1` naming is not a guarantee of stability — the
-endpoint it replaces was also versioned `v1` and was retired without notice anyway. Treat this
-as the current known-good access method, not a permanent one.
+**Durability note:** the `v1` in the endpoint path is not a promise of stability. The endpoint it replaced was also versioned `v1`, and Depop retired it without notice anyway. Treat the current endpoint as the known-good method for now, not a permanent one.
 
 ## Dependencies
 
@@ -51,19 +44,13 @@ if (response.ok) {
 }
 ```
 
-Retried up to 3 attempts with backoff (`1500ms + attempt * 1000ms`) — this retry loop applies
-**only** to this tier's own plain-HTTP attempts. It does not re-run the ScrapFly tier or relaunch
-the Playwright fallback multiple times.
+This tier retries up to 3 times with backoff (`1500ms + attempt * 1000ms`). The retry loop covers only this tier's own plain-HTTP attempts. It never re-runs the ScrapFly tier and never relaunches the Playwright fallback more than once.
 
-`impit` handles TLS fingerprint spoofing (the Python `cloudscraper` equivalent) — this alone was
-sufficient to pass Cloudflare in live testing, with no additional header/cookie engineering.
+`impit` handles TLS fingerprint spoofing on its own (the Python library `cloudscraper` does the same job in Python). In live testing, that alone was enough to get past Cloudflare. No extra header or cookie engineering was needed.
 
 ## Tier 2 — Cloudflare bypass: ScrapFly (`fetch-scrapfly.ts`)
 
-Cloudflare-challenge detection is intentionally **strict** — a bare body-text match (e.g. the
-word "Forbidden") is never sufficient on its own, since an ordinary non-Cloudflare 403 could
-contain similar text and would misroute traffic into the shared, budget-limited ScrapFly quota
-(~1,000 req/month, shared with Vestiaire). The required signal:
+ScrapFly is a paid API that fetches a page through its own anti-bot infrastructure, so the scraper's own requests avoid getting blocked. The scraper only escalates to ScrapFly when it's confident the block is really Cloudflare, not some other error. A bare text match, say the word "Forbidden" in the response body, is never enough on its own. An ordinary non-Cloudflare 403 error could contain similar text, and misrouting that traffic would burn through the shared, budget-limited ScrapFly quota (about 1,000 requests a month, shared with Vestiaire). The scraper requires both the status code and both headers below before it treats a response as a Cloudflare challenge:
 
 ```typescript
 const isCloudflareChallenge =
@@ -72,23 +59,13 @@ const isCloudflareChallenge =
   Boolean(response.headers.get("cf-ray"));
 ```
 
-Only when both the status code and both headers are present does the scraper escalate — a
-**one-shot** call to `fetchDepopViaScrapfly(url, scrapflyKey)`, gated on
-`config.platform_credentials.scrapfly_api_key` (the same config key Vestiaire already uses — no
-new credential was added). No key configured → throws `"ScrapFly key required for Cloudflare
-bypass"`, which `searchQuery` catches and falls through to the Playwright DOM fallback (tier 3)
-rather than failing the whole query outright.
+Only when all three conditions hold does the scraper escalate. It makes one call to `fetchDepopViaScrapfly(url, scrapflyKey)`, and only if `config.platform_credentials.scrapfly_api_key` is set (the same config key Vestiaire already uses, so no new credential was added). If no key is configured, the call throws `"ScrapFly key required for Cloudflare bypass"`. `searchQuery` catches that error and falls through to the Playwright DOM fallback (tier 3) instead of failing the whole query.
 
-ScrapFly error responses and any harvested Cloudflare cookies (`__cf_bm`/`_cfuvid`) are never
-logged verbatim, to avoid leaking the API key or a replayable session cookie into log storage.
+ScrapFly error responses and any Cloudflare cookies it harvests (`__cf_bm`/`_cfuvid`) are never logged verbatim. Logging them could leak the API key or a replayable session cookie into log storage.
 
 ## Tier 3 — Fallback: Playwright DOM extraction (`playwright-fallback.ts`, `extract.ts`)
 
-If both the plain-HTTP tier and the ScrapFly tier fail, `scrapeDepopViaPlaywright` loads the
-search page in a real (stealth) browser and extracts listings directly from the rendered DOM —
-**not** by re-parsing the dead RSC marker, and **not** by intercepting the backend API call (the
-network-interception approach previously documented here was never actually implemented in
-code and has been removed from this doc to match reality):
+If both the plain-HTTP tier and the ScrapFly tier fail, `scrapeDepopViaPlaywright` loads the search page in a real, stealth-configured browser. It uses Playwright, a library that drives a browser like Chromium or Firefox programmatically, and reads listings straight out of the rendered DOM (Document Object Model — the browser's in-memory tree of the page's HTML elements). It does not re-parse the dead RSC marker, and it does not intercept the backend API call. An earlier version of this doc described a network-interception approach. That approach was never actually built, so it's removed here to match what the code does:
 
 ```typescript
 import { launchStealthEphemeralBrowser } from "../playwright/browser.js";
@@ -103,17 +80,9 @@ await page.goto(buildDepopSearchUrl(query), { waitUntil: "domcontentloaded", tim
 const tiles = await page.evaluate(depopTileExtractScript); // selector: a[href*='/products/']
 ```
 
-Confirmed live (2026-07-19): the **default/legacy** stealth driver (not Patchright) already
-hydrates the search page to real product tiles with no observed Cloudflare block. The confirmed,
-stable CSS selector is `a[href*='/products/']`. Any future driver change should go through the
-existing `PLAYWRIGHT_STEALTH_DRIVER=patchright|legacy` flag and its hard-fence gate in
-`docs/playwright-stealth-pilot.md` (Patchright must pass live smoke on **both** Depop and
-Poshmark before the legacy stealth plugin can be removed) — this file does not hardcode a driver.
+Live testing on 2026-07-19 confirmed the default/legacy stealth driver (not Patchright, a patched build of Playwright designed to look less like automation to anti-bot detection) already renders the search page into real product tiles, with no observed Cloudflare block. The stable CSS selector is `a[href*='/products/']`. Any future driver change should go through the existing `PLAYWRIGHT_STEALTH_DRIVER=patchright|legacy` flag and its hard-fence gate in `docs/playwright-stealth-pilot.md`. Patchright must pass a live smoke test on both Depop and Poshmark before the legacy stealth plugin can be removed. This file doesn't hardcode a driver.
 
-Per-tile brand/size extraction is intentionally best-effort: Depop's DOM text layout wasn't fully
-mapped live, so `extract.ts` returns an honest `title`/`price`/`url`/`image` and leaves
-`brand: null`/`size: ""` rather than guessing at a brittle text-splitting pattern. A tile whose
-price can't be parsed is dropped from the batch rather than failing the whole extraction.
+Per-tile brand and size extraction is intentionally best-effort. Depop's DOM text layout wasn't fully mapped during live testing, so `extract.ts` returns an honest `title`/`price`/`url`/`image` and leaves `brand: null`/`size: ""` rather than guessing with a brittle text-splitting pattern. If a tile's price can't be parsed, the scraper drops that tile from the batch instead of failing the whole extraction.
 
 ## Response Normalization
 
@@ -183,37 +152,22 @@ function normalizeDepop(item) {
 
 ### Legacy RSC-shaped branch (retained, not dead)
 
-The pre-2026-07-19 RSC-embedded-JSON parser (`parse-rsc.ts`'s `extractDepopSearchFromHtml` /
-`extractDepopListingsFromHtml` / `SEARCH_MARKER`) and its matching normalizer
-(`normalizeDepopRscProduct`, dispatched when `item.pricing` is present but has no
-`final_price_key`) are **kept as documented legacy**, not deleted. The live investigation found
-this shape maps a closely related version of the same backend schema (same
-`pricing.<key>.price_breakdown.price.amount` and `pictures[].formats.P0.url` field paths) — close
-enough that deleting it outright, before ever seeing a real response take that exact shape again,
-would be premature. It is not currently reachable via any code path this scraper invokes; it is
-kept in case a similar shape resurfaces.
+This repo keeps the pre-2026-07-19 RSC-embedded-JSON parser (`parse-rsc.ts`'s `extractDepopSearchFromHtml` / `extractDepopListingsFromHtml` / `SEARCH_MARKER`) and its matching normalizer (`normalizeDepopRscProduct`, which runs when `item.pricing` is present but has no `final_price_key`). It's documented legacy, not deleted code. Live testing found this old shape maps to a closely related version of the same backend schema: the same `pricing.<key>.price_breakdown.price.amount` and `pictures[].formats.P0.url` field paths. That's close enough that deleting the parser now, before seeing a real response take this exact shape again, would be premature. No code path in this scraper currently reaches it. It stays in the repo in case a similar shape shows up again.
 
 ## Pagination
 
-`limit=24` — a single page, no cursor pagination (`page_info.after`/`last`) implemented. This is
-a known, accepted regression versus the earlier (never-implemented) aspirational 2-page/48-item
-approach, not an oversight.
+The scraper requests `limit=24` and fetches a single page. It does not implement cursor pagination (`page_info.after`/`last`). An earlier plan called for 2 pages and 48 items, but that plan was never built. Fetching only one page is a known, accepted limit, not an oversight.
 
 ## Rate Limits
 
-- 3-attempt/backoff retry (`1500ms + attempt*1000ms`) on the primary HTTP tier only; ScrapFly and
-  the Playwright fallback are each attempted once per query, never retried in a loop.
-- Personal, low-volume use: no issues expected on the primary tier.
-- ScrapFly usage should stay rare given the tightened (header-required) Cloudflare-detection rule
-  — it shares a budget with Vestiaire's ScrapFly usage.
+- The primary HTTP tier retries up to 3 times with backoff (`1500ms + attempt*1000ms`). ScrapFly and the Playwright fallback each get one attempt per query; neither retries in a loop.
+- At personal, low-volume use, the primary tier should hit no rate-limit issues.
+- ScrapFly usage should stay rare, since the Cloudflare-detection rule requires both headers before escalating. It shares its request budget with Vestiaire's ScrapFly usage.
 
 ## Notes
 
-- Depop skews younger/streetwear but has good vintage and workwear pieces.
-- Descriptions double as titles — often short; LLM scoring relies more on brand and visual context.
-- ToS technically prohibits scraping — personal low-volume use is de facto tolerated.
-- Image quality is generally good (high-res phone photos).
-- If the primary HTTP tier stops working (Depop changes the endpoint again, or genuinely starts
-  blocking `impit`'s TLS fingerprint): re-run a live investigation (real browser network trace)
-  before touching code — do not guess at a new endpoint or re-enable speculative
-  cookie/header engineering without evidence it's needed.
+- Depop skews younger and streetwear, but also has good vintage and workwear pieces.
+- Listing descriptions double as titles and are often short. The LLM (the scoring model that rates each listing) leans more on brand name and image content than on description text.
+- Depop's Terms of Service (ToS, the site's usage rules) technically prohibit scraping. In practice, personal low-volume use is tolerated.
+- Image quality is generally good, since most photos are high-res phone shots.
+- If the primary HTTP tier stops working, whether Depop changes the endpoint again or starts genuinely blocking `impit`'s TLS fingerprint, re-run a live investigation (a real browser network trace) before touching any code. Don't guess at a new endpoint or re-enable speculative cookie/header engineering without evidence that it's needed.

@@ -1,50 +1,58 @@
 # Monorepo / Workspaces Plan
 
+This document plans splitting fashion-monitor's single-package repo into a proper workspaces monorepo — a single repository holding multiple, independently versioned packages with explicit boundaries between them.
+
 **Repo:** `fashion-monitor`.
-**Scope:** Analysis and planning only — no code, dependencies, configuration, or git state changed. This plan **builds on** `docs/plans/stack-modernization.md`; several decisions here (package manager, build orchestrator, Zod 4 everywhere) are themselves "current-tech" conclusions from that document.
-**Goal:** Split today's single-package repo (with a nested, separately-installed `web/` app) into a clean **workspaces monorepo** with explicit package boundaries, a single shared schema/type source of truth, and a keep-green incremental migration path.
+**Scope:** Analysis and planning only — no code, dependencies, configuration, or git state changed. This plan **builds on** `docs/plans/stack-modernization.md`. Several decisions here — the package manager, the build orchestrator, and using Zod 4 everywhere — are themselves conclusions that document already reached about which current tools to use.
+**Goal:** Split today's single-package repo, which has a nested, separately-installed `web/` app bolted onto it, into a clean workspaces monorepo. It should have explicit package boundaries, one shared schema and type source of truth, and an incremental migration path that keeps the app working (green) at every step.
 
 ---
 
 ## 1. Why, and what we're starting from
 
-Today the repo is effectively **two npm projects in one tree**:
+Splitting the repo into a workspaces monorepo fixes three concrete problems that today's ad-hoc two-project setup causes.
 
-- Root `package.json` (the backend: `src/`, ESM, NodeNext, Zod 3) whose `build` script shells into the SPA with `npm --prefix web install && npm --prefix web run build`, then `tsc`, then **copies artifacts**: `web/dist → dist/dashboard/public` and `src/storage/migrations/*.sql → dist/storage/migrations`.
-- `web/package.json` (the SPA: React 19 / Vite 8 / Tailwind 4 / Zod 4) with its own lockfile and `node_modules`.
+Today, the repo is effectively **two separate npm projects sharing one Git tree**:
 
-This produces three concrete problems a monorepo fixes:
+- The root `package.json` is the backend: `src/`, using ES modules (ESM) with NodeNext module resolution, and Zod 3. Its `build` script shells into the SPA (single-page application — the React frontend) with `npm --prefix web install && npm --prefix web run build`, then runs `tsc` (the TypeScript compiler), then **copies build artifacts**: `web/dist → dist/dashboard/public` and `src/storage/migrations/*.sql → dist/storage/migrations`.
+- `web/package.json` is the SPA — React 19, Vite 8, Tailwind 4, Zod 4 — with its own separate lockfile and `node_modules` folder.
 
-1. **Duplicated, drifting contracts.** `web/src/lib/types.ts` is a hand-written mirror of backend response shapes (`DashboardPayload`, `Monitor`, `SystemResponse`, `Capability`, `Role`, …). It has **already drifted**: the SPA's `Platform` union includes `vinted`, and the backend `PLATFORMS` (`src/core/types.ts`) also lists `vinted` while several scrapers don't implement it — the manual mirror invites exactly this skew.
-2. **Two toolchains, two installs, brittle build glue.** `npm --prefix` is not a real workspace; there's no shared dependency resolution, no graph-aware build/test, and version skew (Zod 3 vs 4, TS 5.7 vs 6, Vitest 3 vs 4, ESLint 9 vs 10) lives across the boundary.
-3. **No enforced boundaries.** Everything in `src/` can import everything else, which has already produced **circular dependencies** (documented in §4).
+This setup produces three concrete problems a monorepo fixes:
 
-The stack-modernization plan's prerequisite work — **Zod 4 on the backend** and **pnpm as the package manager** — is what makes a shared package _possible_; this plan assumes both are done (or done as the first migration steps).
+1. **Duplicated, drifting contracts.** `web/src/lib/types.ts` is a hand-written mirror of backend response shapes (`DashboardPayload`, `Monitor`, `SystemResponse`, `Capability`, `Role`, and others). It has **already drifted** from the backend: the SPA's `Platform` union type includes `vinted`, and the backend's own `PLATFORMS` list (`src/core/types.ts`) also lists `vinted`, even though several scrapers don't actually implement that platform. A manually maintained mirror invites exactly this kind of drift.
+2. **Two toolchains, two installs, brittle build glue.** `npm --prefix` is not a real workspace mechanism: there's no shared dependency resolution, no graph-aware build or test command, and the version skew across the two halves (Zod 3 vs. 4, TypeScript 5.7 vs. 6, Vitest 3 vs. 4, ESLint 9 vs. 10) lives right across that boundary.
+3. **No enforced boundaries.** Anything in `src/` can import anything else in `src/`, which has already produced circular dependencies — documented in §4.
+
+The stack-modernization plan's prerequisite work — putting the backend on **Zod 4**, and adopting **pnpm** (a package manager built for workspace monorepos) — is what makes a shared package between the two halves possible. This plan assumes both of those are already done, or are done as its first migration steps.
 
 ---
 
 ## 2. Package manager + workspace mechanism + orchestrator
 
+This plan picks pnpm workspaces to manage the packages, and Turborepo to orchestrate builds between them, both carried over as conclusions from the stack-modernization plan.
+
 ### Decision
 
-- **Package manager / workspaces: pnpm 10 workspaces** (`pnpm-workspace.yaml` + `workspace:*` protocol).
-- **Build orchestrator: Turborepo.**
-- **Version alignment: pnpm Catalogs** (`catalog:`) so React, Zod, TypeScript, Vitest, ESLint versions are declared once and shared.
+- **Package manager / workspaces:** pnpm 10 workspaces (`pnpm-workspace.yaml` plus the `workspace:*` protocol — a version specifier meaning "use whatever version of this package lives in the workspace," instead of a version pulled from the npm registry).
+- **Build orchestrator:** Turborepo (a tool that runs build/test/lint tasks across a monorepo's packages in the right dependency order, and caches their results).
+- **Version alignment:** pnpm Catalogs (the `catalog:` version specifier) — this declares one shared version for React, Zod, TypeScript, Vitest, and ESLint in a single place, instead of repeating, and risking drift in, each package's own `package.json`.
 
 ### Rationale (carried over from the modernization plan)
 
-- **pnpm over npm/Bun/Yarn:** pnpm 10 is the 2026 default for monorepos — strict dependency isolation (surfaces phantom imports during dev, which matters once packages must declare real deps), content-addressable store, first-class `workspace:*` + graph-aware `--filter`, and **version catalogs** to end the Zod-3-vs-4 / TS-5.7-vs-6 skew. npm workspaces lack topological/affected commands; Bun is fastest to install but has monorepo edge cases and we depend on **native addons** (`better-sqlite3`, `argon2`) and Playwright where Node compatibility matters more than install speed.
-- **Turborepo over Nx:** this is a **small repo (~4–6 packages)**. 2026 guidance is Turborepo for < ~20 packages / "add caching with minimal config," Nx once you need enforced module boundaries, generators, and distributed execution across 20–30+ packages. Turborepo gives us `dependsOn: ["^build"]` task ordering, remote/local caching, and `turbo prune --docker` for slim images without Nx's heavier conceptual surface.
+- **pnpm over npm, Bun, or Yarn:** pnpm 10 is the 2026 default for monorepos. It enforces strict dependency isolation — this surfaces phantom imports during development (code that uses a package it never actually declared as its own dependency, which happened to be available only because some other package installed it), which matters once each package must declare its real dependencies. It also uses a content-addressable store, has first-class `workspace:*` support plus a graph-aware `--filter` command, and offers version catalogs to end the Zod-3-vs-4 / TypeScript-5.7-vs-6 style of drift. npm workspaces lack topological or affected-only commands. Bun installs fastest, but has known monorepo edge cases, and this repo depends on native addons (`better-sqlite3`, `argon2`) and Playwright, where Node compatibility matters more than install speed.
+- **Turborepo over Nx:** this is a small repo, with roughly 4–6 packages. 2026 guidance favors Turborepo for repos under about 20 packages, where the main need is "caching with minimal config," and favors Nx once a project needs enforced module boundaries, code generators, and distributed execution across 20–30+ packages. Turborepo gives this repo `dependsOn: ["^build"]` task ordering (build a package's dependencies before the package itself), remote and local build caching, and `turbo prune --docker` for producing slim Docker images — without Nx's heavier conceptual surface.
 
 ### Tradeoffs / call-outs
 
-- pnpm's symlinked `node_modules` occasionally needs `node-linker`/hoist tweaks for tools that walk `node_modules` naively; `better-sqlite3` + `argon2` + Playwright are known-good with pnpm but must be in `dependencies` of the package that uses them (no more accidental hoisting from a single root install).
-- Turborepo caching requires correct `inputs`/`outputs` declarations or you cache-poison; the `.sql`-copy and SPA-copy steps (§6) must be modeled as task outputs.
-- If the project later grows many fine-grained packages or multiple deployable apps, revisit Nx — but **do not start there.**
+- pnpm's symlinked `node_modules` folder occasionally needs `node-linker` or hoist setting tweaks, for tools that walk `node_modules` naively instead of respecting symlinks. `better-sqlite3`, `argon2`, and Playwright are all known to work well with pnpm, but each must be listed in the `dependencies` of the specific package that uses it — pnpm won't let a package rely on another package's dependency being hoisted up to a shared root install.
+- Turborepo's caching requires correct `inputs` and `outputs` declarations, or it will serve a stale cached result (cache poisoning). The `.sql`-copy and SPA-copy build steps (§6) must be modeled explicitly as task outputs.
+- If the project later grows into many fine-grained packages, or multiple deployable apps, revisit Nx then — but **do not start there.**
 
 ---
 
 ## 3. Proposed package layout
+
+This plan splits the repo into five packages: three under `packages/` (library code) and two under `apps/` (things that actually run).
 
 ```
 fashion-monitor/
@@ -67,124 +75,128 @@ fashion-monitor/
 
 | Package | Contains (from today's tree) | Depends on |
 | --- | --- | --- |
-| **`@fm/shared`** | New home for cross-cutting contracts: `Platform`/`PLATFORMS`, `ScoreVerdict`, `Capability`, `Role`, monitor/settings/user **Zod input schemas**, and the API **DTOs** currently duplicated in `web/src/lib/types.ts` (`DashboardPayload`, `Monitor`, `SystemResponse`, `SecretsResponse`, …). Plus `src/llm/schemas.ts` (`ScoringResultSchema`). | `zod` only |
+| **`@fm/shared`** | New home for cross-cutting contracts: `Platform`/`PLATFORMS`, `ScoreVerdict`, `Capability`, `Role`, monitor/settings/user **Zod input schemas**, and the API **DTOs** (Data Transfer Objects — plain type definitions describing data sent over the network, with no behavior attached) currently duplicated in `web/src/lib/types.ts` (`DashboardPayload`, `Monitor`, `SystemResponse`, `SecretsResponse`, …). Plus `src/llm/schemas.ts` (`ScoringResultSchema`). | `zod` only |
 | **`@fm/core`** | `src/pipeline`, `src/platforms`, `src/storage` (incl. `migrations/`), `src/analytics`, `src/llm`, `src/alerts`, `src/config`, `src/core`, `src/lib` | `@fm/shared`, runtime deps (better-sqlite3, playwright, impit, scrapfly, anthropic, ollama, cheerio, yaml, argon2, @noble/*) |
 | **`@fm/api`** | `src/web/*` (Fastify app, auth, rbac, routes, secrets-crypto, validation) + `src/dashboard/server.ts` | `@fm/core`, `@fm/shared`, fastify + plugins |
 | **`@fm/web`** | today's `web/` SPA verbatim | `@fm/shared` (+ its own React/Vite/Tailwind stack) |
 | **`@fm/cli`** | `src/cli/*` (`run`, `feedback-bot`, `report`, `dashboard`) | `@fm/core`, `@fm/api` |
 
-The dependency graph is **acyclic and one-directional**: `shared` ← everyone; `core` ← api, cli; `api` ← cli. `web` depends only on `shared` (it talks to `api` over HTTP, never imports it).
+The dependency graph is **acyclic** (there are no loops — nothing depends, even indirectly, on itself) **and one-directional**: `shared` is depended on by everyone; `core` is depended on by `api` and `cli`; `api` is depended on by `cli`. `web` depends only on `shared` — it talks to `api` over HTTP, and never imports it directly.
 
 ### Why these boundaries (justified against real imports)
 
-- **`shared` is justified by `web/src/lib/types.ts`** being a literal hand-copy of backend shapes (and by `src/web/routes/monitors.ts` defining `MonitorCreateInput` Zod schemas the SPA's react-hook-form would love to reuse). One package, both consumers, zero drift.
-- **`api` separate from `core`** is justified by `src/dashboard/server.ts` and every `src/web/routes/*` importing _downward_ into `core` concerns (`storage/repos/*`, `core/profile-config`, `analytics/queries`) — the web layer is a consumer of core, not part of it.
-- **`cli` separate** is justified by `src/cli/run.ts` importing **both** `core` (`pipeline/orchestrator`, `storage/db`, `platforms/...`) and, for the dashboard CLI, `api` (`web/app` via `dashboard/server`). The CLIs are the composition roots; they belong above both.
-- **`core` kept coarse on purpose.** It would be tempting to split `storage` / `scrapers` / `llm` into their own packages, but they are tightly interwoven today (the pipeline orchestrator pulls platforms + storage + llm + alerts together). Start coarse; split later only if a real reuse boundary appears (see §9 "defer").
+- **`shared` is justified by `web/src/lib/types.ts`**, which is a literal hand-copy of backend shapes, and by `src/web/routes/monitors.ts`, which defines `MonitorCreateInput` Zod schemas that the SPA's react-hook-form code would benefit from reusing directly. One package serves both consumers, and drift becomes structurally impossible.
+- **`api` is separate from `core`** because `src/dashboard/server.ts` and every file in `src/web/routes/*` import _downward_ into `core` concerns — `storage/repos/*`, `core/profile-config`, `analytics/queries`. The web layer is a consumer of `core`, not part of it.
+- **`cli` is separate** because `src/cli/run.ts` imports both `core` (`pipeline/orchestrator`, `storage/db`, `platforms/...`) and, for the dashboard CLI specifically, `api` (`web/app`, via `dashboard/server`). The CLIs are composition roots — the place where everything gets wired together — so they sit above both `core` and `api` in the dependency order.
+- **`core` is kept coarse (broad, not finely split) on purpose.** It would be tempting to split `storage`, `scrapers`, and `llm` into their own packages, but they're tightly interwoven today — the pipeline orchestrator pulls platforms, storage, llm, and alerts together into one flow. Start coarse, and split later only if a real reuse need appears (see §9, "defer").
 
 ---
 
 ## 4. Circular dependencies to break before/while extracting
 
-Cross-package cycles are **fatal** in a workspace build graph (Turborepo + project references won't topologically order them), so the two known cycles must be cut. Both happen to live **inside `@fm/core`**, so they don't cross package lines — but they should still be fixed because they signal the kind of coupling that becomes a hard error at a boundary.
+Two files currently import each other in a loop, and both must be fixed before the packages that will contain them are split apart.
 
-1. **`src/web` routes ↔ `src/web/app.ts`** (will straddle `@fm/api` internally).
-   `app.ts` imports `registerMonitorRoutes`/`registerSettingsRoutes`/… from `routes/*`, while every `routes/*.ts` imports `WebContext` **and** `requireCapability` back from `app.ts`. **Fix:** extract `WebContext` (the type) and `requireCapability`/`capabilityList` into a small `src/web/context.ts`. Routes import from `context.ts`; `app.ts` imports routes. Cycle broken, and `@fm/api` gets a clean internal layering.
+A cross-package cycle — package A depending on package B which depends back on package A — is fatal in a workspace build graph: Turborepo and TypeScript project references can't put such packages in a build order, since neither can go first. Both of the two cycles that exist today happen to live inside what will become `@fm/core`, so neither crosses a package boundary yet. They still need fixing, though, because each signals the kind of tight coupling that becomes a hard build error the moment a package boundary is drawn through it.
 
-2. **`src/platforms/grailed/algolia.ts` ↔ `src/platforms/grailed/credentials.ts`** (inside `@fm/core`).
-   `credentials.ts` imports `queryGrailedAlgolia` from `algolia.ts` (to validate creds), and `algolia.ts` imports `getGrailedCredentials` from `credentials.ts` (to build requests). **Fix:** make `algolia.ts` credential-agnostic — have callers pass `{ appId, apiKey }` in (it already takes an injectable `fetchFn`, so dependency injection is the established pattern here), or move the pure `getGrailedCredentials` reader into a leaf `grailed/env.ts` that `algolia.ts` imports while `credentials.ts` keeps only the `validate*` flow that depends on `algolia`.
+1. **`src/web` routes and `src/web/app.ts`** (this will straddle the future `@fm/api` package internally).
+   `app.ts` imports `registerMonitorRoutes`, `registerSettingsRoutes`, and others from `routes/*`. At the same time, every file in `routes/*.ts` imports `WebContext` and `requireCapability` back from `app.ts`. **Fix:** extract the `WebContext` type and the `requireCapability`/`capabilityList` functions into a small new file, `src/web/context.ts`. Routes then import from `context.ts`, and `app.ts` imports the routes. This breaks the cycle, and gives `@fm/api` a clean internal layering.
 
-Add an import-cycle guard (the repo already runs **fallow**; `eslint-plugin-import` `no-cycle` or `dpdm` in CI also works) so new cycles can't reappear once boundaries are real.
+2. **`src/platforms/grailed/algolia.ts` and `src/platforms/grailed/credentials.ts`** (both inside the future `@fm/core` package).
+   `credentials.ts` imports `queryGrailedAlgolia` from `algolia.ts`, to validate credentials. `algolia.ts` imports `getGrailedCredentials` from `credentials.ts`, to build its requests. **Fix:** make `algolia.ts` credential-agnostic — have its callers pass in `{ appId, apiKey }` directly. It already accepts an injectable `fetchFn`, so this dependency-injection pattern is already established here. Alternatively, move the pure `getGrailedCredentials` reader function into a new leaf file, `grailed/env.ts`, which `algolia.ts` can import, while `credentials.ts` keeps only the `validate*` flow that depends on `algolia`.
+
+Add an import-cycle guard to catch any new cycle before it can reappear once these boundaries are real. The repo already runs **fallow** (a code-quality checker); `eslint-plugin-import`'s `no-cycle` rule, or the `dpdm` tool, would also work in CI (continuous integration — the automated pipeline that runs checks on every change).
 
 ---
 
 ## 5. Sharing Zod schemas + types across `api` and `web` without duplication
 
-This is the headline payoff and it **depends on the modernization plan** putting the backend on **Zod 4** (the SPA is already on Zod 4.4 — you cannot share `z.object(...)` across a v3/v4 boundary).
+This is the plan's headline payoff: one shared package holds the Zod schemas both the backend and the frontend use, so the two can never drift apart again. It depends on the modernization plan putting the backend on **Zod 4** first — the SPA is already on Zod 4.4, and a `z.object(...)` schema cannot be shared across a v3/v4 version boundary.
 
 **Mechanism:**
 
-1. `@fm/shared` exports **Zod schemas as the source of truth**, with types derived via `z.infer`:
-   - Request/input schemas (e.g. `MonitorCreateInput`, settings/user inputs) — currently defined inline in `src/web/routes/*`.
-   - Response **DTOs** as either Zod schemas or plain `interface`s (e.g. `DashboardPayload`) — currently duplicated in `web/src/lib/types.ts`.
-   - Domain enums/unions: `PLATFORMS`/`Platform`, `Capability`, `Role`, `ScoreVerdict`, `ScoringResultSchema`.
-2. **`@fm/api`** imports these schemas for runtime validation in its routes (`parseBody(MonitorCreateInput, …)`), guaranteeing the wire contract matches the type.
-3. **`@fm/web`** imports the **same** schemas for form validation (`@hookform/resolvers/zod`) and the **inferred types** for typed `fetch` responses — deleting `web/src/lib/types.ts`'s hand-mirror.
+1. `@fm/shared` exports **Zod schemas as the source of truth**, with TypeScript types derived from them automatically via `z.infer` (a Zod feature that generates a matching TypeScript type directly from a schema, so the two can't drift):
+   - Request/input schemas, for example `MonitorCreateInput` and the settings/user inputs — currently defined inline in `src/web/routes/*`.
+   - Response DTOs, as either Zod schemas or plain `interface`s, for example `DashboardPayload` — currently duplicated in `web/src/lib/types.ts`.
+   - Domain enums and unions: `PLATFORMS`/`Platform`, `Capability`, `Role`, `ScoreVerdict`, `ScoringResultSchema`.
+2. **`@fm/api`** imports these schemas for runtime validation inside its routes (`parseBody(MonitorCreateInput, …)`), guaranteeing the data actually sent over the wire matches the type the code expects.
+3. **`@fm/web`** imports the **same** schemas for its form validation (`@hookform/resolvers/zod`), and the **inferred types** for typed `fetch` responses — this is what lets `web/src/lib/types.ts`'s hand-mirror be deleted entirely.
 
 **Consumption details / gotchas:**
 
-- `@fm/shared` must be **isomorphic** (no Node-only imports) so the browser bundle stays clean — keep it to `zod` + pure TS. Anything Node-specific (e.g. `better-sqlite3` row types) stays in `@fm/core`, and `@fm/shared` exposes only the serialized DTO shape.
-- Publish `@fm/shared` as **TS source consumed directly** in dev (via `exports` pointing at compiled `dist` for type-check, and a `dev` condition / project references for editor speed). For the SPA, Vite resolves the workspace package fine; for `@fm/api` under NodeNext, `@fm/shared` must ship proper ESM `exports` + `.d.ts`.
-- Resolve the `vinted` drift while centralizing: one `PLATFORMS` list, and scrapers that don't implement a platform are simply absent from the registry — not a divergent type.
+- `@fm/shared` must be **isomorphic** — meaning its code can run unchanged in both the browser and in Node — so the browser bundle stays clean. Keep it to `zod` plus plain TypeScript, with no Node-only imports. Anything Node-specific, like `better-sqlite3` row types, stays in `@fm/core`; `@fm/shared` exposes only the serialized DTO shape.
+- Publish `@fm/shared` so it's consumed directly as TypeScript source during development. Its `exports` field (the part of `package.json` that tells other packages which files they're allowed to import) should point at compiled `dist` output for type-checking, with a `dev` condition or TypeScript project references for faster editor feedback. Vite resolves the workspace package fine for the SPA. For `@fm/api`, which uses NodeNext resolution, `@fm/shared` must ship proper ESM `exports` plus `.d.ts` files (TypeScript's compiled type-declaration files).
+- Resolve the `vinted` drift mentioned earlier while centralizing this: keep one single `PLATFORMS` list, and simply leave any platform a scraper doesn't implement out of that registry, rather than letting two divergent type definitions exist.
 
 ---
 
 ## 6. Build, static-serving, migrations, tsconfig, test/lint wiring
 
+This section works out how the pieces that cross package boundaries today — the SPA build, SQL migration files, TypeScript config, and Docker images — keep working once the repo is split into packages.
+
 ### SPA build + server static-serving
 
-Today: root build copies `web/dist → dist/dashboard/public`; `@fm/api`'s `app.ts` serves it via `@fastify/static` and reads `index.html` from `PUBLIC_DIR = dist/dashboard/public` (`src/web/app.ts`).
+Today, the root build copies `web/dist → dist/dashboard/public`. `@fm/api`'s `app.ts` serves that folder through `@fastify/static`, reading `index.html` from `PUBLIC_DIR = dist/dashboard/public` (`src/web/app.ts`).
 
-In the monorepo, model this as a **Turborepo task dependency**:
+In the monorepo, model this as a Turborepo task dependency:
 
-- `@fm/web#build` outputs `apps/web/dist` (Vite).
-- `@fm/api#build` `dependsOn: ["^build", "@fm/web#build"]` and copies `apps/web/dist → packages/api/dist/public` (or a configurable `PUBLIC_DIR`). Keep the existing `existsSync(PUBLIC_DIR)` fallback so backend-only test runs still work without the SPA.
-- Alternative (cleaner long-term): make `PUBLIC_DIR` an **env/option** on `WebAppOptions` so the api can serve the SPA from any resolved path, removing the copy entirely in dev (Vite dev server already proxies `/api` to `:3030`, per `web/vite.config.ts`). Recommend keeping the copy for the **production image** and using the proxy for dev.
+- `@fm/web#build` outputs `apps/web/dist` (built by Vite).
+- `@fm/api#build` declares `dependsOn: ["^build", "@fm/web#build"]`, and copies `apps/web/dist → packages/api/dist/public` (or a configurable `PUBLIC_DIR`). Keep the existing `existsSync(PUBLIC_DIR)` fallback, so backend-only test runs still work without the SPA present.
+- A cleaner long-term alternative: make `PUBLIC_DIR` an environment variable or option on `WebAppOptions`, so the API can serve the SPA from any resolved path. This removes the copy step entirely during development, since Vite's dev server already proxies `/api` to `:3030` (per `web/vite.config.ts`). This plan recommends keeping the copy for the production image, and using the proxy only in development.
 
 ### SQL migrations + assets in a workspace
 
-`src/storage/db.ts` reads `migrations/` relative to `__dirname` at runtime (`dist/storage/migrations/*.sql`). `tsc` does **not** copy `.sql`, hence today's `build:copy-migrations`.
+`src/storage/db.ts` reads its `migrations/` folder relative to `__dirname` at runtime, from `dist/storage/migrations/*.sql`. `tsc` (the TypeScript compiler) does not copy `.sql` files on its own, which is why today's build has a separate `build:copy-migrations` step.
 
-- Keep migrations at `packages/core/src/storage/migrations/*.sql`.
-- Add a per-package `@fm/core#build` step that copies `.sql` into `packages/core/dist/storage/migrations` (declare it as a Turbo task `output`). The `__dirname`-relative resolution then keeps working unchanged inside `@fm/core`'s `dist`.
-- Anything that runs migrations (the CLIs, the api) gets them transitively via `@fm/core` — no second copy.
+- Keep the migrations at `packages/core/src/storage/migrations/*.sql`.
+- Add a build step to `@fm/core#build` that copies the `.sql` files into `packages/core/dist/storage/migrations`, and declare that copy as a Turbo task output. The `__dirname`-relative resolution then keeps working unchanged, inside `@fm/core`'s own `dist` folder.
+- Anything that runs migrations — the CLIs, the API — gets them transitively through `@fm/core`. No second copy step is needed anywhere else.
 
 ### tsconfig project references
 
-- `tsconfig.base.json` holds shared `compilerOptions` (NodeNext, `strict`, TS-6 explicit defaults: `types: ["node"]`, `verbatimModuleSyntax`; keep `.js` import extensions).
-- Each package has its own `tsconfig.json` extending the base with `composite: true` + `references` to its workspace deps: `core → [shared]`, `api → [core, shared]`, `cli → [core, api, shared]`.
-- `@fm/web` keeps its **separate** TS setup (`tsconfig.app.json`/`tsconfig.node.json`, bundler resolution via Vite) and references `@fm/shared` only. Don't force the SPA onto NodeNext.
+- `tsconfig.base.json` holds the shared `compilerOptions`: NodeNext, `strict`, and the TypeScript 6 defaults made explicit (`types: ["node"]`, `verbatimModuleSyntax`), keeping the `.js` import extensions.
+- Each package gets its own `tsconfig.json`, extending the base config, with `composite: true` and `references` pointing at its workspace dependencies: `core → [shared]`, `api → [core, shared]`, `cli → [core, api, shared]`. (`composite` and `references` are TypeScript's mechanism for building a monorepo's packages in dependency order and reusing already-checked output.)
+- `@fm/web` keeps its own separate TypeScript setup (`tsconfig.app.json`/`tsconfig.node.json`, using Vite's bundler-style resolution), and references `@fm/shared` only. Don't force the SPA onto NodeNext resolution.
 
 ### Test / lint / build wiring (`turbo.json`)
 
-- Pipeline tasks: `build` (`dependsOn: ["^build"]`, declares outputs incl. the copy steps), `typecheck`, `lint`, `test`.
-- Run via pnpm filters: `pnpm -r build`, `pnpm --filter @fm/api test`, `turbo run build --filter=...[origin/main]` for affected-only CI.
-- Per the modernization plan: backend moves to **Vitest 4 + ESLint 10** so all packages share one test/lint major; keep ESLint as source of truth, optionally add Oxlint as a fast pre-pass; keep Prettier.
+- Pipeline tasks: `build` (with `dependsOn: ["^build"]`, and outputs declared including the copy steps above), `typecheck`, `lint`, `test`.
+- Run these through pnpm's filter flags: `pnpm -r build` runs a command across every package; `pnpm --filter @fm/api test` runs it in just one package; `turbo run build --filter=...[origin/main]` runs it only for packages affected since diverging from `origin/main`, useful for keeping CI fast.
+- Per the modernization plan, the backend moves to Vitest 4 and ESLint 10, so every package shares one test and lint major version. Keep ESLint as the source of truth for linting, optionally adding Oxlint as a fast pre-pass; keep Prettier for formatting.
 
 ### Docker / Caddy impact
 
-- Use **`turbo prune --docker`** to produce a focused subset per service, so each image installs only what it needs:
-  - `scraper` / `feedback-bot` / `report` CLIs → prune for `@fm/cli` (pulls `@fm/core`, `@fm/shared`); needs Playwright + native addons.
-  - `dashboard` → prune for `@fm/cli`'s dashboard entry (pulls `@fm/api` + `@fm/core` + `@fm/shared` + the built SPA).
-- Multi-stage Dockerfile: install with `pnpm` (corepack), build with `turbo`, then copy only `dist` + pruned `node_modules` into the runtime stage. Keep the existing `python3/make/g++/libsqlite3-dev` deps for `better-sqlite3`/`argon2` and the Playwright Chromium install.
-- **`docker-compose.yml` service commands change paths** from `dist/cli/run.js` to the workspace output (e.g. `apps/cli/dist/run.js` or a bin exposed by `@fm/cli`). **Caddyfile is unchanged** — it still reverse-proxies `dashboard:3030`.
+- Use `turbo prune --docker` to produce a focused dependency subset per service, so each Docker image installs only what that service actually needs:
+  - The `scraper`, `feedback-bot`, and `report` CLIs prune down to `@fm/cli` (which pulls in `@fm/core` and `@fm/shared`), and need Playwright plus the native addons.
+  - The `dashboard` service prunes down to `@fm/cli`'s dashboard entry point (which pulls in `@fm/api`, `@fm/core`, `@fm/shared`, and the built SPA).
+- Use a multi-stage Dockerfile: install dependencies with `pnpm` (via corepack, Node's built-in package-manager version manager), build with `turbo`, then copy only the `dist` output and the pruned `node_modules` into the final runtime stage. Keep the existing `python3`/`make`/`g++`/`libsqlite3-dev` build dependencies needed for `better-sqlite3` and `argon2`, and the Playwright Chromium install.
+- `docker-compose.yml`'s service commands change their paths, from `dist/cli/run.js` to the new workspace output location — for example `apps/cli/dist/run.js`, or a binary exposed by `@fm/cli`. The **Caddyfile stays unchanged** — it still reverse-proxies `dashboard:3030`.
 
 ---
 
 ## 7. Migration steps (incremental, keep-green)
 
-Do this in order; each step must land with typecheck + tests + lint green before the next. The first two steps are really the tail of the modernization plan.
+Follow these steps in order. Each one must land with a green typecheck, test run, and lint pass before the next begins. The first two steps are really the tail end of the modernization plan.
 
-1. **Prereqs from the modernization plan:** backend on **Zod 4**, repo on **pnpm** (replace `npm --prefix web` with a real workspace), TS 6 / Vitest 4 / ESLint 10 unified. Without Zod 4 you cannot share schemas.
-2. **Introduce the workspace shell** without moving code: add `pnpm-workspace.yaml` + `turbo.json`, convert `web/` into `apps/web` as the first workspace member, keep the backend as a temporary root/`packages/server` package. Confirm build/test/lint run through Turbo. _(Lowest risk; proves the harness.)_
-3. **Extract `@fm/shared` first** (biggest payoff, lowest blast radius): move the duplicated DTOs + domain enums + input schemas into `@fm/shared`; point `@fm/web` at it and **delete `web/src/lib/types.ts`'s mirror**; point the backend routes at the shared input schemas. Fix the `vinted` drift here.
-4. **Break the two cycles** (§4) so the next splits are clean.
-5. **Carve out `@fm/api`** from `@fm/core`: move `src/web/*` + `src/dashboard/server.ts` into `packages/api`, leaving the domain in `packages/core`. Wire the SPA-copy as an `@fm/api#build` output.
-6. **Carve out `@fm/cli`** into `apps/cli`; update `docker-compose.yml` command paths and the Dockerfile to the `turbo prune` flow.
-7. **Tighten**: project references everywhere, affected-only CI, import-cycle guard in CI, optional `PUBLIC_DIR`-as-option cleanup.
+1. **Prerequisites from the modernization plan:** the backend on Zod 4, the repo on pnpm (replacing `npm --prefix web` with a real workspace), and TypeScript 6, Vitest 4, and ESLint 10 unified across both halves. Without Zod 4, schemas cannot be shared between packages.
+2. **Introduce the workspace shell without moving any code.** Add `pnpm-workspace.yaml` and `turbo.json`, convert `web/` into `apps/web` as the first workspace member, and keep the backend as a temporary root or `packages/server` package. Confirm build, test, and lint all run through Turbo. _(Lowest risk; this proves the harness works.)_
+3. **Extract `@fm/shared` first.** This has the biggest payoff and the lowest blast radius: move the duplicated DTOs, domain enums, and input schemas into `@fm/shared`, point `@fm/web` at it, and delete `web/src/lib/types.ts`'s mirror. Point the backend routes at the same shared input schemas. Fix the `vinted` drift here.
+4. **Break the two circular-dependency cycles** described in §4, so the next splits can happen cleanly.
+5. **Carve `@fm/api` out of `@fm/core`.** Move `src/web/*` and `src/dashboard/server.ts` into `packages/api`, leaving the domain logic in `packages/core`. Wire the SPA copy step as an `@fm/api#build` output.
+6. **Carve `@fm/cli` out into `apps/cli`.** Update `docker-compose.yml`'s command paths and the Dockerfile to use the `turbo prune` flow.
+7. **Tighten everything:** add project references everywhere, set up affected-only CI, add the import-cycle guard to CI, and optionally clean up `PUBLIC_DIR` into a proper option.
 
-At every step the app stays runnable: the CLIs, the Fastify server, and the SPA build all keep working because we move files and rewire imports rather than rewriting behavior.
+At every step, the app stays runnable. The CLIs, the Fastify server, and the SPA build all keep working throughout, because each step moves files and rewires imports rather than rewriting behavior.
 
 ---
 
 ## 8. Risks
 
-- **pnpm strictness surfaces phantom imports.** Files that relied on hoisted transitive deps will fail until each package declares its real `dependencies`. This is desirable but front-loads work — do it during step 1.
-- **Native addons under pnpm + Docker.** `better-sqlite3` / `argon2` must rebuild against the target Node ABI in the runtime image; `turbo prune` must keep their build inputs. Verify Playwright's browser cache path survives the pruned image.
-- **Cross-package cycles become hard errors.** If §4 isn't done first, the api/cli extraction will fail to order. Guard it in CI.
-- **SQL-migration path resolution.** The `__dirname`-relative `migrations/` lookup must keep landing next to compiled `db.js` inside `@fm/core/dist`. Model the `.sql` copy as a Turbo output so caching doesn't drop it.
-- **`@fm/shared` accidentally importing Node-only code** would poison the browser bundle. Enforce isomorphism (lint rule / no Node built-ins in `shared`).
-- **Turbo cache correctness.** Wrong `inputs`/`outputs` (especially for the copy steps) can serve stale artifacts; start with conservative caching and expand.
+- **pnpm's strictness surfaces phantom imports.** Files that relied on a hoisted transitive dependency (one pulled in indirectly, never declared directly) will fail to build until each package declares its real `dependencies`. This is the desired outcome, but it front-loads work — do it during step 1, not later.
+- **Native addons under pnpm plus Docker.** `better-sqlite3` and `argon2` must rebuild against the target Node ABI (Application Binary Interface — the low-level contract compiled native code depends on) inside the runtime image, and `turbo prune` must preserve their build inputs. Verify that Playwright's browser cache path survives the pruned image.
+- **Cross-package cycles become hard errors.** If §4's fixes aren't done first, the `api`/`cli` extraction will fail because the build tools can't order the packages. Guard against this in CI.
+- **SQL-migration path resolution.** The `__dirname`-relative `migrations/` lookup must keep landing next to the compiled `db.js`, inside `@fm/core/dist`. Model the `.sql` copy step as a Turbo output, so build caching doesn't silently drop it.
+- **`@fm/shared` accidentally importing Node-only code** would poison the browser bundle — meaning code that only works in Node would end up shipped to, and break in, the browser. Enforce isomorphism with a lint rule that blocks Node built-ins inside `shared`.
+- **Turbo cache correctness.** Wrong `inputs` or `outputs` declarations, especially for the copy steps, can serve a stale cached result instead of a fresh build. Start with conservative caching, and expand it carefully.
 
 ---
 
@@ -192,20 +204,22 @@ At every step the app stays runnable: the CLIs, the Fastify server, and the SPA 
 
 **Do first (highest value, lowest risk):**
 
-- pnpm workspace + Turbo harness (step 2).
-- Extract **`@fm/shared`** and delete the SPA's duplicated types (step 3) — this alone removes the drift class of bugs.
-- Break the two circular deps (step 4).
+- Set up the pnpm workspace and Turbo harness (step 2).
+- Extract `@fm/shared`, and delete the SPA's duplicated types (step 3). This alone removes an entire class of drift bugs.
+- Break the two circular dependencies (step 4).
 
-**Defer (until a real need appears):**
+**Defer, until a real need appears:**
 
-- Splitting `@fm/core` into finer packages (`storage` / `scrapers` / `llm`) — keep core coarse until there's genuine reuse pressure.
-- Adopting **Nx** — only if the package count grows past ~20 or you need enforced boundaries/generators.
-- `rolldown-vite`, dropping `tsx` for native execution, and the LLM-provider consolidation (Ollama via the Anthropic-compatible endpoint) — these are modernization-plan "optional" items; do them after the structure is stable so wiring changes once.
-- Multi-instance session storage / Redis — not warranted for the single-instance, single-`profile_id="default"` deployment.
+- Splitting `@fm/core` into finer-grained packages (`storage` / `scrapers` / `llm`). Keep `core` coarse until there's genuine reuse pressure to split it.
+- Adopting Nx. Do this only if the package count grows past roughly 20, or if enforced module boundaries and code generators become necessary.
+- `rolldown-vite`, dropping `tsx` in favor of native execution, and consolidating the LLM providers (using Ollama's Anthropic-compatible endpoint). These are the modernization plan's "optional" items — do them after this repo's structure is stable, so the build wiring changes only once.
+- Multi-instance session storage, or Redis. Neither is warranted for what is currently a single-instance deployment with a single `profile_id="default"`.
 
 ---
 
 ## 10. Target package graph
+
+This is what the finished dependency graph looks like, once all five packages exist:
 
 ```mermaid
 graph TD
@@ -230,4 +244,4 @@ graph TD
     class shared sh;
 ```
 
-The graph is acyclic, `@fm/shared` is the single contract source for both the server (`@fm/api`) and the browser (`@fm/web`), and the CLIs sit at the top as composition roots over `@fm/core` + `@fm/api`.
+The graph has no cycles. `@fm/shared` is the single contract source for both the server (`@fm/api`) and the browser (`@fm/web`). The CLIs sit at the top, as the composition roots that wire together `@fm/core` and `@fm/api`.

@@ -1,8 +1,8 @@
 # Database technology choice (2026)
 
-**Question:** Why SQLite? Surely there is a better option — maybe NoSQL?
+**Question:** Why SQLite (a single-file, no-server database)? Is there a better option — maybe a NoSQL database (one that stores flexible documents or key-value pairs instead of rows and tables)?
 
-**Short answer:** SQLite is the right default for fashion-monitor *today*, but PostgreSQL is the honest upgrade path once you need concurrent multi-writer access, stronger audit durability guarantees, or a managed HA deployment. NoSQL does not fit this workload.
+**Short answer:** SQLite is the right default for fashion-monitor today. PostgreSQL (a server-based relational database) is the honest upgrade path once the app needs concurrent writes from multiple processes, stronger durability guarantees for its audit trail, or a managed high-availability (HA — a setup built to survive a server failure without downtime) deployment. NoSQL does not fit this workload at all.
 
 ---
 
@@ -14,7 +14,7 @@
 | Single instance (one dashboard + cron scrapers) | One writer process is typical |
 | Cron-driven scrapers, not real-time streaming | Batch inserts, not firehose |
 | SQLite today (`better-sqlite3`, sync API) | Zero ops, file-backed, embedded |
-| Internet-exposed web app with RBAC + audit | Needs durability + backup discipline, not necessarily a server DB |
+| Internet-exposed web app with role-based access control (RBAC) and an audit log | Needs durability + backup discipline, not necessarily a server DB |
 | Relational model: monitors, runs, listings, alerts, audit, integration events | Joins, views, foreign keys — SQL-native |
 | Analytics via SQL views + optional Grafana | Read-heavy; SQLite handles this well at this scale |
 
@@ -26,18 +26,18 @@
 
 **When it is right**
 
-- One primary writer (pipeline) + a few concurrent readers (web API, Grafana, CLI report).
-- Dataset fits comfortably in memory/disk on a single host (tens of millions of rows is fine with indexes).
+- One primary writer (the pipeline) plus a few concurrent readers (the web API, Grafana, the CLI report).
+- The dataset fits comfortably in memory and on disk on a single host — tens of millions of rows are fine with indexes.
 - You want zero database ops: no connection strings, no replication config, no billing.
-- WAL mode gives reasonable read concurrency while the scraper writes.
+- WAL mode (write-ahead log — a SQLite setting that lets reads happen while a write is in progress) gives reasonable read concurrency while the scraper writes.
 
 **Tradeoffs**
 
-- Single-writer semantics: multiple processes writing heavily will contend (pipeline + web mutations are light, but it is a ceiling).
-- No built-in row-level security, replication, or point-in-time recovery — backups are *your* job (file copy while checkpointed, or Litestream).
-- Audit log and RBAC are application-enforced; SQLite will not help with compliance attestations.
+- Single-writer semantics: SQLite only lets one process write at a time. Today's writes (the pipeline, plus light web mutations) are small enough that this isn't a problem, but it is a ceiling.
+- SQLite has no built-in row-level security, replication, or point-in-time recovery (PITR — restoring the database to its exact state at a specific past moment, not just the last backup). Backups are your job: a file copy while checkpointed, or a tool like Litestream (see below).
+- The audit log and RBAC are enforced by the application code, not the database. SQLite will not help you pass a compliance audit.
 
-**Verdict for fashion-monitor today:** Correct for a self-hosted personal tool with one pipeline instance and a small user base. The schema (views, migrations, repos) is already SQLite-shaped and working.
+**Verdict for fashion-monitor today:** Correct for a self-hosted personal tool with one pipeline instance and a small user base. The schema (views, migrations, repos) is already built around SQLite and works.
 
 ---
 
@@ -45,71 +45,71 @@
 
 **When it becomes better even at modest scale**
 
-- **Multiple app instances** behind a load balancer (horizontal web tier).
-- **Concurrent writers** — e.g. several scraper workers, feedback bot + pipeline + admin UI all writing heavily at once.
-- **JSONB** for config snapshots / flexible metadata without migration churn.
-- **TimescaleDB extension** if integration metrics and run history grow into time-series at volume (continuous aggregates, retention policies).
-- **Managed HA** (Neon, Supabase, RDS) when uptime and automated backups matter more than "no ops."
+- **Multiple app instances** run behind a load balancer (a horizontal web tier).
+- **Concurrent writers** — for example, several scraper workers, the feedback bot, the pipeline, and the admin UI all writing heavily at the same time.
+- **JSONB** (Postgres's binary JSON column type) stores config snapshots or flexible metadata without needing a schema migration for every new field.
+- The **TimescaleDB** extension (a Postgres add-on for time-series data) helps if integration metrics and run history grow into high-volume time series that need continuous aggregates or retention policies.
+- **Managed HA** (Neon, Supabase, RDS — hosted Postgres providers that handle failover for you) matters once uptime and automated backups matter more than avoiding ops work.
 
 **Tradeoffs**
 
-- Operational cost: connection pooling, migrations in CI, secrets, monitoring.
-- Latency: network round-trip vs in-process SQLite (negligible for this UI, noticeable for tight scrape loops if DB is remote).
-- Migration effort: schema port is straightforward (SQL is portable); `better-sqlite3` sync calls become `pg` async — moderate refactor.
+- Operational cost: connection pooling, migrations running in CI, secrets management, monitoring.
+- Latency: a network round-trip instead of in-process SQLite. Negligible for the dashboard UI, but noticeable in a tight scrape loop if the database is remote.
+- Migration effort: the schema itself ports easily, since SQL is portable. Converting `better-sqlite3`'s synchronous calls to `pg`'s asynchronous ones is a moderate refactor.
 
-**Honest take:** For **multi-user RBAC + audit** alone, SQLite is still adequate at this scale. Postgres pulls ahead when you run **more than one writer process** or need **managed backup/HA** for an internet-facing deployment you cannot afford to lose.
+**Honest take:** SQLite is still adequate at this scale for multi-user RBAC and audit logging alone. Postgres pulls ahead once you run more than one writer process, or once you need managed backup and HA for an internet-facing deployment you cannot afford to lose.
 
 ---
 
-### Turso / libSQL, DuckDB — variants
+### Turso / libSQL, DuckDB — variants worth knowing about
 
 | Tech | Role | Fit here |
 | --- | --- | --- |
-| **Turso (libSQL)** | SQLite-compatible edge/replica | Interesting if you want read replicas close to users while keeping SQLite ergonomics; overkill for single-home-server deploy |
-| **DuckDB** | Embedded OLAP | Great for ad-hoc analytics on exports; not a replacement for transactional monitors/runs/audit |
-| **LiteFS / Litestream** | SQLite replication | Bridge solution: keep SQLite, add replica/backup without jumping to Postgres |
+| **Turso (libSQL)** | A SQLite-compatible service that runs read replicas at the network edge, close to users | Interesting if you want replicas close to users while keeping SQLite's simplicity; overkill for a single home-server deploy |
+| **DuckDB** | An embedded database built for analytics (OLAP — online analytical processing, meaning big scans and aggregations rather than many small transactions) | Great for ad-hoc analytics on exports; not a replacement for the transactional monitors/runs/audit tables |
+| **LiteFS / Litestream** | Tools that replicate or continuously back up a SQLite file | A bridge option: keep SQLite, add replication or backup, without jumping to Postgres |
 
-Use these as **enhancements to SQLite**, not as reasons to abandon the relational model.
+Treat these as enhancements to SQLite, not as reasons to abandon the relational model.
 
 ---
 
-### NoSQL (MongoDB, Redis, etc.) — usually wrong here
+### NoSQL (MongoDB, Redis, etc.) — usually the wrong fit here
 
 **Why it does not fit**
 
-- Core entities are **relational**: `scrape_queries` → `runs` → `seen_listings` → `alert_log`, plus `audit_log` and `integration_events` with stable schemas.
-- Analytics are **SQL views** (`v_query_scorecard`, `v_run_summary`, …) — porting to document stores means reimplementing joins in application code.
-- **Audit trail** requires append-only, queryable history with actor/target/detail — document DB adds little; event sourcing without SQL reporting is painful.
-- **RBAC** is a handful of users/roles — not a graph or cache problem.
+- The core entities are relational: `scrape_queries` → `runs` → `seen_listings` → `alert_log`, plus `audit_log` and `integration_events`, all with stable schemas.
+- Analytics run as SQL views (`v_query_scorecard`, `v_run_summary`, and others). Porting these to a document store means reimplementing joins in application code.
+- The audit trail needs an append-only, queryable history with actor, target, and detail fields per entry. A document database adds little here, and event sourcing without SQL reporting is painful to query.
+- RBAC in this app is a handful of users and roles — not a graph problem, and not a caching problem.
 
-Redis is useful as a **cache or job queue**, not as the system of record. MongoDB would duplicate relational structure in nested documents and make Grafana/SQL reporting harder.
+Redis is useful as a cache or job queue, not as the system of record. MongoDB would duplicate the relational structure inside nested documents and make Grafana and SQL reporting harder, not easier.
 
-**When NoSQL would never make sense for fashion-monitor:** Replacing the primary store. The workload is OLTP + SQL analytics, not unstructured blobs or sub-millisecond KV lookups at billions of keys.
+**When would NoSQL make sense for fashion-monitor?** Never, for the primary store. This workload is OLTP (online transaction processing — many small, structured reads and writes) plus SQL analytics. It is not unstructured blobs, and it is not sub-millisecond key lookups across billions of keys.
 
 ---
 
-### Event stores / ClickHouse / Loki — metrics at scale
+### Event stores, ClickHouse, Loki — tools for metrics at much larger scale
 
-| System | Purpose | When |
+| System | Purpose | When to use it |
 | --- | --- | --- |
-| **ClickHouse** | Columnar analytics | Millions of integration events/day, sub-second aggregates over months |
-| **Loki / ELK** | Log search | Centralized log drain from many services |
-| **Kafka + event store** | Event sourcing | Many producers, replay, CQRS |
+| **ClickHouse** | A columnar database built for analytics | Millions of integration events per day, needing sub-second aggregates over months of history |
+| **Loki / ELK** | Log search systems | Centralizing log output from many separate services |
+| **Kafka + an event store** | Event sourcing (recording every state change as an event you can replay) | Many producers, replay needs, or CQRS (command query responsibility segregation — separating the write model from the read model) |
 
-Fashion-monitor records **hundreds to low thousands** of integration events per month, pruned after 30 days. SQLite views + Grafana suffice. Adopt ClickHouse/Loki when event volume or retention **outgrows** SQLite query time (seconds on dashboard load) — not before.
+Fashion-monitor records hundreds to low thousands of integration events per month, and prunes them after 30 days. SQLite views plus Grafana are enough for that volume. Adopt ClickHouse or Loki only once event volume or retention outgrows SQLite's query time — currently seconds on dashboard load, not before.
 
 ---
 
-### Embedded vs managed
+### Embedded vs. managed
 
 | Approach | Pros | Cons |
 | --- | --- | --- |
-| **Embedded SQLite (current)** | Simplest deploy, matches Docker volume model | You own backups and single-writer limits |
-| **Managed Postgres (Neon, Supabase, RDS)** | Backups, scaling, connection pooling | Cost, network dependency, migration |
-| **PlanetScale (MySQL)** | Serverless scaling | MySQL dialect; no advantage over Postgres for this schema |
-| **SQLite + Litestream** | Near-zero change, continuous backup to S3 | Extra process, not multi-writer |
+| **Embedded SQLite (current)** | Simplest deploy; matches the Docker volume model already in use | You own backups, and you live with the single-writer limit |
+| **Managed Postgres (Neon, Supabase, RDS)** | Backups, scaling, and connection pooling come built in | Costs money, adds a network dependency, and requires a migration |
+| **PlanetScale (MySQL)** | Serverless scaling | Uses the MySQL dialect, which has no advantage over Postgres for this schema |
+| **SQLite + Litestream** | Near-zero change, with continuous backup to S3 | Adds an extra process, and still isn't multi-writer |
 
-For a NAS/home-server deploy, **embedded SQLite + documented backup** is rational. For a **public SaaS**, plan Postgres from the start.
+For a NAS (network-attached storage) or home-server deploy, embedded SQLite with documented backups is the rational choice. For a public SaaS product, plan for Postgres from the start.
 
 ---
 
@@ -117,34 +117,34 @@ For a NAS/home-server deploy, **embedded SQLite + documented backup** is rationa
 
 ### Today (2026)
 
-**Stay on SQLite** with these non-negotiables:
+**Stay on SQLite**, with these three items non-negotiable:
 
 1. **WAL mode** enabled (already typical for `better-sqlite3` apps).
-2. **Automated backups** of `fashion_monitor.db` (cron + off-site copy; or Litestream).
-3. **Do not expose the DB file** — only the API (already the architecture).
+2. **Automated backups** of `fashion_monitor.db` — a cron job plus an off-site copy, or Litestream.
+3. **Never expose the database file** directly — only the API. This is already how the app is built.
 
-SQLite matches the deployment model (single container, cron scrapers, Grafana read-only mount) and keeps the monorepo simple.
+SQLite matches the deployment model here — a single container, cron-driven scrapers, and a read-only Grafana mount — and keeps the monorepo (a single repository holding multiple related packages) simple.
 
 ### Migration triggers → PostgreSQL
 
-Move when **any** of these become true:
+Move to Postgres once any of these become true:
 
 | Trigger | Why Postgres |
 | --- | --- |
-| Second concurrent **writer** process (multi-worker scrape, active-active web) | SQLite writer lock becomes painful |
-| **>3 web instances** or Kubernetes replicas | Shared file SQLite is unsafe; need network DB |
-| Audit/compliance requires **PITR, replication, or DBA attestations** | Managed Postgres |
-| Integration + run history **>~10M rows** with slow dashboard queries | JSONB + Timescale or partitioning |
-| Team wants **remote DB** decoupled from app host | Neon/Supabase |
+| A second concurrent **writer** process (multi-worker scrape, active-active web) | SQLite's writer lock becomes painful |
+| **More than 3 web instances**, or Kubernetes replicas | A shared SQLite file becomes unsafe; you need a networked database |
+| Audit or compliance requirements demand **PITR, replication, or DBA attestations** | Managed Postgres provides these |
+| Integration and run history pass **roughly 10 million rows**, with dashboard queries slowing down | JSONB plus Timescale, or table partitioning, solve this |
+| The team wants a **remote database** decoupled from the app host | Neon or Supabase provide this |
 
 ### Migration triggers → NoSQL
 
-**None** for primary storage. Optional Redis later for rate limiting or job queues — not a replacement for monitors, runs, or audit.
+**None**, for the primary store. Redis could be added later for rate limiting or job queues — but never as a replacement for the monitors, runs, or audit tables.
 
-### If you want a middle step before Postgres
+### A middle step before Postgres, if you want one
 
-- **Litestream** or **LiteFS** for replication/backup without schema migration.
-- **DuckDB** for offline analytics exports, not live OLTP.
+- **Litestream** or **LiteFS** add replication or backup without a schema migration.
+- **DuckDB** works for offline analytics exports, not for live transactional workloads.
 
 ---
 
@@ -153,10 +153,10 @@ Move when **any** of these become true:
 | Technology | fashion-monitor today | Primary store? |
 | --- | --- | --- |
 | SQLite | **Recommended** | Yes |
-| PostgreSQL | Plan at multi-instance / HA | Yes (future) |
+| PostgreSQL | Plan for it at multi-instance / HA scale | Yes (future) |
 | Turso/libSQL | Optional edge replica | Yes (SQLite-compatible) |
 | DuckDB | Analytics sidecar only | No |
 | MongoDB / Redis | Wrong fit | No |
-| ClickHouse / Loki | Overkill until huge telemetry | No (metrics adjunct) |
+| ClickHouse / Loki | Overkill until telemetry volume is huge | No (metrics adjunct) |
 
-**Bottom line:** SQLite is not a compromise for this app — it is the appropriate tool. The better option for *your* stated profile is not NoSQL; it is **Postgres when operational requirements outgrow a single file**, plus **backup discipline** while you remain on SQLite.
+**Bottom line:** SQLite is the appropriate tool for this app today. If this app's profile ever needs a better option, that option is Postgres — once operational requirements outgrow a single file — plus backup discipline while you remain on SQLite. NoSQL is not that option.

@@ -1,11 +1,13 @@
 # Fashion Monitor
 
-A personal resale monitoring tool that watches multiple secondhand platforms for clothing matching a defined aesthetic, scores results with an LLM, and alerts the owner via ntfy.
+Fashion Monitor is a personal resale monitoring tool. It watches multiple secondhand clothing platforms for listings that match a defined aesthetic, scores each result with an LLM (large language model), and alerts the owner through ntfy (a push-notification service).
 
 ## Language
 
+This section is the repo's controlled vocabulary: the one word to use for each concept, its exact meaning, and the words to avoid because they're used loosely elsewhere or mean something different in this codebase.
+
 **Monitor**:
-A saved search configuration that watches one or more resale platforms for listings matching a query. A single Monitor fans out into per-platform scrape executions each pipeline run.
+A saved search configuration that watches one or more resale platforms for listings matching a query. Each pipeline run, one Monitor turns into a separate scrape per platform it covers.
 _Avoid_: Search Group, Search Query, Saved Search
 
 **Taste**:
@@ -13,7 +15,7 @@ The aesthetic half of a profile's configuration — aesthetic prompt, hard-no ru
 _Avoid_: Aesthetic, Profile, Preferences
 
 **User**:
-An authenticated account that can log into the web app and holds a Role on one or more Profiles (M:N via memberships). A User invited via an Invite gets their own newly-created Profile and is its Owner.
+An authenticated account that can log into the web app. A User holds a Role on one or more Profiles — the link between Users and Profiles is many-to-many, tracked in a memberships table, so one User can belong to several Profiles and one Profile can have several Users. A User invited via an Invite gets their own newly-created Profile and is its Owner.
 _Avoid_: Account, Person
 
 **Invite**:
@@ -45,11 +47,11 @@ A per-profile credential (ntfy token, platform API key, etc.) stored encrypted a
 _Avoid_: Token, Credential, API Key
 
 **Connection**:
-A per-profile, per-platform link a User establishes so the pipeline can reach a platform on that profile's behalf. Holds the platform's credentials (stored as `Secret`s), a test/health status, and — for login-based platforms — an explicit per-platform risk acknowledgment. Three kinds: API-key (eBay developer keys, sanctioned), none (Grailed — public search, no account to connect), and login (Poshmark/Depop/Vestiaire — stores the user's session, violates ToS, ban risk borne by the user; off by default). When a platform is not connected, the pipeline falls back to anonymous public scraping. A Connection layers test + status + ToS acceptance on top of `Secret`; it is not the same thing.
+A per-profile, per-platform link a User sets up so the pipeline can reach a platform on that profile's behalf. It holds the platform's credentials (stored as `Secret`s), a test/health status, and — for login-based platforms — an explicit per-platform risk acknowledgment. There are three kinds: API-key (eBay's official developer keys — sanctioned by eBay), none (Grailed — public search, no account needed), and login (Poshmark, Depop, Vestiaire — stores the user's own logged-in session; this violates those platforms' Terms of Service and risks a ban, so it's off by default and the user bears the risk). When a platform has no Connection, the pipeline falls back to anonymous public scraping. A Connection is not the same thing as a `Secret` — it adds test status and ToS acceptance on top of one.
 _Avoid_: Account, Integration, Indexer, Link
 
 **Pipeline**:
-The autonomous background process that scrapes platforms, deduplicates, prefilters, scores, and dispatches alerts on a schedule. PENDING is a pipeline-internal score state used when the LLM is unreachable — listings are replayed on the next healthy run. Users only ever see YES, MAYBE, or NO as outcomes.
+The background process that runs on a schedule with no human involvement: it scrapes platforms, removes duplicate listings, filters out obvious non-matches, scores what's left, and sends alerts. PENDING is an internal score state used only when the LLM can't be reached — those listings are scored again on the next successful run. Users only ever see the final outcome as YES, MAYBE, or NO.
 _Avoid_: Runner, Job, Cron
 
 **Scoring Dimensions**:

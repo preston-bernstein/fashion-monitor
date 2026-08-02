@@ -1,6 +1,10 @@
 # 02 — Architecture
 
+This document describes how Fashion Monitor is built: the pipeline stages, the tech stack, where code and data live, and which machine runs each part.
+
 ## System Overview
+
+The diagram below shows the full pipeline: two schedulers kick off scraping, results flow through deduplication and a free pre-filter, then two-pass LLM scoring, and matches go out as Telegram alerts. Two more services run alongside the pipeline: an always-on feedback bot, and the web app that handles configuration and analytics.
 
 ```
 ┌──────────────────────────────────────────────────────────┐
@@ -69,6 +73,8 @@
 
 ## Monorepo Structure
 
+Fashion Monitor is a monorepo (one repository holding several related packages) laid out like this:
+
 ```
 fashion-monitor/
   apps/
@@ -88,6 +94,8 @@ fashion-monitor/
 ```
 
 ## Tech Stack
+
+The table below lists each layer's technology choice, and why it was chosen.
 
 | Layer | Choice | Reason |
 |-------|--------|--------|
@@ -115,8 +123,10 @@ fashion-monitor/
 
 ## Data Flow Detail
 
+Here is what happens in each of the four pipeline phases shown in the diagram above.
+
 ### 1. Scrape Phase
-Each platform scraper runs independently and returns a normalized `Listing` object:
+Each platform scraper runs independently. It returns a normalized `Listing` object:
 ```typescript
 interface Listing {
   id: string;           // platform-specific unique ID
@@ -137,23 +147,22 @@ interface Listing {
 ```
 
 ### 2. Deduplicate Phase
-- Composite key: `{platform}:{id}`
-- SQLite `seen_listings` table stores all seen keys + timestamp
-- New listings only pass through
+This phase checks whether a listing has already been seen, so it doesn't alert twice for the same item.
+- Composite key: `{platform}:{id}` — the platform name plus that platform's own listing ID
+- The SQLite `seen_listings` table stores every key seen so far, with a timestamp
+- Only listings not already recorded in `seen_listings` continue to the next phase
 
 ### 3. Score Phase
-- **Pass 1** (text, all new): Ollama batch scoring → YES / MAYBE / NO
-- **Pass 2** (vision, MAYBE only): configurable backend (Ollama vision or Claude) re-scores MAYBE items that have `image_url`
-- MAYBE without `image_url` stays MAYBE and alerts
-- Post-vision MAYBE still alerts (signals lower confidence, not disqualification)
-- PENDING is a pipeline-internal state — originally just for when the LLM is unreachable,
-  now (2026-07-19) also the standard hand-off between the scrape-only and score-only
-  process invocations (see below) — never surfaced to users
+- **Pass 1** (text, all new): Ollama (the LAN-hosted LLM server) batch-scores every new listing as YES, MAYBE, or NO.
+- **Pass 2** (vision, MAYBE only): a configurable backend — Ollama's vision model, or Claude — re-scores MAYBE items that have an `image_url`.
+- A MAYBE item with no `image_url` stays MAYBE, and still triggers an alert.
+- A MAYBE that goes through Pass 2 still alerts afterward. The vision pass can only lower confidence, not disqualify the item.
+- PENDING is a pipeline-internal state, never surfaced to users. It originally covered only the case where the LLM was unreachable at scrape time. As of 2026-07-19 it also serves as the standard hand-off between the separate scrape-only and score-only process invocations (see below).
 
 ### 4. Alert Phase
-- One Telegram message per YES/MAYBE listing
-- Digest mode optional: bundle all matches into one message per run
-- Alert includes: image, title, brand, price, platform, LLM reason, scoring dimensions (aesthetic/quality/value), link
+- One Telegram message per YES/MAYBE listing.
+- Digest mode is optional: it bundles all matches from a run into one message instead.
+- Each alert includes: image, title, brand, price, platform, the LLM's reason, scoring dimensions (aesthetic/quality/value), and a link.
 
 **Process-level split (2026-07-19):** phases 1-2 (scrape+dedupe+prefilter) and phases 3-4
 (score+alert) now run as two separate CLI entrypoints/containers — `apps/cli/src/scrape.ts`
@@ -163,6 +172,8 @@ also needing LAN access to the Ollama broker for scoring. `run.ts`/`runPipeline`
 unchanged, combining both halves in one process, for local dev and non-split deployments.
 
 ## Execution Environment
+
+Fashion Monitor runs across two machines: a desktop host that runs the Docker containers and stores the database, and a separate multimedia machine that runs the Ollama LLM server, reachable from the desktop over the LAN (local network).
 
 ### Where things run
 
@@ -185,7 +196,7 @@ Multimedia Machine (always-on, has GPU)
     Endpoint: http://<multimedia-ip>:11434/v1/  (LAN, <1ms latency)
 ```
 
-Migrated from a Synology NAS deployment (`/volume1/docker/fashion-monitor/`) to the desktop deploy host on 2026-07-19, matching the rest of the home lab's NAS→desktop rebalancing (arr-stack, financial-pipeline, media-stack). The real deploy host address lives outside this public repo — see the untracked local `CLAUDE.md`, or `Makefile` `DEPLOY_HOST`/`DEPLOY_PATH`.
+The deployment moved off a Synology NAS (`/volume1/docker/fashion-monitor/`) to this desktop deploy host on 2026-07-19. This matches the rest of the home lab's NAS→desktop rebalancing, which moved arr-stack, financial-pipeline, and media-stack the same way. The real deploy host address is not in this public repo — see the untracked local `CLAUDE.md`, or `DEPLOY_HOST`/`DEPLOY_PATH` in the `Makefile`.
 
 ### Pre-flight checks (run before building)
 
@@ -204,22 +215,22 @@ curl http://<multimedia-ip>:11434/
 
 ### Ollama fallback when multimedia machine is down
 
-Ollama health check on each run start. If unreachable:
+Every run starts with an Ollama health check. If Ollama is unreachable:
 - Scrape and deduplicate as normal
 - Mark new listings with `score = 'PENDING'` in DB (see 03-data-model.md)
 - Skip LLM scoring and alerting for this run
-- On next run where Ollama is reachable: score all `PENDING` listings first
+- On the next run where Ollama is reachable: score all `PENDING` listings first
 
-Never auto-fallback to a paid API when Ollama is down. Claude/hybrid providers are opt-in via config only.
+Fashion Monitor never automatically falls back to a paid API when Ollama is down. Claude and hybrid providers are opt-in via config only.
 
 ### GitHub Actions — CI only
 
-Scraper never runs on GHA. CI workflow runs lint, `tsc --noEmit`, and Vitest on push/PR (ADR-010).
+The scraper never runs inside GitHub Actions (GHA — GitHub's built-in CI/CD service; CI means continuous integration, automated checks run on every push). The CI workflow runs lint, `tsc --noEmit`, and Vitest on push/PR (ADR-010).
 
 ## Key Constraints
 
 - Rate limiting: add delays between requests per platform (see platform specs)
 - Query volume: 1-3 queries per platform per run depending on platform (eBay: 2-3, Grailed: 2, others: 1) — see each platform spec
-- Cross-query deduplication: listings appearing in multiple queries within a run deduplicated in-memory before DB write, to prevent double-scoring
+- Cross-query deduplication: listings appearing in multiple queries within a run are deduplicated in-memory before the database write, to prevent double-scoring
 - No residential proxies needed at this volume
 - Default config uses Ollama only ($0). Optional Claude/hybrid via config — see 04-llm-scoring.md

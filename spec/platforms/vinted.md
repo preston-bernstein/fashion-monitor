@@ -2,12 +2,11 @@
 
 ## Status: Deprioritized — enable in v2
 
+Vinted is a secondhand-clothing marketplace, mostly used in Europe. It is not enabled in v1 of the scraper. This file specs how to turn it on later.
+
 ## Reason for Deferral
 
-- Inventory skews EU — less relevant for US buyer
-- Datadome protection requires most maintenance of all platforms
-- `vinted-scraper` PyPI package exists but requires monitoring for breakage
-- Other 5 platforms cover the use case for v1
+Vinted's inventory skews European, which matters less for a US buyer. Vinted's Datadome protection (an anti-bot detection service, similar to Cloudflare but a different vendor) demands more ongoing maintenance than any other platform in this repo. A Python package, `vinted-scraper` (available on PyPI, Python's package index), already handles this platform, but it needs monitoring for breakage. The other 5 platforms already cover the v1 use case without it.
 
 ## Enable When
 
@@ -53,7 +52,7 @@ items = scraper.search(params)
 ### What it does NOT handle at scale
 
 - Residential proxy rotation (not needed at personal volume)
-- TLS fingerprinting via curl-cffi (may be needed if Datadome upgrades)
+- TLS fingerprinting via `curl-cffi` (a library that mimics a real browser's encryption handshake) — may be needed if Datadome upgrades
 - Geographic routing (vinted.fr vs vinted.de etc.)
 
 ### Response Normalization
@@ -79,13 +78,13 @@ def normalize_vinted(item) -> Listing:
 
 ### Maintenance Risk
 
-Datadome escalates protections periodically. If `vinted-scraper` breaks:
+Datadome escalates its protections periodically. If `vinted-scraper` breaks, follow these steps in order:
 1. Check for updated package version: `pip install --upgrade vinted-scraper`
 2. Check package GitHub for open issues
 3. If package is broken: fall back to manual session with `curl-cffi`
 
 ### Rate Limits
 
-- 1-2 searches per run, 96 items max per search
-- Add 2-3 second delay between requests
-- At personal volume (~24 runs/day) should not trigger blocks
+- Run 1 to 2 searches per run, up to 96 items per search.
+- Add a 2- to 3-second delay between requests.
+- At personal volume (about 24 runs a day), this shouldn't trigger blocks.

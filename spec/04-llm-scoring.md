@@ -2,13 +2,15 @@
 
 ## Purpose
 
-Replace hardcoded brand/keyword lists with semantic understanding of the target aesthetic. A listing for a brand never heard of (e.g., a Norwegian knitwear label, a Japanese workwear brand) should surface if it matches the vibe. A listing with a known brand name should still fail if the specific item doesn't fit.
+This document specifies how Fashion Monitor uses an LLM (large language model — an AI model that reads text, images, or both, and produces a judgment) to score each listing against your aesthetic, instead of relying on fixed brand or keyword lists.
+
+A brand list can't recognize an unfamiliar label — a Norwegian knitwear maker, a Japanese workwear brand — even when its clothes match your taste. The LLM reasons about the item itself, so it can surface those listings. It can also reject a listing from a known, trusted brand if that particular item doesn't fit the aesthetic.
 
 ---
 
 ## Provider Abstraction
 
-The scoring layer talks to a `LLMProvider` interface — not directly to Ollama or Claude. Switch providers via `config.yaml` with no code changes. This is the architecturally interesting piece worth showing on GitHub.
+The scoring code calls a single `LLMProvider` interface. It never calls Ollama (software that runs open-source LLMs on your own hardware, for free and in private) or Claude (Anthropic's cloud LLM service) directly. You switch providers by editing `config.yaml` — no code changes needed. This abstraction is the most interesting architectural piece of this feature, and worth highlighting if you show this project on GitHub.
 
 ```typescript
 interface LLMProvider {
@@ -22,9 +24,9 @@ class ClaudeProvider implements LLMProvider { ... }    // cloud, ~$2-5/month, hi
 class HybridProvider implements LLMProvider { ... }    // Ollama for text, configurable for vision
 ```
 
-`HybridProvider` uses Ollama for text batch scoring (pass 1) and a configurable backend for vision (pass 2). Vision backend is selected via `llm.vision_backend` in config: `"ollama"` or `"claude"`. See `packages/core/src/llm/hybrid.ts`.
+`HybridProvider` uses Ollama for the text batch pass (pass 1) and lets you pick the backend for the vision pass (pass 2). Set the vision backend with `llm.vision_backend` in the config: `"ollama"` or `"claude"`. See `packages/core/src/llm/hybrid.ts`.
 
-Config selects the provider:
+The config file selects the provider:
 ```yaml
 llm:
   provider: "hybrid"       # "ollama" | "claude" | "hybrid"
@@ -40,9 +42,9 @@ llm:
 
 ## Honest Capability Assessment
 
-**Text scoring (pass 1) — Ollama 7B is sufficient.**
+**Text scoring (pass 1): a 7B model is enough.**
 
-The task is: given title, brand, description, price, condition — is this YES/MAYBE/NO for a defined aesthetic? This is structured classification with context. A well-prompted 7B model handles this reliably. `qwen2.5:7b` is particularly strong at following structured output constraints.
+Pass 1's job: given a listing's title, brand, description, price, and condition, decide YES, MAYBE, or NO against the aesthetic. That's structured classification with some context — a task a well-prompted 7B model (a 7-billion-parameter model, small enough to run on a single consumer GPU) handles reliably. `qwen2.5:7b` is especially good at following the structured-output format this system needs.
 
 What 7B gets right:
 - Known brand quality signals (Helmut Lang = quality, Zara = fast fashion)
@@ -55,11 +57,11 @@ What 7B gets wrong sometimes:
 - Unknown brands with no brand signal at all
 - Very sparse listings (title only, no description)
 
-These edge cases → MAYBE → pass 2. That's the correct behavior.
+These edge cases become MAYBE and move to pass 2. That's by design, not a failure.
 
-**Vision scoring (pass 2) — depends on your GPU.**
+**Vision scoring (pass 2): quality depends on your GPU (the graphics card that runs the model).**
 
-Vision models vary significantly in their ability to assess fabric texture, color accuracy, and aesthetic fit from a photo. Honest ranking for this use case:
+Vision models — LLMs that can also look at an image — differ a lot in how well they judge fabric texture, color accuracy, and aesthetic fit from a photo. Here's how they rank for this task, along with the VRAM (dedicated memory on the graphics card) each needs:
 
 | Model | Capability | VRAM needed |
 |-------|-----------|-------------|
@@ -70,7 +72,7 @@ Vision models vary significantly in their ability to assess fabric texture, colo
 | `llava:7b` | Acceptable, older architecture | ~5 GB |
 | `llava-phi3` | Fast but weak on aesthetic nuance | ~3 GB |
 
-**Recommended approach by GPU tier:**
+**Recommended setup, by GPU tier:**
 
 ```bash
 # Check your GPU first
@@ -86,13 +88,13 @@ rocm-smi    # AMD
 | 24 GB+ | `qwen2.5:7b` | `llama3.2-vision:11b` | `ollama` |
 | CPU only | too slow | too slow | `claude` |
 
-**The pragmatic hybrid:** Ollama for text (free, private, plenty capable), Claude API for vision only (MAYBE items only, ~3-8 items/run at steady state). Vision API cost: ~$0.01-0.03/run = under $1/month. Best quality where it matters, local where it's sufficient.
+**The practical setup:** use Ollama for text scoring — it's free, private, and capable enough — and Claude's API only for vision, and only on MAYBE items (about 3-8 per run once the system is running steadily). Vision API cost is about $0.01-0.03 per run, under $1/month. You get the best quality where it matters (images) and keep the rest local and free.
 
 ---
 
 ## Ollama Structured Output
 
-Use Ollama's native JSON schema enforcement (Ollama ≥ 0.5) — grammar-constrained at token level, more reliable than OpenAI shim:
+Use Ollama's built-in JSON schema enforcement (requires Ollama version 0.5 or later). It constrains the model's output token by token to match the schema, which is more reliable than the OpenAI-compatibility shim (a compatibility layer that mimics OpenAI's API):
 
 ```typescript
 import ollama from "ollama";
@@ -120,7 +122,7 @@ const response = await ollama.chat({
 const results = BatchSchema.parse(JSON.parse(response.message.content));
 ```
 
-Structurally valid JSON guaranteed at token level — no markdown fences, no parse errors. Zod parse as a second validation layer catches any type mismatches.
+This guarantees structurally valid JSON at the token level — no markdown code fences, no parse errors. The Zod (a TypeScript schema-validation library) parse step afterward is a second check that catches any type mismatches.
 
 ---
 
@@ -133,26 +135,25 @@ Structurally valid JSON guaranteed at token level — no markdown fences, no par
 | RTX 3090/4080 24GB | 5–10s | 4–8s local / 1–2s Claude |
 | RTX 4090 24GB | 3–6s | 2–5s local / 1–2s Claude |
 
-At steady state (10–20 new listings/run, 2–5 MAYBEs): total scoring time 20–60s. Well within 60-min cycle budget.
+At steady state — 10 to 20 new listings per run, 2 to 5 of them MAYBE — total scoring time is 20 to 60 seconds. That's well inside the 60-minute run cycle.
 
 ---
 
 ## Verdict Caching (biggest cost lever)
 
-**Do not re-score listings already in the DB with a verdict.**
+**Never re-score a listing that already has a verdict.**
 
-`seen_listings` stores `score` per listing. Before LLM scoring, filter out any listing where `score IS NOT NULL`. At steady state (after week 1), the vast majority of listings seen per run already have scores — only truly new listings hit the LLM.
+The `seen_listings` table (the DB — database — table that tracks every listing the pipeline has scraped) stores a `score` for each listing. Before sending anything to the LLM, filter out any listing where `score IS NOT NULL`. After the first week, most listings seen in a given run already have a score, so only genuinely new listings reach the LLM.
 
-Without this: LLM re-evaluates 40-80 stale listings every run = wasted cost.
-With this: steady-state LLM input drops to 5-15 new listings/run = 1-2 batches max.
+Without this filter, the LLM re-evaluates 40-80 stale listings every run, which wastes money for no benefit. With it, steady-state LLM input drops to 5-15 new listings per run — one or two batches at most.
 
-**This is the single largest cost reduction available. Implement first.**
+**This is the single biggest cost reduction available. Build it first.**
 
 ---
 
 ## Pre-Filter Layer — hard rules, zero LLM cost
 
-Three independent gates. A listing fails any one → rejected immediately, no LLM call.
+Three independent gates run before any LLM call. A listing that fails any one gate is rejected immediately, at zero LLM cost.
 
 ### Gate 1: Fast fashion / quality floor blocklist
 Brands and keywords that indicate low quality regardless of price or aesthetic:
@@ -177,7 +178,7 @@ const PRIMARY_SYNTHETIC_FABRICS = [
 ```
 
 ### Gate 2: Price floor (replica/junk signal)
-Items priced suspiciously low for their claimed brand are likely replica or severely damaged:
+An item priced far below what its claimed brand normally sells for is likely a replica or badly damaged:
 ```typescript
 const BRAND_PRICE_FLOORS: Record<string, number> = {
   "brunello cucinelli": 80,
@@ -192,7 +193,7 @@ const BRAND_PRICE_FLOORS: Record<string, number> = {
 
 ### Gate 3: Size — soft signal only, never hard reject
 
-Do NOT hard-reject on size. Resale sizing is too inconsistent to gate on:
+Never hard-reject a listing on size alone. Resale sizing is too inconsistent to gate on:
 - Japanese/Korean brands run 1-2 sizes small (their XL = US L)
 - Italian/European brands run slim (EU 54 ≈ US XL/2XL)
 - Oversized cuts labeled S/M/L often fit much larger
@@ -200,8 +201,7 @@ Do NOT hard-reject on size. Resale sizing is too inconsistent to gate on:
 - Many listings have no size field, or list measurements instead
 - Sellers frequently mislabel size
 
-Instead: pass size field + any measurements in the description to the LLM.
-LLM assesses fit likelihood using user's actual measurements as ground truth:
+Instead, pass the size field and any measurements in the description to the LLM. The LLM judges fit likelihood using your actual body measurements as ground truth:
 
 **User measurements (inject into system prompt):**
 - Height: YOUR_HEIGHT
@@ -232,22 +232,22 @@ LLM assesses fit likelihood using user's actual measurements as ground truth:
 "size": "UNLIKELY"  — probably too small (M, L regular fit, EU YOUR_CHEST_SIZE, chest < 46")
 ```
 
-- HIGH + passing quality/value/aesthetic → YES alert
-- UNCERTAIN + passing everything else → MAYBE alert with size note
-- UNLIKELY → reject (the one size-based rejection, only for clearly incompatible)
+- HIGH, combined with a pass on quality, value, and aesthetic, produces a YES alert.
+- UNCERTAIN, combined with a pass on everything else, produces a MAYBE alert with a size note.
+- UNLIKELY produces a reject — the only size-based rejection, and only for clearly incompatible sizes.
 
-**Measurements in description override size label.** If a listing says "chest 52 inches" that's a YES regardless of what the size tag says.
+**Measurements in the description override the size label.** If a listing says "chest 52 inches," that's a YES regardless of what the size tag says.
 
-Combined, these three gates eliminate roughly 40-60% of raw listings before any LLM call — and they eliminate the worst offenders first.
+Together, these three gates eliminate roughly 40-60% of raw listings before any LLM call runs, and they catch the worst offenders first.
 
 ---
 
 ## Batching
 
-- Group listings into batches of **15-20** per API call (not 10)
-- Larger batches reduce system prompt repetition across calls
-- 15-20 is the sweet spot — beyond 30, LLM attention dilutes for middle items
-- Each listing identified by stable `listing_id`, not positional index
+- Group listings into batches of **15-20** per API call, not 10.
+- Larger batches cut down how often the system prompt repeats across calls.
+- 15-20 is the sweet spot: beyond 30 listings, the LLM's attention drops for items in the middle of the batch.
+- Each listing is identified by its stable `listing_id`, never by its position in the list.
 
 ---
 
@@ -342,7 +342,7 @@ Return ONLY valid JSON. No explanation outside the JSON.
 
 ## Description Truncation
 
-Truncate descriptions to 500 characters (~100 tokens) before passing to LLM. Sellers front-load key signals (fabric, condition, brand details) in the first 2-3 sentences. The remainder is shipping policy, measurements, disclaimers — noise for scoring.
+Truncate each listing description to 500 characters (about 100 tokens — a token is roughly a word-piece of text an LLM processes) before sending it to the LLM. Sellers put the key signals — fabric, condition, brand details — in the first two or three sentences. Everything after that is usually shipping policy, measurements, or disclaimers: noise for scoring purposes.
 
 ```typescript
 interface PreparedListing {
@@ -371,7 +371,7 @@ function prepareForLLM(listing: Listing): PreparedListing {
 }
 ```
 
-This alone reduces per-listing token count from ~150 to ~75-90, cutting LLM input cost by ~40%.
+This one change cuts the token count per listing from about 150 to about 75-90, which lowers LLM input cost by roughly 40%.
 
 ---
 
@@ -439,7 +439,7 @@ If the response is malformed JSON or missing listings, the caller will treat all
 
 ---
 
-## Signals Claude Should Weight
+## Signals the LLM Should Weight
 
 **Strong positive:**
 - Texture words: corduroy, wide wale, tweed, twill, slub cotton, waffle knit, bouclé, 
@@ -476,9 +476,9 @@ If the response is malformed JSON or missing listings, the caller will treat all
 
 ## Cost
 
-**Default config (`provider: ollama`): $0/month.** Ollama runs on your existing always-on multimedia machine. No API billing.
+**Default config (`provider: ollama`): $0/month.** Ollama runs on the always-on machine you already have. There's no API bill.
 
-**Optional paid providers** (`claude`, `hybrid`) are selected explicitly in `config.yaml` — never auto-invoked when Ollama is down. Hybrid typically costs <$1/month if vision pass uses Claude for MAYBE items only.
+**The paid providers** (`claude`, `hybrid`) only run if you explicitly select them in `config.yaml`. The system never falls back to them automatically if Ollama goes down. The hybrid setup typically costs under $1/month if you use Claude only for the vision pass on MAYBE items.
 
 **Total external service cost (default ollama config):**
 - Telegram Bot API: **free**
@@ -492,32 +492,32 @@ If the response is malformed JSON or missing listings, the caller will treat all
 
 ## Two-Pass Scoring (images for MAYBE only)
 
-**Pass 1 — text only, all new listings:**
-- Fast, cheap
-- Produces YES / MAYBE / NO
-- YES items → alert immediately
-- NO items → mark, discard
-- MAYBE items → pass 2
+**Pass 1 — text only, every new listing:**
+- Fast and cheap.
+- Produces a YES, MAYBE, or NO.
+- YES items alert immediately.
+- NO items get marked and discarded.
+- MAYBE items move to pass 2.
 
-**Pass 2 — image scoring for MAYBE items only:**
-- Include `image_url` in prompt for each MAYBE listing
-- Claude fetches and evaluates image alongside text
-- Re-scores: YES (alert) or NO (discard)
-- If image URL unavailable or auth-gated → keep as MAYBE, alert with lower confidence note
+**Pass 2 — image scoring, MAYBE items only:**
+- Include `image_url` in the prompt for each MAYBE listing.
+- Claude fetches the image and evaluates it alongside the text.
+- Re-scores the listing as YES (alert) or NO (discard).
+- If the image URL is unavailable or requires login, keep the listing as MAYBE and alert with a lower-confidence note.
 
-This two-pass approach uses images where they matter (ambiguous items) without multiplying cost across all listings. Image tokens (~1,500 per image) only incurred for MAYBE items, which at steady state is 2-5 listings/run.
+This two-pass approach uses images only where they matter — ambiguous items — instead of on every listing. Image tokens (about 1,500 per image) are only spent on MAYBE items, which is 2-5 listings per run at steady state.
 
-**Cost impact at steady state:** 3 MAYBE items × 1,500 image tokens = 4,500 extra tokens = $0.0045/run. Negligible.
+**Cost impact at steady state:** 3 MAYBE items × 1,500 image tokens = 4,500 extra tokens = $0.0045 per run. Negligible.
 
 ---
 
 ## Seeded Feedback — ongoing ground truth
 
-The feedback table has two write paths:
+The `feedback` table (the Feedback signals described in CONTEXT.md — positive or negative examples fed into the LLM prompt) has two write paths.
 
-**Path 1: Telegram ✅/❌** — in-the-moment reaction to an alert (covered in 05-alert-system.md)
+**Path 1: Telegram thumbs up / thumbs down** — your in-the-moment reaction to an alert. Covered in 05-alert-system.md.
 
-**Path 2: Config seed** — you explicitly declare known-good and known-bad pieces in `config.yaml` at any time. Loaded into the feedback table on every run startup. This is how you inject ground truth before the first alert ever fires, and how you continue to calibrate the system as you discover new pieces (in stores, secondhand, anywhere).
+**Path 2: config seed** — you list known-good and known-bad pieces directly in `config.yaml`, at any time. The system loads these into the `feedback` table every time it starts a run. This lets you set ground truth before the first alert ever fires, and keep calibrating the system as you find new pieces — in stores, secondhand, anywhere.
 
 ```yaml
 # config.yaml — add to at any time, takes effect next run
@@ -543,21 +543,21 @@ seed_feedback:
       notes: "hard no — wrong aesthetic entirely"
 ```
 
-On startup, the system upserts seed entries into the `feedback` table with `source = 'seed'`. Seed entries are permanent (not rotated out like Telegram feedback). Telegram feedback still rotates at 30 most recent — seeds stay as anchors underneath.
+On startup, the system upserts (inserts, or updates if already present) seed entries into the `feedback` table with `source = 'seed'`. Seed entries are permanent — they don't rotate out the way Telegram feedback does. Telegram feedback still rotates to the most recent 30 entries; the seeds stay underneath as permanent anchors.
 
 This means:
-- You can add a piece you tried in a store that didn't fit → immediate calibration
-- You can add a piece you found and loved → reinforces that signal
-- No alert needed — works entirely outside the monitoring loop
-- Survives DB wipes — seeds are in config, always re-applied on startup
+- Adding a piece you tried in a store that didn't fit calibrates the system immediately.
+- Adding a piece you found and loved reinforces that signal.
+- No alert is needed — this works entirely outside the monitoring loop.
+- Seed feedback survives DB wipes, since it lives in the config file and gets reapplied on every startup.
 
-**`source` column on feedback table:** add `source TEXT NOT NULL DEFAULT 'telegram'` — values: `'telegram'` | `'seed'`. Seed entries never rotated, always injected first in the few-shot block.
+**`source` column on the feedback table:** add `source TEXT NOT NULL DEFAULT 'telegram'`, with values `'telegram'` or `'seed'`. Seed entries are never rotated out, and always go first in the few-shot block (the block of example listings inserted into the prompt so the LLM learns from past feedback).
 
 ---
 
 ## Few-Shot Injection (learning over time)
 
-On each run, the system prompt builder reads recent feedback from the DB and appends examples:
+On each run, the system-prompt builder reads recent feedback from the database and appends examples to the prompt:
 
 ```
 Recent items you liked (score these similarly):
@@ -600,12 +600,12 @@ function buildSystemPrompt(config: Config, db: Database): string {
 ```
 
 **Learning curve:**
-- 0-10 feedback events: prompt is static, same as baseline
-- 10-25 events: noticeable improvement in YES/NO accuracy
-- 25-50 events: strong calibration to actual preferences
-- 50+ events: rotate to most recent 30, oldest examples fall off
+- 0-10 feedback events: the prompt stays static, same as the baseline.
+- 10-25 events: noticeable improvement in YES/NO accuracy.
+- 25-50 events: strong calibration to your actual preferences.
+- 50+ events: the system rotates to the most recent 30 and the oldest examples fall off.
 
-**Caching advantage:** Once system prompt hits 4,096+ tokens (it will after injecting ~20 examples), prompt caching kicks in. Cache the full system prompt including examples. At that point caching saves real money — the example block is the same across all batches in a run.
+**Caching advantage:** once the system prompt reaches 4,096 or more tokens — which happens after roughly 20 injected examples — prompt caching (reusing a previously processed prompt instead of reprocessing it, which is cheaper) kicks in. Cache the full system prompt, examples included. At that point, caching saves real money, since the example block stays the same across every batch in a run.
 
 ---
 
@@ -618,15 +618,15 @@ function buildSystemPrompt(config: Config, db: Database): string {
 | Text + image, no feedback | ~80% |
 | Text + image, 30+ feedback events | ~85-90% |
 
-The tool will make mistakes. False positives (alerts for bad items) are annoying. False negatives (missing good items) are costly — you never see the item. The MAYBE→image-check step is specifically designed to reduce false negatives on ambiguous listings.
+The tool will make mistakes. A false positive — an alert for an item that isn't actually a match — is annoying. A false negative — missing a genuinely good item — is worse, because you never even see it. The MAYBE-to-image-check step exists specifically to cut down false negatives on ambiguous listings.
 
-**What the LLM genuinely cannot assess from text or image:**
-- Fabric hand-feel and weight
-- Construction quality of seams and buttons (not visible in standard listing photos)
-- Whether "relaxed fit" means your relaxed or their relaxed
-- Seller reliability / actual condition vs described condition
+**What the LLM genuinely cannot assess from text or a photo:**
+- How the fabric actually feels and how heavy it is.
+- The construction quality of seams and buttons — not visible in standard listing photos.
+- Whether "relaxed fit" means your idea of relaxed or the seller's.
+- Seller reliability, or how the item's actual condition compares to its described condition.
 
-These require physical inspection. The tool surfaces candidates — you still make the final call.
+These all need physical inspection. The tool surfaces candidates; you still make the final call.
 
 ---
 
@@ -634,28 +634,27 @@ These require physical inspection. The tool surfaces candidates — you still ma
 
 As feedback accumulates, the system can suggest search query improvements:
 
-- Brands appearing in 3+ positive feedback events → add to platform search queries
-- Brands appearing in 3+ negative feedback events → add to pre-filter blocklist
-- Texture keywords appearing in positive feedback → boost in queries
-- This runs as a weekly analysis, not per-run — see future spec
+- A brand appearing in 3 or more positive feedback events gets added to platform search queries.
+- A brand appearing in 3 or more negative feedback events gets added to the pre-filter blocklist.
+- A texture keyword appearing in positive feedback gets boosted in queries.
+- This runs as a weekly analysis, not on every run — see a future spec for details.
 
-Not in v1. Document as v2 enhancement.
+This is not in v1 (version 1, the first shipped release). It's documented here as a planned v2 enhancement.
 
 ---
 
 ## Parse Error Handling
 
-LLMs can return malformed JSON, markdown fences, partial output on large batches, or omit listings. Implementation must:
-1. Strip markdown fences before parsing (`json.loads` will fail otherwise)
-2. On `json.JSONDecodeError`: log the raw response, treat all listings in that batch as MAYBE, re-score individually on next run
-3. On missing `listing_id` in response: treat as MAYBE
-4. Never silently drop a listing — missing = MAYBE, never NO
+LLMs can return malformed JSON, wrap output in markdown code fences, return partial output on large batches, or omit listings entirely. The implementation must:
+1. Strip markdown fences before parsing — `json.loads` (Python's JSON parser) fails otherwise.
+2. On a `json.JSONDecodeError` (a JSON parsing failure): log the raw response, treat every listing in that batch as MAYBE, and re-score them individually on the next run.
+3. Treat any response missing a `listing_id` as MAYBE.
+4. Never silently drop a listing. A missing listing becomes MAYBE, never NO.
 
 ---
 
 ## Tuning
 
-The aesthetic prompt lives in `config.yaml` under `aesthetic_prompt`. Edit it without touching code. Changes take effect next run. No retraining or redeployment needed.
+The aesthetic prompt lives in `config.yaml` under `aesthetic_prompt`. Edit it directly — no code changes needed. Changes take effect on the next run, with no retraining or redeployment required.
 
-If false positives are high: add specific exclusions to the hard-NO list.
-If false negatives are high (missing good items): loosen the MAYBE threshold or add texture keywords.
+If false positives are high, add specific exclusions to the hard-NO list. If false negatives are high — meaning you're missing good items — loosen the MAYBE threshold or add more texture keywords.

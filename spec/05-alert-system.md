@@ -1,31 +1,35 @@
 # 05 — Alert System
 
+This document specifies how Fashion Monitor notifies you when a listing gets a YES or MAYBE Score (the LLM's verdict on a listing — see CONTEXT.md).
+
 ## Delivery Method: Telegram
 
-**Why Telegram:**
-- Free, no monthly cost
-- Supports images inline — critical for clothing
-- Instant push notifications on phone
-- Bot API is simple and well-documented
-- Works without a server (just HTTP POST to api.telegram.org)
+Fashion Monitor sends alerts through Telegram, a messaging app with a free bot API (an interface other programs can use to send messages through it).
 
-**Alternative considered:** Email — rejected because images require attachments, no push, slower.
+**Why Telegram:**
+- Free, no monthly cost.
+- Supports images inline — important for clothing listings.
+- Sends instant push notifications to your phone.
+- Its bot API is simple and well documented.
+- Works without running your own server — just an HTTP POST request to api.telegram.org.
+
+**Alternative considered:** email. Rejected because images need attachments, there's no push notification, and it's slower.
 
 ---
 
 ## Setup (one-time)
 
-1. Message @BotFather on Telegram → create bot → get `TELEGRAM_BOT_TOKEN`
-2. Start a chat with the bot
-3. Get your chat ID: `https://api.telegram.org/bot{TOKEN}/getUpdates`
-4. Store both in `.env`
+1. Message @BotFather on Telegram, create a bot, and get a `TELEGRAM_BOT_TOKEN`.
+2. Start a chat with the bot.
+3. Get your chat ID from `https://api.telegram.org/bot{TOKEN}/getUpdates`.
+4. Store both values in `.env` (the environment file that holds secrets).
 
 ---
 
 ## Alert Format
 
 ### Immediate Mode (default)
-One message per YES/MAYBE listing, sent as soon as scoring completes.
+In immediate mode, the default, the system sends one message per YES or MAYBE listing, as soon as scoring finishes.
 
 ```
 [eBay] ✅ YES
@@ -55,16 +59,12 @@ Quality ?  Value ✓  Aesthetic ✓  Size: uncertain
 [ ✅ Good find ] [ ❌ Not for me ]
 ```
 
-Size uncertainty is common and expected — MAYBE on size alone is worth alerting.
-EU sizing, Japanese sizing, oversized cuts, and measurement-only listings
-all surface as UNCERTAIN and are worth a quick look.
+Size uncertainty is common and expected. A MAYBE based on size alone is still worth alerting on. EU sizing, Japanese sizing, oversized cuts, and listings with only measurements (no size label) all surface as UNCERTAIN, and are worth a quick look.
 
-Image sent as photo attachment above the text (Telegram `sendPhoto` with caption).
-
-If no image available: text-only message.
+The image, if there is one, is sent as a photo attachment above the text, using Telegram's `sendPhoto` call with a caption. If no image is available, the alert is text-only.
 
 ### Digest Mode (optional)
-All YES/MAYBE matches from a run bundled into one message. Useful if runs produce many matches and individual messages become noisy.
+Digest mode bundles every YES/MAYBE match from a run into a single message. Use it if a run produces enough matches that individual messages get noisy.
 
 ```
 Fashion Monitor — 3 matches found
@@ -82,7 +82,7 @@ Fashion Monitor — 3 matches found
    https://...
 ```
 
-Switch between modes in `config.yaml` → `alert.mode`.
+Switch between modes with `alert.mode` in `config.yaml`.
 
 ---
 
@@ -103,50 +103,48 @@ Why: Black slub cotton, relaxed fit, quality brand — Cave-adjacent.
 [ ✅ Good find ] [ ❌ Not for me ]
 ```
 
-Implemented via Telegram `InlineKeyboardMarkup`. When user taps a button:
-- Bot receives `callback_query` with `listing_id` + signal (`positive` / `negative`)
-- Record written to `feedback` table
-- Bot replies: "Got it — I'll learn from this."
+This uses Telegram's `InlineKeyboardMarkup` (a way to attach tappable buttons to a message). When you tap a button:
+- The bot receives a `callback_query` (Telegram's event for a button tap) carrying the `listing_id` and a signal, `positive` or `negative`.
+- The bot writes a record to the `feedback` table.
+- The bot replies: "Got it — I'll learn from this."
 
-**Telegram bot must poll for updates** (or use webhook) to receive button callbacks. Simple polling loop runs as a lightweight separate process or thread. Check every 30 seconds — no need for real-time response.
+**The Telegram bot must poll for updates**, or use a webhook, to receive button-tap callbacks. A simple polling loop, running as a lightweight separate process or thread and checking every 30 seconds, is enough — there's no need for a real-time response.
 
-This feedback powers the few-shot injection in 04-llm-scoring.md. System gets meaningfully better after 20-30 button taps. No other action required from the user.
+This feedback powers the few-shot injection described in 04-llm-scoring.md (the process of adding recent feedback examples to the LLM prompt). The system gets meaningfully better after 20-30 button taps, and needs no other action from you.
 
 ## No-Match Runs
 
-Silent by default — no message if zero matches found.
-
-Optional: send a brief "No matches this run" ping if desired (config flag `alert.notify_empty`). Off by default.
+By default, a run with zero matches sends no message. You can optionally enable a brief "No matches this run" ping with the `alert.notify_empty` config flag. It's off by default.
 
 ---
 
 ## Error Handling
 
-If a platform scraper fails: log the error, continue with other platforms, include a note in the run log. Do not send a Telegram alert for scraper errors unless the entire run fails.
+If a platform scraper fails, log the error, keep going with the other platforms, and note the failure in the run log. Don't send a Telegram alert for a scraper error unless the entire run fails.
 
-If Claude API fails: log, skip scoring for that batch, do not alert. Try again next run.
+If the Claude API call fails, log it, skip scoring for that batch, and don't alert. The pipeline tries again on the next run.
 
-If Telegram send fails: log, retry once after 30 seconds.
+If sending a Telegram message fails, log it and retry once after 30 seconds.
 
 ---
 
 ## Rate Limiting
 
-Telegram allows 30 messages per second per bot. At personal use volume (≤10 alerts per run) this is never a concern. Add 0.1s delay between messages anyway as good practice.
+Telegram allows 30 messages per second per bot. At personal-use volume — 10 or fewer alerts per run — this limit is never a concern. Add a 0.1-second delay between messages anyway, as good practice.
 
 ---
 
 ## Alert History — Web App
 
-The web app (`apps/web`) provides a browsable view of `alert_log`. Curators and above can:
-- Filter by Monitor, platform, score, and date range
-- See full scoring dimensions (aesthetic/quality/value) and LLM reason
-- Mark feedback directly from the web UI (alternative to Telegram ✅/❌ buttons)
+The web app (`apps/web`) gives you a browsable view of the `alert_log` table. Users with the Curator role or above (see CONTEXT.md's Role definitions) can:
+- Filter by Monitor (a saved search — see CONTEXT.md), platform, score, and date range.
+- See the full scoring breakdown (aesthetic, quality, value) and the LLM's stated reason.
+- Mark feedback directly from the web UI, as an alternative to the Telegram ✅/❌ buttons.
 
-Telegram push remains the primary real-time delivery channel. The web app is for review and analytics, not first notification.
+Telegram push stays the primary real-time delivery channel. The web app is for review and analytics, not first notification.
 
 ---
 
 ## Future: Price Drop Alerts
 
-If a listing was previously seen but its price dropped significantly (>20%), re-alert even if already seen. Not in v1 — requires storing price history per listing.
+If a previously-seen listing's price drops by more than 20%, re-alert on it even though it's already been seen. This isn't in v1 (the first release) — it needs the system to store a price history per listing.

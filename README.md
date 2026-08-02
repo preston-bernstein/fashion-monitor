@@ -1,14 +1,14 @@
 # Fashion Monitor
 
-Personal resale monitoring: scrape eBay, Grailed, Vestiaire, Depop, and Poshmark; score listings with a local LLM against your aesthetic; alert via ntfy.
+Fashion Monitor is a personal tool that watches secondhand clothing sites for items matching your taste. It scrapes eBay, Grailed, Vestiaire, Depop, and Poshmark, scores each listing with a local LLM (large language model — an AI model you run yourself, not a cloud API) against your described aesthetic, and sends alerts through ntfy (a push-notification service).
 
 [![CI](https://github.com/preston-bernstein/fashion-monitor/actions/workflows/ci.yml/badge.svg)](https://github.com/preston-bernstein/fashion-monitor/actions/workflows/ci.yml)  [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-3178c6)](tsconfig.base.json)  [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Agent policy: [.cursor/rules/no-agent-attribution.mdc](.cursor/rules/no-agent-attribution.mdc) (no AI attribution in commits or code).
+Agent policy: [.cursor/rules/no-agent-attribution.mdc](.cursor/rules/no-agent-attribution.mdc). AI coding assistants must not attribute commits or code to themselves.
 
 ## Monorepo layout
 
-pnpm workspaces + Turborepo. Shared contracts live in `@fm/shared`; the SPA imports types/schemas only (HTTP to the API at runtime).
+This is a monorepo: several related packages live in one Git repository instead of separate repositories. It uses pnpm workspaces (pnpm's built-in multi-package support) and Turborepo (a build tool that runs tasks across those packages in the right order and caches results). Shared contracts — the TypeScript types and validation schemas both sides agree on — live in `@fm/shared`. The SPA (single-page application, the browser-based React app) imports only those types and schemas from `@fm/shared`; it talks to the API over HTTP at runtime, not by importing its code.
 
 ```
 packages/
@@ -62,6 +62,8 @@ node apps/cli/dist/dashboard.js --config config.yaml
 
 ## Pre-flight (Synology deploy)
 
+Synology is a NAS (network-attached storage) brand — a small server on your home network that stores files and can run Docker containers. Before deploying there, check two things:
+
 ```bash
 uname -m   # NAS must be x86_64 for Playwright
 curl http://<multimedia-ip>:11434/   # Ollama reachable from container
@@ -69,7 +71,7 @@ curl http://<multimedia-ip>:11434/   # Ollama reachable from container
 
 ## Docker (production)
 
-Multi-stage image uses `turbo prune --docker` + pnpm. Mount NAS volume at `/data` with `config.yaml`, `.env`, and SQLite:
+Multi-stage image uses `turbo prune --docker` (Turborepo's command that strips a package down to only what one deployable service needs) + pnpm. Mount the NAS volume at `/data` with `config.yaml`, `.env`, and the SQLite database file:
 
 ```bash
 docker compose build
@@ -133,7 +135,7 @@ Design docs: [spec/README.md](spec/README.md)
 
 ## Architecture decisions
 
-7 ADRs in [`docs/adr/`](docs/adr/) covering MCP as the primary interface, encrypted-at-rest secrets, invite-only self-service profiles, tiered connections, multi-profile serial pipeline execution, shared-GPU inference broker, and ntfy over Telegram for push alerts.
+An ADR (Architecture Decision Record) is a short document that captures one design decision and why it was made. This repo has 7, in [`docs/adr/`](docs/adr/), covering: MCP (Model Context Protocol — the interface an LLM client like Claude uses to call tools) as the primary interface; encrypted-at-rest secrets; invite-only self-service profiles; tiered connections; multi-profile serial pipeline execution; a shared-GPU inference broker; and ntfy over Telegram for push alerts.
 
 ## License
 
