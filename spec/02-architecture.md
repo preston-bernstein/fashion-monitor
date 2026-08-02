@@ -73,7 +73,7 @@ The diagram below shows the full pipeline: two schedulers kick off scraping, res
 
 ## Monorepo Structure
 
-Fashion Monitor is a monorepo (one repository holding several related packages) laid out like this:
+Fashion Monitor is a monorepo laid out like this:
 
 ```
 fashion-monitor/
@@ -153,7 +153,7 @@ This phase checks whether a listing has already been seen, so it doesn't alert t
 - Only listings not already recorded in `seen_listings` continue to the next phase
 
 ### 3. Score Phase
-- **Pass 1** (text, all new): Ollama (the LAN-hosted LLM server) batch-scores every new listing as YES, MAYBE, or NO.
+- **Pass 1** (text, all new): Ollama batch-scores every new listing as YES, MAYBE, or NO.
 - **Pass 2** (vision, MAYBE only): a configurable backend — Ollama's vision model, or Claude — re-scores MAYBE items that have an `image_url`.
 - A MAYBE item with no `image_url` stays MAYBE, and still triggers an alert.
 - A MAYBE that goes through Pass 2 still alerts afterward. The vision pass can only lower confidence, not disqualify the item.
@@ -173,7 +173,7 @@ unchanged, combining both halves in one process, for local dev and non-split dep
 
 ## Execution Environment
 
-Fashion Monitor runs across two machines: a desktop host that runs the Docker containers and stores the database, and a separate multimedia machine that runs the Ollama LLM server, reachable from the desktop over the LAN (local network).
+Fashion Monitor runs across two machines: a desktop host that runs the Docker containers and stores the database, and a separate multimedia machine that runs the Ollama LLM server, reachable from the desktop over the LAN.
 
 ### Where things run
 
@@ -225,7 +225,7 @@ Fashion Monitor never automatically falls back to a paid API when Ollama is down
 
 ### GitHub Actions — CI only
 
-The scraper never runs inside GitHub Actions (GHA — GitHub's built-in CI/CD service; CI means continuous integration, automated checks run on every push). The CI workflow runs lint, `tsc --noEmit`, and Vitest on push/PR (ADR-010).
+The scraper never runs inside GitHub Actions. The CI workflow runs lint, `tsc --noEmit`, and Vitest on push/PR (ADR-010).
 
 ## Key Constraints
 

@@ -1,6 +1,6 @@
 # 03 — Data Model
 
-This document defines Fashion Monitor's SQLite (a lightweight, file-based SQL database) schema: every table, its columns, and how the pieces fit together.
+This document defines Fashion Monitor's SQLite schema: every table, its columns, and how the pieces fit together.
 
 ## Storage: SQLite
 
@@ -11,7 +11,7 @@ Fashion Monitor stores everything in a single database file: `data/fashion_monit
 ## Tables
 
 ### `seen_listings`
-This table exists to stop Fashion Monitor from alerting twice on the same listing — it's the deduplication (dedupe, short for "de-duplicate") table.
+This table exists to stop Fashion Monitor from alerting twice on the same listing — it's the deduplication table.
 
 ```sql
 CREATE TABLE seen_listings (
@@ -54,7 +54,7 @@ CREATE TABLE alert_log (
 ```
 
 ### `feedback`
-This table stores the user's preference signals, collected from Telegram replies. It powers few-shot learning (giving the LLM a handful of labeled examples in its prompt, instead of retraining it) in the scoring prompt.
+This table stores the user's preference signals, collected from Telegram replies. It powers few-shot learning in the scoring prompt.
 
 ```sql
 CREATE TABLE feedback (
@@ -148,7 +148,7 @@ CREATE UNIQUE INDEX idx_memberships_user_profile ON memberships(user_id, profile
 
 **Roles and capabilities:**
 
-Each Role grants a different set of capabilities, enforced through RBAC (role-based access control — a permissions system where what you're allowed to do depends on your assigned role):
+Each Role grants a different set of capabilities, enforced through RBAC:
 
 | Role | Capabilities |
 |------|-------------|
@@ -193,7 +193,7 @@ CREATE TABLE profile_settings (
 Example keys: `aesthetic_prompt`, `hard_no`, `positive_signals`, `price_ceiling`, `measurements`, `llm`.
 
 ### `profile_secrets`
-This table stores per-profile credentials — Telegram tokens, platform API keys — encrypted at rest using XChaCha20-Poly1305 (an encryption algorithm) via the `@noble/ciphers` library. Plaintext credentials are never stored; only the encryption key lives in `.env`. See `docs/adr/0002-secrets-encrypted-in-db.md`.
+This table stores per-profile credentials — Telegram tokens, platform API keys — encrypted at rest using XChaCha20-Poly1305 via the `@noble/ciphers` library. Plaintext credentials are never stored; only the encryption key lives in `.env`. See `docs/adr/0002-secrets-encrypted-in-db.md`.
 
 ```sql
 CREATE TABLE profile_secrets (

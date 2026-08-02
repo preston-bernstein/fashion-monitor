@@ -2,11 +2,11 @@
 
 ## Status: Ready — plain HTTP primary, ScrapFly-gated Cloudflare bypass, DOM-extraction fallback
 
-Depop is a secondhand-clothing marketplace app. This file specs how the scraper pulls listings from it: which endpoint it calls, how it gets past Cloudflare (a service many sites put in front of their servers to detect and block bot traffic) when needed, and how the response maps to this project's internal `Listing` format.
+Depop is a secondhand-clothing marketplace app. This file specs how the scraper pulls listings from it: which endpoint it calls, how it gets past Cloudflare when needed, and how the response maps to this project's internal `Listing` format.
 
 ## Access Method
 
-Depop's search page (the "presentation" frontend) no longer embeds product data on the server side. Two older approaches are dead as primary paths, confirmed by live testing on 2026-07-19. One is the `webapi.depop.com/api/v1/search/products/` endpoint. The other is parsing JSON embedded via React Server Components (RSC, a Next.js feature that renders page data into the initial HTML). The current, real data source is:
+Depop's search page (the "presentation" frontend) no longer embeds product data on the server side. Two older approaches are dead as primary paths, confirmed by live testing on 2026-07-19. One is the `webapi.depop.com/api/v1/search/products/` endpoint. The other is parsing JSON embedded via React Server Components (RSC). The current, real data source is:
 
 ```
 GET https://www.depop.com/presentation/api/v1/search/products/
@@ -65,7 +65,7 @@ ScrapFly error responses and any Cloudflare cookies it harvests (`__cf_bm`/`_cfu
 
 ## Tier 3 — Fallback: Playwright DOM extraction (`playwright-fallback.ts`, `extract.ts`)
 
-If both the plain-HTTP tier and the ScrapFly tier fail, `scrapeDepopViaPlaywright` loads the search page in a real, stealth-configured browser. It uses Playwright, a library that drives a browser like Chromium or Firefox programmatically, and reads listings straight out of the rendered DOM (Document Object Model — the browser's in-memory tree of the page's HTML elements). It does not re-parse the dead RSC marker, and it does not intercept the backend API call. An earlier version of this doc described a network-interception approach. That approach was never actually built, so it's removed here to match what the code does:
+If both the plain-HTTP tier and the ScrapFly tier fail, `scrapeDepopViaPlaywright` loads the search page in a real, stealth-configured browser using Playwright, and reads listings straight out of the rendered DOM. It does not re-parse the dead RSC marker, and it does not intercept the backend API call. An earlier version of this doc described a network-interception approach. That approach was never actually built, so it's removed here to match what the code does:
 
 ```typescript
 import { launchStealthEphemeralBrowser } from "../playwright/browser.js";
@@ -167,7 +167,7 @@ The scraper requests `limit=24` and fetches a single page. It does not implement
 ## Notes
 
 - Depop skews younger and streetwear, but also has good vintage and workwear pieces.
-- Listing descriptions double as titles and are often short. The LLM (the scoring model that rates each listing) leans more on brand name and image content than on description text.
-- Depop's Terms of Service (ToS, the site's usage rules) technically prohibit scraping. In practice, personal low-volume use is tolerated.
+- Listing descriptions double as titles and are often short. The LLM leans more on brand name and image content than on description text.
+- Depop's Terms of Service (ToS) technically prohibit scraping. In practice, personal low-volume use is tolerated.
 - Image quality is generally good, since most photos are high-res phone shots.
 - If the primary HTTP tier stops working, whether Depop changes the endpoint again or starts genuinely blocking `impit`'s TLS fingerprint, re-run a live investigation (a real browser network trace) before touching any code. Don't guess at a new endpoint or re-enable speculative cookie/header engineering without evidence that it's needed.

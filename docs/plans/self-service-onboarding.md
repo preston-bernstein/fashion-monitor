@@ -1,8 +1,8 @@
 # Self-service onboarding, Connections & per-profile health
 
-This document plans letting a non-technical end user — for example, the Owner's spouse — use fashion-monitor's web dashboard entirely on her own. She should be able to log in, set up her own Taste profile and Monitors, connect her own platform and alert accounts, verify they work, and watch her own scrape flow and uptime. All of this should work without her ever touching MCP (Model Context Protocol, the interface AI agents use to call into this app) or the command-line tool (CLI).
+This document plans letting a non-technical end user — for example, the Owner's spouse — use fashion-monitor's web dashboard entirely on her own. She should be able to log in, set up her own Taste profile and Monitors, connect her own platform and alert accounts, verify they work, and watch her own scrape flow and uptime. All of this should work without her ever touching MCP or the CLI.
 
-**Status:** Planned. This plan is the output of a grilling session (a structured design-review meeting) held 2026-06-15. Decisions are recorded in ADRs 0003–0006 (Architecture Decision Records — short documents that record a design decision and why it was made). New vocabulary — `Connection`, `Invite`, and an updated `User` / Interface hierarchy — is recorded in `CONTEXT.md`.
+**Status:** Planned. This plan is the output of a grilling session (a structured design-review meeting) held 2026-06-15. Decisions are recorded in ADRs 0003–0006. New vocabulary — `Connection`, `Invite`, and an updated `User` / Interface hierarchy — is recorded in `CONTEXT.md`.
 
 ---
 
@@ -18,10 +18,8 @@ This document plans letting a non-technical end user — for example, the Owner'
 
 ## Phase 1 — Multi-tenancy foundations (blocks everything else)
 
-Multi-tenancy means one running app instance serving multiple independent Profiles (tenants), each isolated from the others' data.
-
 1. [x] **Multi-profile pipeline runner** (ADR-0005). A scheduled tick lists every active profile, then runs the existing single-profile pipeline once per profile, one at a time. The `runs` and `integration_events` tables were already scoped per profile via a `profile_id` column. Implemented 2026-07-03 as `runProfilesSerially` in `apps/cli/src/run.ts`.
-2. [x] **Isolation audit.** Verify that every database query is scoped to its `profile_id`, and that role-based access control (RBAC — restricting actions by a user's role) is checked per membership, so no data can leak across profiles. This had to happen before a real second tenant existed — it's a correctness gate, not a nicety. Audited 2026-07-03: no blocking findings across `packages/core/src/storage/repos/*`, `analytics/queries.ts`, and the web and MCP request paths (see the PR for detail). `packages/core/tests/storage/isolation.test.ts` now adds a regression test for this.
+2. [x] **Isolation audit.** Verify that every database query is scoped to its `profile_id`, and that RBAC is checked per membership, so no data can leak across profiles. This had to happen before a real second tenant existed — it's a correctness gate, not a nicety. Audited 2026-07-03: no blocking findings across `packages/core/src/storage/repos/*`, `analytics/queries.ts`, and the web and MCP request paths (see the PR for detail). `packages/core/tests/storage/isolation.test.ts` now adds a regression test for this.
 3. [x] **`max_monitors_per_profile` cap** (default 25), enforced when a Monitor is created, inside `@fm/api`. Implemented 2026-07-03 as `MAX_MONITORS_PER_PROFILE` in `@fm/shared/limits.ts`, via `SearchGroupsRepo.assertMonitorCapNotExceeded()`. Both the web API and the MCP `add_monitor` tool call this same function.
 
 ## Phase 2 — Invites & account lifecycle (ADR-0003)
@@ -71,4 +69,4 @@ This completes the plan's four build phases, Phase 1 through Phase 5. What remai
 
 ## Cross-cutting / open (ADR-0006)
 
-Ollama (the shared local LLM server) runs on a GPU that is shared and contended. The planned direction is a GPU broker that sits in front of Ollama — queuing requests, prioritizing them, yielding when the machine's operator is using it directly, and emitting events. This will likely live in its own separate repo, since estate-scraper, LibreChat/LightRAG, and personal use all share the same GPU. Fashion Monitor's existing `PENDING` replay logic already absorbs a "broker busy" condition with no new code needed. This needs its own grilling session before any of it gets built.
+Ollama runs on a GPU that is shared and contended. The planned direction is a GPU broker that sits in front of Ollama — queuing requests, prioritizing them, yielding when the machine's operator is using it directly, and emitting events. This will likely live in its own separate repo, since estate-scraper, LibreChat/LightRAG, and personal use all share the same GPU. Fashion Monitor's existing `PENDING` replay logic already absorbs a "broker busy" condition with no new code needed. This needs its own grilling session before any of it gets built.

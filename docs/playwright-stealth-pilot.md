@@ -1,10 +1,10 @@
 # Playwright anti-bot pilot
 
-This document tracks a pilot to reduce bot detection when fashion-monitor's scraper uses Playwright (a browser-automation library) against marketplaces that run anti-bot defenses.
+This document tracks a pilot to reduce bot detection when fashion-monitor's scraper uses Playwright against marketplaces that run anti-bot defenses.
 
 ## Current state (2026-07-18)
 
-- Playwright is bumped to **1.52.x**, with Chromium (the browser engine Playwright drives) re-pinned in Docker and in the `postinstall` script.
+- Playwright is bumped to **1.52.x**, with Chromium re-pinned in Docker and in the `postinstall` script.
 - `@fm/core` now has two driver paths for launching the stealth browser (`platforms/playwright/browser.ts`), selected by the `PLAYWRIGHT_STEALTH_DRIVER=patchright|legacy` environment variable (default `legacy`):
   - the existing `playwright-extra` + `puppeteer-extra-plugin-stealth` stack, which hides automation signals by injecting JavaScript into the page, and
   - a new path backed by **Patchright**, described below.

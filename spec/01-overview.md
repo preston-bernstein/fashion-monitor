@@ -15,9 +15,9 @@ Saved searches on individual platforms only help if you already know the exact w
 
 Fashion Monitor is a personal monitoring tool. It:
 1. Continuously watches 6 resale platforms for men's XXL clothing.
-2. Scores each result with an LLM (large language model — an AI model that can judge style, not just match keywords) against a defined aesthetic. This surfaces unknown brands and new discoveries, not just items matching known keywords.
-3. Sends alerts only for high-confidence matches, to keep the signal-to-noise ratio high (most alerts worth opening, not noise).
-4. Exposes an **MCP server** (MCP: Model Context Protocol — a standard that lets an AI chat client, such as Claude, connect directly to a tool) as the primary way to use it. Add Monitors (a Monitor is a saved search that watches one or more platforms), check results, and tune Taste (Taste is the aesthetic profile — the prompt, rules, and preferences the LLM scores against) — all in conversation with Claude or another LLM client. See `docs/adr/0001-mcp-as-primary-interface.md`.
+2. Scores each result with an LLM against a defined aesthetic. This surfaces unknown brands and new discoveries, not just items matching known keywords.
+3. Sends alerts only for high-confidence matches, to keep the signal-to-noise ratio high.
+4. Exposes an **MCP server** as the primary way to use it. Add Monitors (a Monitor is a saved search that watches one or more platforms), check results, and tune Taste (Taste is the aesthetic profile — the prompt, rules, and preferences the LLM scores against) — all in conversation with Claude or another LLM client. See `docs/adr/0001-mcp-as-primary-interface.md`.
 
 ## User Context
 
@@ -55,7 +55,7 @@ Fashion Monitor has three interfaces. This priority order reflects the intended 
 
 1. **MCP server** — primary. Manages Monitors and Taste conversationally inside an active LLM session (Claude Desktop or similar). Adding a new Monitor, adjusting the aesthetic prompt, and checking recent alerts all happen in conversation. See `docs/adr/0001-mcp-as-primary-interface.md`.
 2. **Web app** — strong secondary. Handles configuration, analytics, multi-user management, and audit log review — cases where a conversational interface doesn't fit.
-3. **CLI** (command-line interface — running the tool by typing commands, with no graphical screen) — pipeline execution and local debugging only. Not a user-facing interface.
+3. **CLI** — pipeline execution and local debugging only. Not a user-facing interface.
 
 ## Multi-User Support
 
@@ -63,7 +63,7 @@ Multi-user and multi-profile support are already **implemented**, not planned fo
 
 - **Profile** — owns a Taste, a set of Monitors, and an alert destination (Telegram chat). All DB rows are scoped via `profile_id`. A Profile can exist without a web User (CLI-only use).
 - **User** — an authenticated account that can log into the web app. Holds a Role on one or more Profiles.
-- **Role** — 5 roles: Owner, Admin, Curator, Operator, Viewer. RBAC (role-based access control — a permissions system where what you can do depends on your assigned role) enforces each role's capabilities at the API layer. See `packages/shared/src/rbac.ts`.
+- **Role** — 5 roles: Owner, Admin, Curator, Operator, Viewer. RBAC enforces each role's capabilities at the API layer. See `packages/shared/src/rbac.ts`.
 
 Each Profile gets its own:
 - Scoped DB rows (via `profile_id`)
@@ -75,7 +75,7 @@ Profile-level Taste and system settings are stored in the `profile_settings` tab
 
 ## Decisions
 
-These questions are already resolved. Each line links to the ADR (Architecture Decision Record — a short document explaining why a choice was made) that gives the reasoning; see `06-decisions.md` for the full set.
+These questions are already resolved. Each line links to the ADR that gives the reasoning; see `06-decisions.md` for the full set.
 
 - [x] Alert delivery: **Telegram** (ADR-004)
 - [x] Execution: **Synology Docker** + Task Scheduler; GitHub Actions **CI only** (ADR-005, ADR-010)

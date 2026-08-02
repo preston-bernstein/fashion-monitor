@@ -2,11 +2,11 @@
 
 ## Status: Ready — Playwright headless browser
 
-Poshmark is a secondhand-clothing marketplace app. It has no public API and blocks plain HTTP requests, so this scraper drives a real browser instead, using Playwright (a library that automates Chromium, Firefox, and other browsers).
+Poshmark is a secondhand-clothing marketplace app. It has no public API and blocks plain HTTP requests, so this scraper drives a real browser instead, using Playwright.
 
 ## Access Method
 
-Poshmark blocks plain HTTP requests, so the scraper needs headless browser automation: a real browser running without a visible window. Playwright with Chromium works reliably at personal volume.
+Poshmark blocks plain HTTP requests, so the scraper needs headless browser automation. Playwright with Chromium works reliably at personal volume.
 
 ## Dependencies
 
@@ -65,7 +65,7 @@ async function scrapePoshmark(query: string): Promise<Listing[]> {
 }
 ```
 
-**Note:** Poshmark's DOM selectors (the CSS patterns the scraper uses to find each listing tile in the page's DOM — the browser's in-memory tree of HTML elements) change periodically. If the scraper breaks, inspect the current DOM in a browser and update the selectors. This is the main maintenance burden for this platform.
+**Note:** Poshmark's DOM selectors change periodically. If the scraper breaks, inspect the current DOM in a browser and update the selectors. This is the main maintenance burden for this platform.
 
 ## Response Normalization
 
@@ -137,7 +137,7 @@ This scraper runs from a static home IP address, not a rotating IP like GitHub A
 
 ## Docker Deployment (Synology NAS)
 
-This deploys on a Synology NAS (a network-attached storage box) via Docker. Use the official Playwright Docker image, which comes with Chromium pre-installed:
+This deploys on a Synology NAS via Docker. Use the official Playwright Docker image, which comes with Chromium pre-installed:
 
 ```dockerfile
 FROM mcr.microsoft.com/playwright:v1.44.0-jammy
@@ -163,5 +163,5 @@ The Poshmark container runs on a 3-hour cycle, triggered by Synology's Task Sche
 
 - Poshmark has strong US inventory, good for finding eBay-type deals.
 - Brand data is often missing, or entered by the seller by hand, so quality is inconsistent.
-- Listing descriptions aren't available at the search level. The LLM (the scoring model that rates each listing) scores on title and brand only, so expect a higher MAYBE rate (the fallback score when it can't decide clearly).
+- Listing descriptions aren't available at the search level. The LLM scores on title and brand only, so expect a higher MAYBE rate (the fallback score when it can't decide clearly).
 - Consider fetching the full page for individual MAYBE-scored items, to get the real description before sending an alert.

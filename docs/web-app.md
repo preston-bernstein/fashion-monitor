@@ -1,12 +1,12 @@
 # Web app: auth, roles, and deployment
 
-The web dashboard is a multi-user web app with two parts: a JSON API server built on Fastify (a Node.js web framework), and a React single-page application, or SPA (a web app that loads once, then updates itself in place without full-page reloads). The API lives in `@fm/api`; the SPA lives in `@fm/web`. Both share request and response contracts from `@fm/shared` — schemas written with Zod (a library that validates data shapes and derives TypeScript types from them) — so the SPA no longer needs to hand-copy DTOs (data transfer objects: the plain data shapes an API sends and receives).
+The web dashboard is a multi-user web app with two parts: a JSON API server built on Fastify, and a React SPA. The API lives in `@fm/api`; the SPA lives in `@fm/web`. Both share request and response contracts from `@fm/shared` — schemas written with Zod — so the SPA no longer needs to hand-copy DTOs.
 
 The CLI pipeline (`@fm/cli` → `run.ts`) keeps working unchanged. It reads its config from the database, which is seeded from `config.yaml` the first time the app boots.
 
 ## Architecture (API + SPA)
 
-- **API** (`packages/api`) — every route under `/api/*` returns JSON. It is protected by session-cookie auth, capability RBAC (role-based access control — each user's role grants a fixed set of permissions; `packages/api/src/web/context.ts`), and CSRF protection (CSRF, cross-site request forgery, is an attack where a malicious page tricks a logged-in user's browser into sending requests it didn't intend). Unauthenticated `/api/*` requests get `401 {"error":"unauthorized"}` — no redirects.
+- **API** (`packages/api`) — every route under `/api/*` returns JSON. It is protected by session-cookie auth, capability RBAC (`packages/api/src/web/context.ts`), and CSRF protection. Unauthenticated `/api/*` requests get `401 {"error":"unauthorized"}` — no redirects.
 - **Auth/me** — `GET /api/me` returns the current user, their role, and their capabilities (the specific permission strings, like `analytics:read`, a role grants). The SPA hides controls it can't use, but **the server still enforces every capability independently** — don't rely on the SPA's hiding alone.
 - **CSRF** — `GET /api/csrf` issues a token plus a signed cookie. The SPA echoes the token back via the `x-csrf-token` header on mutating requests.
 - **SPA hosting** — `@fm/web#build` outputs `apps/web/dist`. `@fm/api#build` copies that bundle to `packages/api/dist/public`, and Fastify serves it. Hashed assets are cached; non-`/api/` GET requests fall back to `index.html` so client-side routing works.
@@ -23,7 +23,7 @@ Other key endpoints:
 - `GET /api/users` (plus user role/status patches)
 - `GET /api/dashboard`
 - `GET /api/audit?limit=&offset=&category=&actor=&since=`
-- `POST /api/feedback` — requires `feedback:write`; records 👍/👎 on an alert, copies title/brand/price/`source_query_id` from `alert_log`, and feeds the LLM prompt's few-shot examples (LLM: large language model, the AI system that scores listings)
+- `POST /api/feedback` — requires `feedback:write`; records 👍/👎 on an alert, copies title/brand/price/`source_query_id` from `alert_log`, and feeds the LLM prompt's few-shot examples
 
 ## SPA navigation (persona zones)
 
@@ -73,8 +73,6 @@ pnpm run dev:dashboard -- --config config.yaml
 pnpm run dev:web
 ```
 
-Vite is the build tool that serves the SPA locally and proxies `/api` calls to the backend.
-
 Or build everything into one production-like origin:
 
 ```bash
@@ -92,7 +90,7 @@ ADMIN_EMAIL=you@example.com
 ADMIN_PASSWORD=a-long-passphrase
 ```
 
-This applies idempotently on every boot — safe to leave set, it won't create duplicates. Create more users from the **Users** page after first login.
+This applies idempotently on every boot. Create more users from the **Users** page after first login.
 
 ### Env vars (see `.env.example`)
 
@@ -112,7 +110,7 @@ Roles and their capabilities are defined in `@fm/shared/rbac.ts` and enforced in
 
 ## Docker
 
-`docker-compose.yml` runs `node apps/cli/dist/dashboard.js` inside the image built via `turbo prune` (a Turborepo command that trims the monorepo down to just what one package needs to build) plus pnpm. The dashboard is exposed directly on its host port — no bundled TLS-terminating proxy in front of it — so `COOKIE_SECURE` defaults to `false`.
+`docker-compose.yml` runs `node apps/cli/dist/dashboard.js` inside the image built via `turbo prune` plus pnpm. The dashboard is exposed directly on its host port — no bundled TLS-terminating proxy in front of it — so `COOKIE_SECURE` defaults to `false`.
 
 ## Search groups vs pipeline aggregation
 

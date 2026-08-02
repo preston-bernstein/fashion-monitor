@@ -9,7 +9,7 @@ eBay is a general marketplace. This scraper reaches it through eBay's own offici
 This platform uses eBay's Browse API, the official, documented interface eBay publishes for search. It's free for personal use.
 
 - Docs: developer.ebay.com/api-docs/buy/browse/overview.html
-- Auth: OAuth 2.0 Client Credentials flow (an app-level login exchange; no user account or password needed)
+- Auth: OAuth 2.0 Client Credentials flow (app-level, no user login needed)
 - Base URL: `https://api.ebay.com/buy/browse/v1/item_summary/search`
 
 ## Setup
@@ -102,5 +102,5 @@ function normalizeEbay(item: Record<string, unknown>): Listing {
 ## Notes
 
 - eBay has turned up the best inventory for Allen Edmonds shoes and Dale of Norway sweaters so far.
-- eBay's size data is inconsistent, so filter loosely at the API level and let the LLM (the scoring model that rates each listing) judge fit.
+- eBay's size data is inconsistent, so filter loosely at the API level and let the LLM judge fit.
 - `shortDescription` is often empty. The LLM relies mainly on title and brand for eBay listings.

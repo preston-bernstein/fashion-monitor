@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document specifies how Fashion Monitor uses an LLM (large language model — an AI model that reads text, images, or both, and produces a judgment) to score each listing against your aesthetic, instead of relying on fixed brand or keyword lists.
+This document specifies how Fashion Monitor uses an LLM to score each listing against your aesthetic, instead of relying on fixed brand or keyword lists.
 
 A brand list can't recognize an unfamiliar label — a Norwegian knitwear maker, a Japanese workwear brand — even when its clothes match your taste. The LLM reasons about the item itself, so it can surface those listings. It can also reject a listing from a known, trusted brand if that particular item doesn't fit the aesthetic.
 
@@ -10,7 +10,7 @@ A brand list can't recognize an unfamiliar label — a Norwegian knitwear maker,
 
 ## Provider Abstraction
 
-The scoring code calls a single `LLMProvider` interface. It never calls Ollama (software that runs open-source LLMs on your own hardware, for free and in private) or Claude (Anthropic's cloud LLM service) directly. You switch providers by editing `config.yaml` — no code changes needed. This abstraction is the most interesting architectural piece of this feature, and worth highlighting if you show this project on GitHub.
+The scoring code calls a single `LLMProvider` interface. It never calls Ollama or Claude directly. You switch providers by editing `config.yaml` — no code changes needed. This abstraction is the most interesting architectural piece of this feature, and worth highlighting if you show this project on GitHub.
 
 ```typescript
 interface LLMProvider {
@@ -44,7 +44,7 @@ llm:
 
 **Text scoring (pass 1): a 7B model is enough.**
 
-Pass 1's job: given a listing's title, brand, description, price, and condition, decide YES, MAYBE, or NO against the aesthetic. That's structured classification with some context — a task a well-prompted 7B model (a 7-billion-parameter model, small enough to run on a single consumer GPU) handles reliably. `qwen2.5:7b` is especially good at following the structured-output format this system needs.
+Pass 1's job: given a listing's title, brand, description, price, and condition, decide YES, MAYBE, or NO against the aesthetic. That's structured classification with some context — a task a well-prompted 7B model handles reliably. `qwen2.5:7b` is especially good at following the structured-output format this system needs.
 
 What 7B gets right:
 - Known brand quality signals (Helmut Lang = quality, Zara = fast fashion)
@@ -59,9 +59,9 @@ What 7B gets wrong sometimes:
 
 These edge cases become MAYBE and move to pass 2. That's by design, not a failure.
 
-**Vision scoring (pass 2): quality depends on your GPU (the graphics card that runs the model).**
+**Vision scoring (pass 2): quality depends on your GPU.**
 
-Vision models — LLMs that can also look at an image — differ a lot in how well they judge fabric texture, color accuracy, and aesthetic fit from a photo. Here's how they rank for this task, along with the VRAM (dedicated memory on the graphics card) each needs:
+Vision models — LLMs that can also look at an image — differ a lot in how well they judge fabric texture, color accuracy, and aesthetic fit from a photo. Here's how they rank for this task, along with the VRAM each needs:
 
 | Model | Capability | VRAM needed |
 |-------|-----------|-------------|
@@ -94,7 +94,7 @@ rocm-smi    # AMD
 
 ## Ollama Structured Output
 
-Use Ollama's built-in JSON schema enforcement (requires Ollama version 0.5 or later). It constrains the model's output token by token to match the schema, which is more reliable than the OpenAI-compatibility shim (a compatibility layer that mimics OpenAI's API):
+Use Ollama's built-in JSON schema enforcement (requires Ollama version 0.5 or later). It constrains the model's output token by token to match the schema, which is more reliable than the OpenAI-compatibility shim:
 
 ```typescript
 import ollama from "ollama";
@@ -122,7 +122,7 @@ const response = await ollama.chat({
 const results = BatchSchema.parse(JSON.parse(response.message.content));
 ```
 
-This guarantees structurally valid JSON at the token level — no markdown code fences, no parse errors. The Zod (a TypeScript schema-validation library) parse step afterward is a second check that catches any type mismatches.
+This guarantees structurally valid JSON at the token level — no markdown code fences, no parse errors. The Zod parse step afterward is a second check that catches any type mismatches.
 
 ---
 
@@ -143,7 +143,7 @@ At steady state — 10 to 20 new listings per run, 2 to 5 of them MAYBE — tota
 
 **Never re-score a listing that already has a verdict.**
 
-The `seen_listings` table (the DB — database — table that tracks every listing the pipeline has scraped) stores a `score` for each listing. Before sending anything to the LLM, filter out any listing where `score IS NOT NULL`. After the first week, most listings seen in a given run already have a score, so only genuinely new listings reach the LLM.
+The `seen_listings` table stores a `score` for each listing. Before sending anything to the LLM, filter out any listing where `score IS NOT NULL`. After the first week, most listings seen in a given run already have a score, so only genuinely new listings reach the LLM.
 
 Without this filter, the LLM re-evaluates 40-80 stale listings every run, which wastes money for no benefit. With it, steady-state LLM input drops to 5-15 new listings per run — one or two batches at most.
 
@@ -342,7 +342,7 @@ Return ONLY valid JSON. No explanation outside the JSON.
 
 ## Description Truncation
 
-Truncate each listing description to 500 characters (about 100 tokens — a token is roughly a word-piece of text an LLM processes) before sending it to the LLM. Sellers put the key signals — fabric, condition, brand details — in the first two or three sentences. Everything after that is usually shipping policy, measurements, or disclaimers: noise for scoring purposes.
+Truncate each listing description to 500 characters (about 100 tokens) before sending it to the LLM. Sellers put the key signals — fabric, condition, brand details — in the first two or three sentences. Everything after that is usually shipping policy, measurements, or disclaimers: noise for scoring purposes.
 
 ```typescript
 interface PreparedListing {
@@ -551,7 +551,7 @@ This means:
 - No alert is needed — this works entirely outside the monitoring loop.
 - Seed feedback survives DB wipes, since it lives in the config file and gets reapplied on every startup.
 
-**`source` column on the feedback table:** add `source TEXT NOT NULL DEFAULT 'telegram'`, with values `'telegram'` or `'seed'`. Seed entries are never rotated out, and always go first in the few-shot block (the block of example listings inserted into the prompt so the LLM learns from past feedback).
+**`source` column on the feedback table:** add `source TEXT NOT NULL DEFAULT 'telegram'`, with values `'telegram'` or `'seed'`. Seed entries are never rotated out, and always go first in the few-shot block.
 
 ---
 
@@ -605,7 +605,7 @@ function buildSystemPrompt(config: Config, db: Database): string {
 - 25-50 events: strong calibration to your actual preferences.
 - 50+ events: the system rotates to the most recent 30 and the oldest examples fall off.
 
-**Caching advantage:** once the system prompt reaches 4,096 or more tokens — which happens after roughly 20 injected examples — prompt caching (reusing a previously processed prompt instead of reprocessing it, which is cheaper) kicks in. Cache the full system prompt, examples included. At that point, caching saves real money, since the example block stays the same across every batch in a run.
+**Caching advantage:** once the system prompt reaches 4,096 or more tokens — which happens after roughly 20 injected examples — prompt caching kicks in. Cache the full system prompt, examples included. At that point, caching saves real money, since the example block stays the same across every batch in a run.
 
 ---
 
@@ -646,8 +646,8 @@ This is not in v1 (version 1, the first shipped release). It's documented here a
 ## Parse Error Handling
 
 LLMs can return malformed JSON, wrap output in markdown code fences, return partial output on large batches, or omit listings entirely. The implementation must:
-1. Strip markdown fences before parsing — `json.loads` (Python's JSON parser) fails otherwise.
-2. On a `json.JSONDecodeError` (a JSON parsing failure): log the raw response, treat every listing in that batch as MAYBE, and re-score them individually on the next run.
+1. Strip markdown fences before parsing — `json.loads` fails otherwise.
+2. On a `json.JSONDecodeError`: log the raw response, treat every listing in that batch as MAYBE, and re-score them individually on the next run.
 3. Treat any response missing a `listing_id` as MAYBE.
 4. Never silently drop a listing. A missing listing becomes MAYBE, never NO.
 

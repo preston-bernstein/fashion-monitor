@@ -2,7 +2,7 @@
 
 ## Concept
 
-MCP (Model Context Protocol) is a standard that lets an LLM client — a chat app or tool such as Claude Desktop — call tools exposed by another program, in this case Fashion Monitor. This document specifies the interactive search mode built on MCP: v2 of Fashion Monitor's search capability.
+This document specifies the interactive search mode built on MCP: v2 of Fashion Monitor's search capability.
 
 The autonomous monitor (v1) is a push system. It runs on a schedule, scores listings in the background, and alerts you through Telegram. MCP interactive mode is a pull system: an LLM client (Claude Desktop, an Ollama frontend, or similar) calls search tools on demand and scores results directly inside an active conversation.
 
@@ -17,7 +17,7 @@ The two modes serve different purposes and can run independently:
 
 ## Reference implementation
 
-`~/dev/financial-pipeline` is a separate repo with a working example of this exact architecture: the same SDK (software development kit — MCP's official library), the same SSE transport (Server-Sent Events, a way to stream data from server to client over plain HTTP), the same one-file-per-tool pattern, and the same monorepo layout (several related packages kept in one repo). Read it before you build this. Key paths:
+`~/dev/financial-pipeline` is a separate repo with a working example of this exact architecture: the same SDK, the same SSE transport, the same one-file-per-tool pattern, and the same monorepo layout. Read it before you build this. Key paths:
 
 - `services/mcp-server/src/index.ts` — server setup, SSE transport, tool registration
 - `services/mcp-server/src/tools/` — one file per tool
@@ -129,7 +129,7 @@ httpServer.listen(PORT, () => log.info({ port: PORT }, 'mcp-server listening'));
 
 ### Tool file pattern
 
-Each tool gets its own file, with its Zod (a schema-validation library) schema defined inside that file. Each handler returns
+Each tool gets its own file, with its Zod schema defined inside that file. Each handler returns
 `{ content: [{ type: 'text', text: JSON.stringify(...) }] }`.
 
 ```typescript
@@ -220,7 +220,7 @@ Platform search functions must be pure: given an input, they return a normalized
 
 ## Config: switch YAML → TOML
 
-financial-pipeline uses `smol-toml` (a TOML parser) for its domain config. Switch Fashion Monitor's config from `config.yaml` to `config.toml` (TOML, a config file format) to stay consistent with it:
+financial-pipeline uses `smol-toml` for its domain config. Switch Fashion Monitor's config from `config.yaml` to `config.toml` to stay consistent with it:
 
 ```toml
 # config.toml
@@ -346,7 +346,7 @@ Platform adapter functions must be pure. The monitor pipeline calls them and the
 
 The MCP server returns raw listings only. The LLM already active in the conversation scores them, using the aesthetic prompt from `config.toml`. No separate LLM API call is needed, since the model already has the context.
 
-Expose the aesthetic prompt as an MCP resource (a piece of data an MCP server can hand to a client) so the client loads it automatically at the start of a session:
+Expose the aesthetic prompt as an MCP resource so the client loads it automatically at the start of a session:
 
 ```typescript
 server.resource(

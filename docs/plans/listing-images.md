@@ -2,7 +2,7 @@
 
 This document describes how fashion-monitor stores and serves the images that come with each scraped marketplace listing.
 
-**Status:** The MVP (minimum viable product — the first working version) is implemented, in migration 014. The auto-pick gallery, the monitor gallery-management UI, and image loading/error states were implemented on 2026-07-03. A thumbnail cache, and the `srcset` support that depends on it (the HTML attribute that lets a browser pick the right image resolution for its screen), are deferred.
+**Status:** The MVP is implemented, in migration 014. The auto-pick gallery, the monitor gallery-management UI, and image loading/error states were implemented on 2026-07-03. A thumbnail cache, and the `srcset` support that depends on it (the HTML attribute that lets a browser pick the right image resolution for its screen), are deferred.
 
 ---
 
@@ -35,7 +35,7 @@ Gallery URLs (the rest of a listing's photos, beyond the one cover image) exist 
 - `seen_listings.listing_snapshot` — the full listing JSON, including `imageUrl`, while the score is `PENDING`. Cleared once scoring finishes.
 - `feedback.image_url` — the primary image URL, copied at the time feedback is given.
 - ntfy alerts — `sendAlert` attaches `listing.imageUrl` using ntfy's JSON publish `attach` field. This closes a gap that existed under the old Telegram alerter, whose `sendPhoto` call did the same thing. `sendDigest` still does not attach an image, because ntfy only supports one attachment per message, and a digest covers multiple listings.
-- LLM (large language model) vision — `prepareForLLM()` passes only the primary image's `image_url` to the model.
+- LLM vision — `prepareForLLM()` passes only the primary image's `image_url` to the model.
 
 No dedicated image table existed before migration 014.
 
@@ -75,7 +75,7 @@ search_group_images (
 )
 ```
 
-- Has a foreign key (FK — a column that must match a row in another table) to `search_groups`, with `ON DELETE CASCADE` so its rows are removed automatically when the parent monitor is deleted.
+- Has a foreign key (FK) to `search_groups`, with `ON DELETE CASCADE` so its rows are removed automatically when the parent monitor is deleted.
 - **Curated** rows are explicit picks made by a user or through the API.
 - **Auto-pick** from recent high-score listings was implemented on 2026-07-03. `ListingImagesRepo.findAutoPickForGroup()` returns the `fallback` array: only YES- and MAYBE-scored listings (NO, PENDING, and unscored listings are excluded), with YES ranked ahead of MAYBE, then by recency. This is used only when a Monitor has zero curated (`search_group_images`) rows.
 
@@ -86,13 +86,13 @@ search_group_images (
 | Tier | Behavior | Status |
 | --- | --- | --- |
 | Default | Reference URLs only, in SQLite | **Implemented** |
-| Thumbnail cache | `data/image-cache/`, keyed by URL hash, with an LRU (least-recently-used) eviction policy and a max-bytes cap | **Deferred** |
+| Thumbnail cache | `data/image-cache/`, keyed by URL hash, with an LRU eviction policy and a max-bytes cap | **Deferred** |
 | Full-res local | Never stored in SQLite | Policy |
 
 Principles:
 
 - The scrape pipeline never blocks on an image download.
-- The curated gallery stores URLs only; the browser loads images directly from the marketplace's CDN (content delivery network).
+- The curated gallery stores URLs only; the browser loads images directly from the marketplace's CDN.
 - An optional disk cache would be a separate module. It is not wired into the MVP.
 
 ---
@@ -109,7 +109,7 @@ Principles:
 
 - Paginated image lists are not required at the app's current scale; the listing endpoint returns a single ordered array.
 - Cache headers: `private, max-age=60` for the monitor gallery, `max-age=300` for listing images.
-- Dashboard alerts join the primary `listing_images` row through a subquery, avoiding an N+1 query pattern (one query per row instead of one query total) in the application code.
+- Dashboard alerts join the primary `listing_images` row through a subquery, avoiding an N+1 query pattern in the application code.
 
 ### Scrape
 
@@ -131,7 +131,7 @@ Each platform has its own regex pattern restricting which image hosts are accept
 
 A curated URL add accepts any known marketplace image host.
 
-### SSRF (server-side request forgery — tricking a server into fetching an attacker-controlled URL)
+### SSRF
 
 - The MVP has no server-side image proxy; browsers load CDN URLs directly, so there is no server-side fetch to abuse yet.
 - Any future download or proxy feature must validate the URL's hostname against the listing's platform allowlist before fetching it.
@@ -151,7 +151,7 @@ A curated URL add accepts any known marketplace image host.
 | DELETE | `/api/monitors/:id/images/:imageId` | `monitors:write` |
 | GET | `/api/listings/:platform/:listingId/images` | `monitors:read` |
 
-The POST body is a discriminated union (a JSON shape whose fields depend on a `source` tag):
+The POST body is a discriminated union:
 
 ```json
 { "source": "listing", "platform": "ebay", "listing_id": "123" }

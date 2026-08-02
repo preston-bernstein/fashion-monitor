@@ -4,7 +4,7 @@ This document specifies how Fashion Monitor notifies you when a listing gets a Y
 
 ## Delivery Method: Telegram
 
-Fashion Monitor sends alerts through Telegram, a messaging app with a free bot API (an interface other programs can use to send messages through it).
+Fashion Monitor sends alerts through Telegram, a messaging app with a free bot API.
 
 **Why Telegram:**
 - Free, no monthly cost.
@@ -22,7 +22,7 @@ Fashion Monitor sends alerts through Telegram, a messaging app with a free bot A
 1. Message @BotFather on Telegram, create a bot, and get a `TELEGRAM_BOT_TOKEN`.
 2. Start a chat with the bot.
 3. Get your chat ID from `https://api.telegram.org/bot{TOKEN}/getUpdates`.
-4. Store both values in `.env` (the environment file that holds secrets).
+4. Store both values in `.env`.
 
 ---
 

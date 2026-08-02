@@ -6,7 +6,7 @@ Vinted is a secondhand-clothing marketplace, mostly used in Europe. It is not en
 
 ## Reason for Deferral
 
-Vinted's inventory skews European, which matters less for a US buyer. Vinted's Datadome protection (an anti-bot detection service, similar to Cloudflare but a different vendor) demands more ongoing maintenance than any other platform in this repo. A Python package, `vinted-scraper` (available on PyPI, Python's package index), already handles this platform, but it needs monitoring for breakage. The other 5 platforms already cover the v1 use case without it.
+Vinted's inventory skews European, which matters less for a US buyer. Vinted's Datadome protection (an anti-bot detection service, similar to Cloudflare but a different vendor) demands more ongoing maintenance than any other platform in this repo. A Python package, `vinted-scraper`, already handles this platform, but it needs monitoring for breakage. The other 5 platforms already cover the v1 use case without it.
 
 ## Enable When
 

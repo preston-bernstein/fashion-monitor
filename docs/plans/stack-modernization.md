@@ -2,7 +2,7 @@
 
 This document plans upgrading fashion-monitor's dependencies and tooling to their mid-2026 current versions.
 
-**Repo:** `fashion-monitor` — a personal tool that monitors resale marketplaces and scores listings using an LLM (large language model) for aesthetic fit.
+**Repo:** `fashion-monitor` — a personal tool that monitors resale marketplaces and scores listings using an LLM for aesthetic fit.
 **Scope:** Analysis and planning only. Nothing in this document has been applied. No code, dependencies, configuration, or git state was changed in producing it.
 **Date of research:** June 2026. Versions below were web-verified unless explicitly marked _approximate / verify before upgrading_.
 
@@ -14,10 +14,10 @@ Most of the work in this plan is pulling the backend up to where the frontend al
 
 The repo holds two codebases sharing one Git history:
 
-- **Backend** (`src/`, root `package.json`) is a TypeScript Node app using ES modules (ESM — the standard `import`/`export` module system built into Node, as opposed to the older CommonJS `require` system). It runs the scraping pipeline, LLM scoring, Telegram bots, SQLite storage, and a Fastify JSON API under `src/web/`. It is roughly **12–18 months behind** current tooling: Zod 3, TypeScript 5.7, Vitest 3, ESLint 9, `@types/node` 22, `engines.node >=20`, a `node:20` Docker base image, Anthropic SDK 0.39, and Playwright 1.49.
-- **Frontend** (`web/`, `web/package.json`) is a Vite + React single-page application (SPA — a web app that runs in the browser and updates its own content in place, rather than reloading a new page per action). It **already runs mid-2026-current major versions**: React 19.2, Vite 8, Tailwind 4, Zod 4, TanStack Router 1.170 / Query 5.101, TypeScript 6, ESLint 10, Vitest 4.
+- **Backend** (`src/`, root `package.json`) is a TypeScript Node app using ES modules (ESM). It runs the scraping pipeline, LLM scoring, Telegram bots, SQLite storage, and a Fastify JSON API under `src/web/`. It is roughly **12–18 months behind** current tooling: Zod 3, TypeScript 5.7, Vitest 3, ESLint 9, `@types/node` 22, `engines.node >=20`, a `node:20` Docker base image, Anthropic SDK 0.39, and Playwright 1.49.
+- **Frontend** (`web/`, `web/package.json`) is a Vite + React SPA. It **already runs mid-2026-current major versions**: React 19.2, Vite 8, Tailwind 4, Zod 4, TanStack Router 1.170 / Query 5.101, TypeScript 6, ESLint 10, Vitest 4.
 
-That unification is what lets a future monorepo (see the companion plan, `docs/plans/monorepo-workspaces.md`) share code between the two halves. The single highest-value change is upgrading **Zod** (a schema validation library — it checks that data matches an expected shape at runtime) from version 3 to 4 on the backend. The frontend is already on Zod 4, and a shared-schema package between the two halves is impossible while they disagree on Zod's major version.
+That unification is what lets a future monorepo (see the companion plan, `docs/plans/monorepo-workspaces.md`) share code between the two halves. The single highest-value change is upgrading **Zod** from version 3 to 4 on the backend. The frontend is already on Zod 4, and a shared-schema package between the two halves is impossible while they disagree on Zod's major version.
 
 ### Top targets at a glance
 
@@ -46,7 +46,7 @@ fashion-monitor's Node.js version is old enough to need an upgrade before its se
 
 **Findings (web-verified):**
 
-- Node **24.x**, code-named "Krypton," is the current **Active LTS** (Long-Term Support — the release line Node's maintainers commit to patching for years, unlike a short-lived Current release). It entered Active LTS on 2025-10-28, enters Maintenance mode on 2026-10-20, and reaches end of life (EOL — the date after which it gets no further security fixes) on 2028-04-30. Source: the nodejs Release schedule README.
+- Node **24.x**, code-named "Krypton," is the current **Active LTS**. It entered Active LTS on 2025-10-28, enters Maintenance mode on 2026-10-20, and reaches EOL on 2028-04-30. Source: the nodejs Release schedule README.
 - Node **26.x** shipped as the Current release on 2026-05-05, and is promoted to LTS in October 2026.
 - Node **20.x**, code-named "Iron," is already in **Maintenance** mode, and reaches **EOL 2027-04-30**. Source: nodejs/Release.
 - Node's release model itself changes in **October 2026**: one major version per year, every April; every release becomes an LTS release; the current odd/even split ends. Node 27 will be the first release under the new model. Source: nodejs.org, "Evolving the Node.js Release Schedule"; InfoQ, June 2026.
@@ -70,7 +70,7 @@ fashion-monitor should keep its current SQLite driver rather than switch to Node
 **Findings (web-verified):**
 
 - `better-sqlite3` is at **12.10.0** (published 2026-05-12), with 6.6M weekly downloads. It remains the de-facto production standard.
-- Node's built-in **`node:sqlite`** module is still **Stability 1.2 – Release Candidate** (RC — a near-final build, not yet guaranteed stable for production use) as of the Node 26.3 docs. It became a release candidate in 25.7, having left its experimental flag back in 22.13, but it is still labeled experimental/RC. It has had recent edge-case segfault reports.
+- Node's built-in **`node:sqlite`** module is still **Stability 1.2 – Release Candidate** (RC) as of the Node 26.3 docs. It became a release candidate in 25.7, having left its experimental flag back in 22.13, but it is still labeled experimental/RC. It has had recent edge-case segfault reports.
 
 **Recommendation:**
 
@@ -109,20 +109,20 @@ The backend's TypeScript version is one major behind the frontend, and TypeScrip
 
 ## 5. Fastify + security plugins
 
-Fastify (the backend's web framework) and its security plugins are already current; this section is about staying patched, not upgrading.
+Fastify and its security plugins are already current; this section is about staying patched, not upgrading.
 
-**Today:** `fastify ^5.8.5`, `@fastify/cookie ^11`, `@fastify/csrf-protection ^7.1`, `@fastify/helmet ^13`, `@fastify/rate-limit ^10.3`, `@fastify/static ^9.1`. Authentication uses Argon2 password hashing, sessions are backed by SQLite, access control uses capability-based RBAC (role-based access control — restricting actions by what a user's role is allowed to do), and secrets at rest are encrypted with `@noble/ciphers`.
+**Today:** `fastify ^5.8.5`, `@fastify/cookie ^11`, `@fastify/csrf-protection ^7.1`, `@fastify/helmet ^13`, `@fastify/rate-limit ^10.3`, `@fastify/static ^9.1`. Authentication uses Argon2 password hashing, sessions are backed by SQLite, access control uses capability-based RBAC, and secrets at rest are encrypted with `@noble/ciphers`.
 
 **Findings (web-verified):**
 
-- Fastify **v5** is the current major; the latest release is **5.8.5 (2026-04-14)**. **5.8.5 is a security release fixing CVE-2026-33806** (a Common Vulnerabilities and Exposures entry — a public identifier for a specific, known security bug). Being on `^5.8.5` is good, but pin or verify that the resolved version is `>= 5.8.5`.
+- Fastify **v5** is the current major; the latest release is **5.8.5 (2026-04-14)**. **5.8.5 is a security release fixing CVE-2026-33806.** Being on `^5.8.5` is good, but pin or verify that the resolved version is `>= 5.8.5`.
 - Plugin majors are already correct for v5: helmet **13.x**, rate-limit **10.x**, csrf-protection **7.x**, static **9.x**, cookie **11.x** — per each plugin's compatibility table.
 
 **Recommendation:**
 
 - **No major moves.** Stay on Fastify v5 and the current plugin majors; treat this as "keep patched," not "modernize." Confirm the lockfile resolves Fastify `>= 5.8.5` for the CVE fix.
-- **Session strategy is fine as-is.** Hand-rolled, signed-cookie sessions backed by a `sessions` SQLite table (see `src/web/app.ts` and `SessionsRepo`) are appropriate for a single-instance app behind Caddy (the reverse-proxy server in front of it). Do not introduce `@fastify/session`/Redis unless the deployment becomes multi-instance.
-- Minor hardening to consider later, not required: tighten the Helmet Content Security Policy (`scriptSrc`/`styleSrc` still allow `'unsafe-inline'` for styles) — a browser header that restricts what a page is allowed to load — and confirm `trustProxy` is correct behind Caddy (it already is).
+- **Session strategy is fine as-is.** Hand-rolled, signed-cookie sessions backed by a `sessions` SQLite table (see `src/web/app.ts` and `SessionsRepo`) are appropriate for a single-instance app behind Caddy. Do not introduce `@fastify/session`/Redis unless the deployment becomes multi-instance.
+- Minor hardening to consider later, not required: tighten the Helmet Content Security Policy (`scriptSrc`/`styleSrc` still allow `'unsafe-inline'` for styles), and confirm `trustProxy` is correct behind Caddy (it already is).
 
 **Risk:** Low. **Effort:** Low. **Priority:** Low. **Do NOT change:** the auth/session/RBAC design.
 
@@ -130,17 +130,17 @@ Fastify (the backend's web framework) and its security plugins are already curre
 
 ## 6. Zod 3 → 4 (the keystone change)
 
-Upgrading Zod (the schema validation library both halves use) from version 3 to 4 on the backend is the single change that unblocks everything else in this plan.
+Upgrading Zod from version 3 to 4 on the backend is the single change that unblocks everything else in this plan.
 
 **Today:** backend `zod ^3.24.2` (used in `src/llm/schemas.ts`, `src/web/routes/*`, validation). **Frontend already on `zod ^4.4.3`** with `@hookform/resolvers ^5`.
 
-**Findings (web-verified):** Zod 4 has been stable (GA — generally available) since mid-2025. It parses roughly 14x/7x/6.5x faster across different benchmarks, is tree-shakable (a bundler can remove the parts a project doesn't use, shrinking the final bundle), adds a smaller `@zod/mini` build, and produces native JSON-Schema output plus metadata support. Notable breaking changes:
+**Findings (web-verified):** Zod 4 has been stable (GA) since mid-2025. It parses roughly 14x/7x/6.5x faster across different benchmarks, is tree-shakable, adds a smaller `@zod/mini` build, and produces native JSON-Schema output plus metadata support. Notable breaking changes:
 
 - **Unified `error` parameter** replaces `message` / `required_error` / `invalid_type_error` / `errorMap`.
 - **Top-level format validators**: `z.email()`, `z.uuid()`, `z.url()` etc.; the `z.string().email()` chain is **deprecated** (still works for now). `z.string().ip()/.cidr()` were **removed** in favor of `z.ipv4()/ipv6()` etc.
 - `.default()` semantics changed (the default must match the **output** type, and is applied even under `.optional()` when the value is missing).
 - Coercion input types are now `unknown`; some object helpers (`.passthrough()/.strict()/.strip()`, `.nonstrict()`, `deepPartial`, `nativeEnum`) are deprecated or removed; schema-level errors take precedence.
-- An official-ish **codemod** (an automated code-rewriting script) exists (`npx zod-v3-to-v4`, also `codemod jssg run zod-3-4`) that handles the mechanical rewrites. Sources: zod.dev/v4; Pockit migration guide; InfoQ 2025-08; codemod docs.
+- An official-ish **codemod** exists (`npx zod-v3-to-v4`, also `codemod jssg run zod-3-4`) that handles the mechanical rewrites. Sources: zod.dev/v4; Pockit migration guide; InfoQ 2025-08; codemod docs.
 
 **Recommendation:**
 
@@ -164,7 +164,7 @@ The frontend needs no version upgrades. Its one real issue is a duplicated type 
 
 - **Leave the frontend majors alone.** It is already where we want it. Track minor/patch updates normally.
 - **Optional, low priority:** evaluate `rolldown-vite` for faster builds once it's a drop-in for our plugin set; defer until the monorepo lands so the build wiring only changes once.
-- The one real frontend item is **deduplication, not upgrading**: `web/src/lib/types.ts` hand-mirrors backend DTOs (Data Transfer Objects — plain type definitions describing data sent over the network, with no behavior attached), and it has already drifted — it lists `vinted` as a platform. That is solved structurally by the shared package in the monorepo plan, and is enabled by getting the backend onto Zod 4 (§6).
+- The one real frontend item is **deduplication, not upgrading**: `web/src/lib/types.ts` hand-mirrors backend DTOs, and it has already drifted — it lists `vinted` as a platform. That is solved structurally by the shared package in the monorepo plan, and is enabled by getting the backend onto Zod 4 (§6).
 
 **Risk:** N/A (no change). **Priority:** Low. **Do NOT change:** React/Vite/Tailwind/TanStack/shadcn majors.
 
@@ -194,7 +194,7 @@ The scraper's stealth-browser layer needs both a routine version bump and a deep
 
 ## 9. LLM client SDKs
 
-The Anthropic SDK (software development kit — the client library for calling Claude's API) is far more out of date than the Ollama one, and needs a careful, changelog-driven upgrade rather than a quick bump.
+The Anthropic SDK is far more out of date than the Ollama one, and needs a careful, changelog-driven upgrade rather than a quick bump.
 
 **Today:** `@anthropic-ai/sdk ^0.39.0`, `ollama ^0.5.12`; providers in `src/llm/` (`claude`, `ollama`, `hybrid`, `mock`, factory).
 
@@ -218,7 +218,7 @@ The Anthropic SDK (software development kit — the client library for calling C
 
 Adopting pnpm as the package manager is the one tooling change worth making now; the rest of this section aligns versions that have already drifted.
 
-**Today:** **npm** (root + `web/` each have their own lockfile; root build shells into `web/` via `npm --prefix`). Tests run on **Vitest** (backend 3.0, frontend 4.1), Stryker (a mutation-testing tool — it makes small deliberate changes to the code and checks whether the test suite catches them), and Playwright for end-to-end (e2e) tests, which exercise the whole running app rather than one function at a time. Lint runs **ESLint 9** (backend) / **10** (frontend), both using flat config (ESLint's newer, single-file config format, replacing the older nested `.eslintrc` files), plus `typescript-eslint`. Format runs Prettier 3.4.
+**Today:** **npm** (root + `web/` each have their own lockfile; root build shells into `web/` via `npm --prefix`). Tests run on **Vitest** (backend 3.0, frontend 4.1), Stryker (a mutation-testing tool — it makes small deliberate changes to the code and checks whether the test suite catches them), and Playwright for end-to-end (e2e) tests. Lint runs **ESLint 9** (backend) / **10** (frontend), both using flat config (ESLint's newer, single-file config format, replacing the older nested `.eslintrc` files), plus `typescript-eslint`. Format runs Prettier 3.4.
 
 **Findings (web-verified):**
 
@@ -253,13 +253,13 @@ Do these steps in order. Each one should land with a green typecheck, test run, 
 
 ## 12. Explicitly do NOT change
 
-- **Do not adopt `node:sqlite`.** Still RC (release candidate); `better-sqlite3` 12 is the right call.
+- **Do not adopt `node:sqlite`.** Still RC; `better-sqlite3` 12 is the right call.
 - **Do not remove `.js` import extensions** on the backend (required by NodeNext ESM / native type-stripping).
 - **Do not switch the backend to `moduleResolution: bundler`** — it targets Node directly.
 - **Do not downgrade or rewrite the frontend** (React 19 / Vite 8 / Tailwind 4 / TanStack / shadcn are already current).
 - **Do not replace the Fastify auth/session/RBAC design** or move to Redis sessions for a single-instance deployment.
 - **Do not replace ESLint with Biome wholesale**; Oxlint may be added _alongside_ ESLint only.
-- **Do not introduce an ORM** (Object-Relational Mapper — a library that maps database rows to code objects) **or a migration framework**; the hand-rolled idempotent SQL migrations are fine — just preserve the `migrations/`-next-to-`db.js` runtime layout.
+- **Do not introduce an ORM or a migration framework**; the hand-rolled idempotent SQL migrations are fine — just preserve the `migrations/`-next-to-`db.js` runtime layout.
 - **Do not init git** or change deployment topology (Caddy + docker-compose) as part of this plan.
 
 ---

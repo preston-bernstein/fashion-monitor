@@ -1,6 +1,6 @@
 # Analytics & dashboards
 
-Fashion Monitor stores everything it collects — pipeline runs, scores, alerts, feedback — in one SQLite database (SQLite is a lightweight database that lives in a single file, with no separate server to run). This doc covers four ways to look at that data:
+Fashion Monitor stores everything it collects — pipeline runs, scores, alerts, feedback — in one SQLite database. This doc covers four ways to look at that data:
 
 | Option | Best for |
 |--------|----------|
@@ -63,7 +63,7 @@ It prints an overview, daily activity, recent runs, scores, alerts, integration 
 
 ## Integration health
 
-Every pipeline run checks the health of each external dependency — the scrapers, the LLM (large language model, the AI system that scores listings), and ntfy (the push-notification service Fashion Monitor uses to deliver alerts) — and logs the result to the `integration_events` table.
+Every pipeline run checks the health of each external dependency — the scrapers, the LLM, and ntfy (the push-notification service Fashion Monitor uses to deliver alerts) — and logs the result to the `integration_events` table.
 
 | Integration key | When recorded |
 |-----------------|---------------|
@@ -75,7 +75,7 @@ Every pipeline run checks the health of each external dependency — the scraper
 
 **CLI report:** shows this under the *Integration uptime (7d)* and *Recent integration failures* sections.
 
-**Web SPA (single-page application — a web app that loads once, then updates itself in place without full-page reloads):** integration health appears only under Operations → Secrets & health, not on the curator's Analytics page. (Curator is one of five user roles — see [web-app.md](./web-app.md) for the full list.)
+**Web SPA:** integration health appears only under Operations → Secrets & health, not on the curator's Analytics page. (Curator is one of five user roles — see [web-app.md](./web-app.md) for the full list.)
 
 Example SQL:
 
@@ -90,7 +90,7 @@ Events older than 30 days are pruned automatically — the same window used for 
 
 ## 3. Web dashboard
 
-The web dashboard is that same SPA, served on port **3030**. It auto-refreshes every 60 seconds and requires login: session cookies plus RBAC (role-based access control — each user's role grants a fixed set of permissions). See [web-app.md](./web-app.md) for how login and roles work.
+The web dashboard is that same SPA, served on port **3030**. It auto-refreshes every 60 seconds and requires login: session cookies plus RBAC. See [web-app.md](./web-app.md) for how login and roles work.
 
 ```bash
 pnpm run dev:dashboard -- --config config.yaml
@@ -148,7 +148,7 @@ A migration, `011_query_scorecard_quality.sql`, adds curator-facing quality fiel
 
 ## 4. Grafana
 
-Grafana is a charting and dashboard tool. The repo ships it pre-configured with a SQLite data source and a starter dashboard.
+The repo ships Grafana pre-configured with a SQLite data source and a starter dashboard.
 
 ```bash
 # Ensure DB exists at ./data/fashion_monitor.db (matches config.yaml database.path)

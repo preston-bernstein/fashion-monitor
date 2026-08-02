@@ -1,6 +1,6 @@
 # Fashion Monitor
 
-Fashion Monitor is a personal resale monitoring tool. It watches multiple secondhand clothing platforms for listings that match a defined aesthetic, scores each result with an LLM (large language model), and alerts the owner through ntfy (a push-notification service).
+Fashion Monitor is a personal resale monitoring tool. It watches multiple secondhand clothing platforms for listings that match a defined aesthetic, scores each result with an LLM, and alerts the owner through ntfy (a push-notification service).
 
 ## Language
 
@@ -15,7 +15,7 @@ The aesthetic half of a profile's configuration — aesthetic prompt, hard-no ru
 _Avoid_: Aesthetic, Profile, Preferences
 
 **User**:
-An authenticated account that can log into the web app. A User holds a Role on one or more Profiles — the link between Users and Profiles is many-to-many, tracked in a memberships table, so one User can belong to several Profiles and one Profile can have several Users. A User invited via an Invite gets their own newly-created Profile and is its Owner.
+An authenticated account that can log into the web app. A User holds a Role on one or more Profiles (many-to-many, tracked in a memberships table). A User invited via an Invite gets their own newly-created Profile and is its Owner.
 _Avoid_: Account, Person
 
 **Invite**:

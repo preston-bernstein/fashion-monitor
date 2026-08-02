@@ -1,6 +1,6 @@
 # Monorepo / Workspaces Plan
 
-This document plans splitting fashion-monitor's single-package repo into a proper workspaces monorepo — a single repository holding multiple, independently versioned packages with explicit boundaries between them.
+This document plans splitting fashion-monitor's single-package repo into a proper workspaces monorepo.
 
 **Repo:** `fashion-monitor`.
 **Scope:** Analysis and planning only — no code, dependencies, configuration, or git state changed. This plan **builds on** `docs/plans/stack-modernization.md`. Several decisions here — the package manager, the build orchestrator, and using Zod 4 everywhere — are themselves conclusions that document already reached about which current tools to use.
@@ -14,7 +14,7 @@ Splitting the repo into a workspaces monorepo fixes three concrete problems that
 
 Today, the repo is effectively **two separate npm projects sharing one Git tree**:
 
-- The root `package.json` is the backend: `src/`, using ES modules (ESM) with NodeNext module resolution, and Zod 3. Its `build` script shells into the SPA (single-page application — the React frontend) with `npm --prefix web install && npm --prefix web run build`, then runs `tsc` (the TypeScript compiler), then **copies build artifacts**: `web/dist → dist/dashboard/public` and `src/storage/migrations/*.sql → dist/storage/migrations`.
+- The root `package.json` is the backend: `src/`, using ES modules (ESM) with NodeNext module resolution, and Zod 3. Its `build` script shells into the SPA with `npm --prefix web install && npm --prefix web run build`, then runs `tsc`, then **copies build artifacts**: `web/dist → dist/dashboard/public` and `src/storage/migrations/*.sql → dist/storage/migrations`.
 - `web/package.json` is the SPA — React 19, Vite 8, Tailwind 4, Zod 4 — with its own separate lockfile and `node_modules` folder.
 
 This setup produces three concrete problems a monorepo fixes:
@@ -23,7 +23,7 @@ This setup produces three concrete problems a monorepo fixes:
 2. **Two toolchains, two installs, brittle build glue.** `npm --prefix` is not a real workspace mechanism: there's no shared dependency resolution, no graph-aware build or test command, and the version skew across the two halves (Zod 3 vs. 4, TypeScript 5.7 vs. 6, Vitest 3 vs. 4, ESLint 9 vs. 10) lives right across that boundary.
 3. **No enforced boundaries.** Anything in `src/` can import anything else in `src/`, which has already produced circular dependencies — documented in §4.
 
-The stack-modernization plan's prerequisite work — putting the backend on **Zod 4**, and adopting **pnpm** (a package manager built for workspace monorepos) — is what makes a shared package between the two halves possible. This plan assumes both of those are already done, or are done as its first migration steps.
+The stack-modernization plan's prerequisite work — putting the backend on **Zod 4**, and adopting **pnpm** — is what makes a shared package between the two halves possible. This plan assumes both of those are already done, or are done as its first migration steps.
 
 ---
 
@@ -75,13 +75,13 @@ fashion-monitor/
 
 | Package | Contains (from today's tree) | Depends on |
 | --- | --- | --- |
-| **`@fm/shared`** | New home for cross-cutting contracts: `Platform`/`PLATFORMS`, `ScoreVerdict`, `Capability`, `Role`, monitor/settings/user **Zod input schemas**, and the API **DTOs** (Data Transfer Objects — plain type definitions describing data sent over the network, with no behavior attached) currently duplicated in `web/src/lib/types.ts` (`DashboardPayload`, `Monitor`, `SystemResponse`, `SecretsResponse`, …). Plus `src/llm/schemas.ts` (`ScoringResultSchema`). | `zod` only |
+| **`@fm/shared`** | New home for cross-cutting contracts: `Platform`/`PLATFORMS`, `ScoreVerdict`, `Capability`, `Role`, monitor/settings/user **Zod input schemas**, and the API **DTOs** currently duplicated in `web/src/lib/types.ts` (`DashboardPayload`, `Monitor`, `SystemResponse`, `SecretsResponse`, …). Plus `src/llm/schemas.ts` (`ScoringResultSchema`). | `zod` only |
 | **`@fm/core`** | `src/pipeline`, `src/platforms`, `src/storage` (incl. `migrations/`), `src/analytics`, `src/llm`, `src/alerts`, `src/config`, `src/core`, `src/lib` | `@fm/shared`, runtime deps (better-sqlite3, playwright, impit, scrapfly, anthropic, ollama, cheerio, yaml, argon2, @noble/*) |
 | **`@fm/api`** | `src/web/*` (Fastify app, auth, rbac, routes, secrets-crypto, validation) + `src/dashboard/server.ts` | `@fm/core`, `@fm/shared`, fastify + plugins |
 | **`@fm/web`** | today's `web/` SPA verbatim | `@fm/shared` (+ its own React/Vite/Tailwind stack) |
 | **`@fm/cli`** | `src/cli/*` (`run`, `feedback-bot`, `report`, `dashboard`) | `@fm/core`, `@fm/api` |
 
-The dependency graph is **acyclic** (there are no loops — nothing depends, even indirectly, on itself) **and one-directional**: `shared` is depended on by everyone; `core` is depended on by `api` and `cli`; `api` is depended on by `cli`. `web` depends only on `shared` — it talks to `api` over HTTP, and never imports it directly.
+The dependency graph is **acyclic and one-directional**: `shared` is depended on by everyone; `core` is depended on by `api` and `cli`; `api` is depended on by `cli`. `web` depends only on `shared` — it talks to `api` over HTTP, and never imports it directly.
 
 ### Why these boundaries (justified against real imports)
 
@@ -104,7 +104,7 @@ A cross-package cycle — package A depending on package B which depends back on
 2. **`src/platforms/grailed/algolia.ts` and `src/platforms/grailed/credentials.ts`** (both inside the future `@fm/core` package).
    `credentials.ts` imports `queryGrailedAlgolia` from `algolia.ts`, to validate credentials. `algolia.ts` imports `getGrailedCredentials` from `credentials.ts`, to build its requests. **Fix:** make `algolia.ts` credential-agnostic — have its callers pass in `{ appId, apiKey }` directly. It already accepts an injectable `fetchFn`, so this dependency-injection pattern is already established here. Alternatively, move the pure `getGrailedCredentials` reader function into a new leaf file, `grailed/env.ts`, which `algolia.ts` can import, while `credentials.ts` keeps only the `validate*` flow that depends on `algolia`.
 
-Add an import-cycle guard to catch any new cycle before it can reappear once these boundaries are real. The repo already runs **fallow** (a code-quality checker); `eslint-plugin-import`'s `no-cycle` rule, or the `dpdm` tool, would also work in CI (continuous integration — the automated pipeline that runs checks on every change).
+Add an import-cycle guard to catch any new cycle before it can reappear once these boundaries are real. The repo already runs **fallow** (a code-quality checker); `eslint-plugin-import`'s `no-cycle` rule, or the `dpdm` tool, would also work in CI.
 
 ---
 
@@ -124,7 +124,7 @@ This is the plan's headline payoff: one shared package holds the Zod schemas bot
 **Consumption details / gotchas:**
 
 - `@fm/shared` must be **isomorphic** — meaning its code can run unchanged in both the browser and in Node — so the browser bundle stays clean. Keep it to `zod` plus plain TypeScript, with no Node-only imports. Anything Node-specific, like `better-sqlite3` row types, stays in `@fm/core`; `@fm/shared` exposes only the serialized DTO shape.
-- Publish `@fm/shared` so it's consumed directly as TypeScript source during development. Its `exports` field (the part of `package.json` that tells other packages which files they're allowed to import) should point at compiled `dist` output for type-checking, with a `dev` condition or TypeScript project references for faster editor feedback. Vite resolves the workspace package fine for the SPA. For `@fm/api`, which uses NodeNext resolution, `@fm/shared` must ship proper ESM `exports` plus `.d.ts` files (TypeScript's compiled type-declaration files).
+- Publish `@fm/shared` so it's consumed directly as TypeScript source during development. Its `exports` field (the part of `package.json` that tells other packages which files they're allowed to import) should point at compiled `dist` output for type-checking, with a `dev` condition or TypeScript project references for faster editor feedback. Vite resolves the workspace package fine for the SPA. For `@fm/api`, which uses NodeNext resolution, `@fm/shared` must ship proper ESM `exports` plus `.d.ts` files.
 - Resolve the `vinted` drift mentioned earlier while centralizing this: keep one single `PLATFORMS` list, and simply leave any platform a scraper doesn't implement out of that registry, rather than letting two divergent type definitions exist.
 
 ---
@@ -145,7 +145,7 @@ In the monorepo, model this as a Turborepo task dependency:
 
 ### SQL migrations + assets in a workspace
 
-`src/storage/db.ts` reads its `migrations/` folder relative to `__dirname` at runtime, from `dist/storage/migrations/*.sql`. `tsc` (the TypeScript compiler) does not copy `.sql` files on its own, which is why today's build has a separate `build:copy-migrations` step.
+`src/storage/db.ts` reads its `migrations/` folder relative to `__dirname` at runtime, from `dist/storage/migrations/*.sql`. `tsc` does not copy `.sql` files on its own, which is why today's build has a separate `build:copy-migrations` step.
 
 - Keep the migrations at `packages/core/src/storage/migrations/*.sql`.
 - Add a build step to `@fm/core#build` that copies the `.sql` files into `packages/core/dist/storage/migrations`, and declare that copy as a Turbo task output. The `__dirname`-relative resolution then keeps working unchanged, inside `@fm/core`'s own `dist` folder.

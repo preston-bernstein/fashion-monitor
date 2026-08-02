@@ -1,13 +1,13 @@
 # Manual smoke checklist
 
-Run this checklist after a deploy or after a major change to a scraper or the LLM (large language model — the AI system that scores listings). It needs real credentials in `config.yaml` and `.env`.
+Run this checklist after a deploy or after a major change to a scraper or the LLM. It needs real credentials in `config.yaml` and `.env`.
 
 ## Prerequisites
 
 - [ ] `config.yaml` copied from `config.example.yaml` and filled in
 - [ ] `.env` has `NTFY_TOKEN` (needed if ntfy — the push-notification service used for alerts — has auth enabled), platform keys, and optionally `SCRAPFLY_API_KEY`
-- [ ] Ollama (the local LLM runtime this app talks to) reachable at the configured host (default `http://host.docker.internal:11434`)
-- [ ] SQLite (the file-based database) path writable — `data/fashion_monitor.db` or whatever your config sets
+- [ ] Ollama reachable at the configured host (default `http://host.docker.internal:11434`)
+- [ ] SQLite path writable — `data/fashion_monitor.db` or whatever your config sets
 
 ## Unit / integration (local)
 
@@ -37,9 +37,9 @@ pnpm run verify:scrapers
 | **Vestiaire** | `SCRAPFLY_API_KEY` | — | Cloudflare blocks bare fetch |
 | **Poshmark** | — | — | Playwright stealth + profile dir. May need logged-in profile for tiles |
 
-A few of the tools named above: impit is the HTTP client library the Depop scraper tries first. Playwright is a browser-automation library — it drives a real headless browser — used as Depop's fallback and for Poshmark. Algolia is the search-index service Grailed's own web app uses, which is why the Grailed scraper needs Algolia keys.
+Grailed's own web app uses Algolia for search, which is why the Grailed scraper needs Algolia keys.
 
-`pnpm run test:live` runs the same checks through Vitest (a test runner), tagged `@live`.
+`pnpm run test:live` runs the same checks through Vitest, tagged `@live`.
 
 GitHub Actions **Live smoke** workflow: set secrets `EBAY_CLIENT_ID`, `EBAY_CLIENT_SECRET`, `GRAILED_APP_ID`, `GRAILED_API_KEY`, `SCRAPFLY_API_KEY`.
 
@@ -92,7 +92,7 @@ pnpm run dev:dashboard -- --config config.yaml
 
 ## Docker (Synology)
 
-Synology NAS boxes (network-attached storage devices) run Docker Compose too, so this is also how you'd smoke-test the deploy target.
+Synology NAS boxes run Docker Compose too, so this is also how you'd smoke-test the deploy target.
 
 ```bash
 docker compose build

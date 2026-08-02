@@ -2,7 +2,7 @@
 
 ## Status: Ready — Algolia reverse-engineered
 
-Grailed is a menswear resale marketplace. It has no official API, so this scraper reaches its search by calling Algolia directly — a hosted search service that many sites use instead of building their own search backend.
+Grailed is a menswear resale marketplace. It has no official API, so this scraper reaches its search by calling Algolia directly.
 
 ## Access Method
 
@@ -10,7 +10,7 @@ Grailed's search runs on Algolia. The credentials needed to call it are embedded
 
 ## Finding Credentials (one-time)
 
-To find the credentials by hand: load grailed.com in a browser, open developer tools (F12), open the Network tab, and search for "algolia". Find the XHR (background data-fetch) requests to `algolia.net` and extract:
+To find the credentials by hand: load grailed.com in a browser, open developer tools (F12), open the Network tab, and search for "algolia". Find the XHR requests to `algolia.net` and extract:
 - `x-algolia-application-id` (10-char string)
 - `x-algolia-api-key` (32-char string)
 
@@ -28,7 +28,7 @@ const [, appId] = appIdMatch;
 const [, apiKey] = apiKeyMatch;
 ```
 
-Store the keys in `.env` (the project's environment-variable file). These are public, read-only keys, so the risk is low, but keeping them out of source code is still good practice.
+Store the keys in `.env`. These are public, read-only keys, so the risk is low, but keeping them out of source code is still good practice.
 
 **Note:** Grailed can rotate these keys. If search stops working, re-extract them, and validate them on startup.
 

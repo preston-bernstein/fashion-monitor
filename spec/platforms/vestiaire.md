@@ -2,13 +2,13 @@
 
 ## Status: Ready — __NEXT_DATA__ parsing
 
-Vestiaire Collective is a luxury secondhand marketplace. It's built on Next.js (a React web framework), and its search-result pages embed all product data in a script tag named `__NEXT_DATA__`. This scraper reads that JSON directly instead of calling an API.
+Vestiaire Collective is a luxury secondhand marketplace. It's built on Next.js, and its search-result pages embed all product data in a script tag named `__NEXT_DATA__`. This scraper reads that JSON directly instead of calling an API.
 
 ## Access Method
 
 No API call is needed. The scraper fetches the search URL and parses the JSON out of the page.
 
-Cloudflare (a service many sites use to detect and block bot traffic) protects this site. At personal, low-volume use, standard request headers are enough to get through. If Cloudflare blocks a request, the fallback is ScrapFly (a paid service that fetches pages through its own anti-bot bypass) with `asp=True`. See Cloudflare Fallback below.
+Cloudflare protects this site. At personal, low-volume use, standard request headers are enough to get through. If Cloudflare blocks a request, the fallback is ScrapFly (a paid service that fetches pages through its own anti-bot bypass) with `asp=True`. See Cloudflare Fallback below.
 
 ## Search URL Pattern
 
@@ -21,7 +21,7 @@ Parameters:
 - `size=XL&size=XXL` — include XL since European/Italian brands run large and XL often fits a US 2XL body
 - `order=publishedDate` — newest first
 - `priceMax=300` — price ceiling
-- The LLM (the scoring model that rates each listing) checks size accuracy using measurements and brand sizing conventions. This platform filter alone isn't precise enough.
+- The LLM checks size accuracy using measurements and brand sizing conventions. This platform filter alone isn't precise enough.
 
 ## Fetching
 
@@ -46,7 +46,7 @@ const html = await response.text();
 
 ## Parsing __NEXT_DATA__
 
-Cheerio (a library for parsing HTML in Node.js code) loads the page and pulls the JSON out of the `__NEXT_DATA__` script tag:
+Cheerio loads the page and pulls the JSON out of the `__NEXT_DATA__` script tag:
 
 ```typescript
 const $ = cheerio.load(html);
@@ -93,11 +93,11 @@ function normalizeVestiaire(item: Record<string, unknown>): Listing {
 - Fetch 1 to 2 search pages per run.
 - Add a 2- to 3-second delay between requests.
 - At this volume, Cloudflare shouldn't trigger a block.
-- If you see a 403 error or a captcha (a human-verification challenge), switch to ScrapFly. See Cloudflare Fallback below.
+- If you see a 403 error or a captcha, switch to ScrapFly. See Cloudflare Fallback below.
 
 ## Cloudflare Fallback
 
-If standard requests get blocked, use ScrapFly's Node.js SDK (software library) instead:
+If standard requests get blocked, use ScrapFly's Node.js SDK instead:
 
 ```typescript
 import ScrapflyClient, { ScrapeConfig } from "scrapfly-sdk";

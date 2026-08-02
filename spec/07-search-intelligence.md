@@ -21,7 +21,7 @@ Monitors live in the `search_groups` table (see 03-data-model.md). Each Monitor 
 - `status` — one of `active`, `needs_revision`, or `paused`.
 - `note` — an optional note from the Curator (the Role that can edit Taste and Monitors — see CONTEXT.md).
 
-You manage Monitors through the web UI (if you hold the Curator role) or the MCP server (Model Context Protocol — the interface an LLM client uses to call this system's tools; see 08-mcp-interactive.md). The legacy `searches` block in `config.yaml` bootstraps the initial scrape_queries, but once Monitors exist in the database, the database is authoritative. See CONTEXT.md's Default Searches entry.
+You manage Monitors through the web UI (if you hold the Curator role) or the MCP server (see 08-mcp-interactive.md). The legacy `searches` block in `config.yaml` bootstraps the initial scrape_queries, but once Monitors exist in the database, the database is authoritative. See CONTEXT.md's Default Searches entry.
 
 Example Monitor (as it would appear in the web UI / MCP):
 ```
@@ -56,6 +56,6 @@ Phase 2, not yet built, adds an explicit "mark Monitor good/bad" action and auto
 
 ## UI
 
-- Both the CLI (command-line interface) report and the web dashboard show the **Monitor scorecard**, **Prompt diet**, and **Config timeline**.
+- Both the CLI report and the web dashboard show the **Monitor scorecard**, **Prompt diet**, and **Config timeline**.
 - The web UI lets Curators add, edit, and pause Monitors without touching config files.
-- Grafana (a dashboard tool) query panels are an optional follow-up.
+- Grafana query panels are an optional follow-up.
