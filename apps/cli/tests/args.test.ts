@@ -1,5 +1,11 @@
 import { describe, expect, it, afterEach } from "vitest";
-import { parseRunArgs, parseReportArgs, parseEvalArgs, parseDashboardArgs } from "../src/args.js";
+import {
+  parseRunArgs,
+  parseReportArgs,
+  parseEvalArgs,
+  parseDashboardArgs,
+  parseScraperHealthArgs,
+} from "../src/args.js";
 
 describe("parseRunArgs", () => {
   it("defaults to config.yaml with no platform filter", () => {
@@ -54,6 +60,19 @@ describe("parseEvalArgs", () => {
       revisionId: 7,
       provider: "claude",
       limit: 50,
+    });
+  });
+});
+
+describe("parseScraperHealthArgs", () => {
+  it("defaults to config.yaml and a 48h staleness threshold", () => {
+    expect(parseScraperHealthArgs([])).toEqual({ configPath: "config.yaml", maxHours: 48 });
+  });
+
+  it("parses --config and --max-hours", () => {
+    expect(parseScraperHealthArgs(["--config", "c.yaml", "--max-hours", "6"])).toEqual({
+      configPath: "c.yaml",
+      maxHours: 6,
     });
   });
 });

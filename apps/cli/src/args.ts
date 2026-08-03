@@ -67,6 +67,21 @@ export function parseEvalArgs(argv: string[]): {
   return { configPath, revisionId, provider, limit };
 }
 
+export function parseScraperHealthArgs(argv: string[]): {
+  configPath: string;
+  maxHours: number;
+} {
+  let configPath = "config.yaml";
+  let maxHours = 48;
+
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === "--config" && argv[i + 1]) configPath = argv[++i];
+    if (argv[i] === "--max-hours" && argv[i + 1]) maxHours = parseInt(argv[++i], 10);
+  }
+
+  return { configPath, maxHours };
+}
+
 export function parseDashboardArgs(argv: string[]): {
   configPath: string;
   host: string;

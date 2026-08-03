@@ -55,6 +55,9 @@ export const LogEvents = {
   CliReportComplete: "cli.report.complete",
   CliEvalComplete: "cli.eval.complete",
   CliEvalFailed: "cli.eval.failed",
+  CliScraperHealthOk: "cli.scraper-health.ok",
+  CliScraperHealthStale: "cli.scraper-health.stale",
+  CliScraperHealthAlertFailed: "cli.scraper-health.alert-failed",
 } as const;
 
 export type LogEventId = (typeof LogEvents)[keyof typeof LogEvents];

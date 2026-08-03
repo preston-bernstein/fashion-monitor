@@ -146,6 +146,23 @@ services:
     volumes:
       - ./data:/data
 
+  # Dead-scraper watchdog (2026-08-02): alerts via ntfy when no scrape run has
+  # finished successfully within --max-hours (default 48h). Run this on its
+  # own periodic timer, independent of scraper/poshmark/score's own cadence —
+  # see the "scraper health check" note in fashion-monitor-run-and-operate
+  # for the desktop-host systemd timer that invokes
+  # `docker compose run --rm scraper-health`. Needs .env for alert.ntfy_url
+  # (config.yaml) plus NTFY_TOKEN if the topic requires auth.
+  scraper-health:
+    image: fashion-monitor/cli
+    build: .
+    profiles: ["tools"]
+    command: ["node", "apps/cli/dist/check-scraper-health.js", "--config", "/data/config.yaml"]
+    env_file:
+      - .env
+    volumes:
+      - ./data:/data
+
   grafana:
     image: grafana/grafana:11.5.2
     environment:
