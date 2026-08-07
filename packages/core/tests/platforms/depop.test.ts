@@ -33,9 +33,8 @@ vi.mock("../../src/platforms/depop/playwright-fallback.js", async (importOrigina
 });
 
 const { DepopScraper, parseDepopProducts } = await import("../../src/platforms/depop/scraper.js");
-const { scrapeDepopViaPlaywright } = await import(
-  "../../src/platforms/depop/playwright-fallback.js"
-);
+const { scrapeDepopViaPlaywright } =
+  await import("../../src/platforms/depop/playwright-fallback.js");
 
 function sampleListing(): Listing {
   return {
