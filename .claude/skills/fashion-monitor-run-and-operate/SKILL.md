@@ -1,6 +1,6 @@
 ---
 name: fashion-monitor-run-and-operate
-description: How to run and deploy fashion-monitor — dev/prod command anatomy with exact flags, docker-compose service map, Makefile deploy flow, host scheduling, and data/artifact conventions (SQLite path, Poshmark profile, retention, logs). Load when starting the pipeline/dashboard/web/report locally, deploying to the desktop host, wiring compose services, or wondering where output lands. Do NOT load for environment/build failures (fashion-monitor-build-and-env), config semantics (fashion-monitor-config-and-flags), or diagnosing a broken run (fashion-monitor-debugging-playbook).
+description: How to run and deploy fashion-monitor — dev/prod command anatomy with exact flags, docker-compose service map, Makefile deploy flow, host scheduling, and data/artifact conventions (SQLite path, Poshmark profile, retention, logs). Load when starting the pipeline/dashboard/web/report locally, deploying to xps-agent, wiring compose services, or wondering where output lands. Do NOT load for environment/build failures (fashion-monitor-build-and-env), config semantics (fashion-monitor-config-and-flags), or diagnosing a broken run (fashion-monitor-debugging-playbook).
 ---
 
 # Run and Operate (fashion-monitor)
@@ -35,12 +35,15 @@ MCP server: `services/mcp-server`, SSE on `MCP_PORT` (default 3102); container e
 | `dashboard` | fashion-monitor/cli | `dashboard.js --host 0.0.0.0 --port 3030` | host port `3030:3030`, plain HTTP (no bundled proxy); `COOKIE_SECURE` defaults `false` |
 | `mcp-server` | fashion-monitor/mcp-server | MCP SSE | port `${MCP_PORT:-3102}` |
 | `dashboard-report` | fashion-monitor/cli | `report.js` | profile `tools`, on-demand |
+| `scraper-health` | fashion-monitor/cli | `check-scraper-health.js --config /data/config.yaml` | profile `tools`, on-demand — dead-scraper watchdog, alerts via ntfy if no successful scrape run in 48h; see "Scraper-health watchdog timer" below for the systemd timer that invokes it |
 | `grafana` | grafana/grafana:11.5.2 | dashboards | host port `${GRAFANA_PORT:-3001}` → **NOT :3000; README's ":3000" is stale** — sqlite datasource plugin, `./data` mounted read-only |
 | `loki` / `promtail` | grafana 3.4.2 images | log aggregation | profile `loki` — opt-in: `docker compose --profile loki up -d loki promtail` |
 
 All app services mount `./data:/data` and read `.env` via `env_file`. Log-shipping label `fm.logging: "true"` marks containers promtail scrapes.
 
 ## Deploy (Makefile — read it before every deploy; do not deploy without owner sign-off)
+
+xps-agent is the deploy target as of the 2026-08-06 xps-agent migration. `DEPLOY_HOST`/`DEPLOY_USER` are operator-supplied env vars with placeholder defaults in the Makefile; invoke as `DEPLOY_HOST=xps-agent DEPLOY_USER=agent`.
 
 ```bash
 make build    # buildx linux/amd64 → fashion-monitor/cli + fashion-monitor/mcp-server (--load)
@@ -54,6 +57,12 @@ Variables: `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_PATH` (defaults in Makefile; ov
 Pre-flight: deploy host must be x86_64 (`uname -m`) for Playwright Chromium; Ollama must be reachable **from inside the container** (`curl` the `llm.ollama_host` URL from a container, not the host).
 
 Scheduling (moved off Synology Task Scheduler with the 2026-07-19 NAS→desktop migration): use cron or a systemd timer on the deploy host running `docker compose run --rm scraper` every 60 min, `docker compose run --rm poshmark` every 3 h, and `docker compose run --rm score` on its own cadence (must run after scrape ticks for PENDING listings to actually get scored — nothing scores them otherwise now that scrape/score are split); dashboard+grafana always-on (`restart: unless-stopped`); feedback-bot always-on under profile `feedback` (currently moot — stub, see fashion-monitor-alerting-feedback-campaign). **Not yet actually installed as a cron/timer** — deliberately left for the operator to wire up rather than silently turning on a recurring live scraper.
+
+### Scraper-health watchdog timer
+
+A separate thing from the scraper/poshmark/score scheduling above: `fashion-monitor-scraper-health.service`/`.timer` (repo root — committed 2026-08-06, previously hand-installed and uncommitted) is a dead-scraper watchdog, unrelated to the scrape-execution cadence itself. It runs `docker compose --profile tools run --rm scraper-health` every 6 hours (`OnCalendar=*-*-* 00,06,12,18:15:00`) and alerts via ntfy if no successful scrape run has completed in 48h.
+
+Install on the deploy host: `scp fashion-monitor-scraper-health.service fashion-monitor-scraper-health.timer <host>:/tmp/`, then `sudo mv /tmp/fashion-monitor-scraper-health.* /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now fashion-monitor-scraper-health.timer`. Verify with `systemctl list-timers | grep fashion-monitor-scraper-health`.
 
 ## Data and artifact conventions
 

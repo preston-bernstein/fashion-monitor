@@ -1,0 +1,16 @@
+[Unit]
+Description=Fashion Monitor: dead-scraper watchdog (alerts via ntfy if no successful scrape run in 48h)
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/docker/fashion-monitor
+ExecStart=/usr/bin/docker compose --profile tools run --rm scraper-health
+# The check itself exits 1 when stale (after already publishing the ntfy alert) —
+# that's diagnostic signal for systemctl status/journalctl, not a unit failure to
+# chase; do not add Restart= here, an immediate retry would just re-page.
+TimeoutStartSec=120
+
+[Install]
+WantedBy=multi-user.target

@@ -16,6 +16,7 @@ services:
   scraper:
     image: fashion-monitor/cli
     build: .
+    profiles: ["scrape"]
     command: ["node", "apps/cli/dist/scrape.js", "--config", "/data/config.yaml"]
     labels:
       <<: *log-shipping-labels
@@ -31,6 +32,7 @@ services:
   poshmark:
     image: fashion-monitor/cli
     build: .
+    profiles: ["scrape"]
     command:
       [
         "node",
@@ -58,6 +60,7 @@ services:
   score:
     image: fashion-monitor/cli
     build: .
+    profiles: ["scrape"]
     command: ["node", "apps/cli/dist/score.js", "--config", "/data/config.yaml"]
     labels:
       <<: *log-shipping-labels
