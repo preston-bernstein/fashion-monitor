@@ -13,7 +13,7 @@ make push   # docker save fashion-monitor/cli fashion-monitor/mcp-server | ssh .
 make deploy # sync + push, then docker compose up -d on the deploy host
 ```
 
-- **Deployed/running copy**: desktop Docker Compose stack, dedicated `fashionmonitor`
+- **Deployed/running copy**: xps-agent Docker Compose stack, dedicated `fashionmonitor`
   service user, `/opt/docker/fashion-monitor` (see `Makefile` `DEPLOY_HOST`/`DEPLOY_PATH`).
 - **Live data**: the desktop-mounted SQLite DB + `data/poshmark-profile` (persistent
   Playwright cookies, if/when created) — never present on this Mac checkout.

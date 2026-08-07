@@ -35,9 +35,7 @@ describe("normalizeDepop (new API product shape)", () => {
   });
 
   it("throws 'Depop product missing id' when id is undefined", () => {
-    expect(() => normalizeDepop(apiProduct({ id: undefined }))).toThrow(
-      "Depop product missing id",
-    );
+    expect(() => normalizeDepop(apiProduct({ id: undefined }))).toThrow("Depop product missing id");
   });
 
   it("throws 'Depop product missing parseable price' when price_breakdown.price.amount is absent", () => {
@@ -125,7 +123,9 @@ describe("normalizeDepop (new API product shape)", () => {
   });
 
   it("uses the explicit currency when pricing.currency is present", () => {
-    const listing = normalizeDepop(apiProduct({ pricing: { ...apiProduct().pricing, currency: "GBP" } }));
+    const listing = normalizeDepop(
+      apiProduct({ pricing: { ...apiProduct().pricing, currency: "GBP" } }),
+    );
     expect(listing.currency).toBe("GBP");
   });
 
@@ -235,10 +235,7 @@ describe("mapDepopProducts — batch resilience", () => {
   });
 
   it("returns an empty array (not a throw) when every product in the batch is malformed", () => {
-    const listings = mapDepopProducts([
-      apiProduct({ id: null }),
-      apiProduct({ id: undefined }),
-    ]);
+    const listings = mapDepopProducts([apiProduct({ id: null }), apiProduct({ id: undefined })]);
     expect(listings).toEqual([]);
   });
 });
